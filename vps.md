@@ -83,6 +83,11 @@ sudo mv composer.phar /usr/local/bin/composer
 # Node.js 20 (via NodeSource)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
+
+# Chromium (untuk fitur export PDF via headless browser)
+sudo apt install -y chromium
+# Jika binary terdeteksi di path berbeda, set di .env:
+# CHROME_BIN=/usr/bin/chromium
 ```
 
 ---
@@ -352,6 +357,7 @@ Pastikan `MAIL_*` di `.env` sudah benar. Email yang dikirim:
 cd /var/www/tulisin
 git pull
 composer install --no-dev --optimize-autoloader
+composer dump-autoload
 npm ci --ignore-scripts
 npm run build
 php artisan migrate --force
