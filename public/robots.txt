@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Ganti domain di bawah dengan domain produksi asli.
+Sitemap: https://tulisin.id/sitemap.xml

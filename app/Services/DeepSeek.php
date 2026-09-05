@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+
+class DeepSeek
+{
+    /**
+     * Kirim percakapan ke DeepSeek (OpenAI-compatible) dan kembalikan isi balasan.
+     *
+     * @param  bool  $json  aktifkan mode JSON (response_format json_object).
+     * @return string|null  isi balasan, atau null bila gagal.
+     */
+    public function chat(string $system, string $user, bool $json = false): ?string
+    {
+        $payload = [
+            'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
+            'messages' => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user', 'content' => $user],
+            ],
+            'temperature' => $json ? 0 : 0.7,
+        ];
+
+        if ($json) {
+            $payload['response_format'] = ['type' => 'json_object'];
+        }
+
+        $response = Http::timeout(90)
+            ->withToken((string) config('services.deepseek.api_key'))
+            ->post(rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions', $payload);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        return (string) $response->json('choices.0.message.content', '');
+    }
+}

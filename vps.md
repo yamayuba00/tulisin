@@ -1,0 +1,374 @@
+# Panduan Deploy ke VPS
+
+Panduan ini untuk deploy aplikasi **Tulisin** (Laravel + Vue 3 / Vite SPA) ke VPS Linux
+(Ubuntu/Debian). Asumsi pakai **Nginx + PHP-FPM + PostgreSQL**.
+
+---
+
+## 1. Ringkasan cron & queue di aplikasi ini
+
+### Cron / Scheduler — ADA
+Ada 1 scheduled command yang berjalan via Laravel Scheduler:
+
+| Command | Frekuensi | Fungsi |
+|---|---|---|
+| `subscriptions:remind-expiring` | Harian | Kirim email pengingat 5 hari sebelum masa langganan habis |
+
+Scheduler didefinisikan di `routes/console.php`:
+
+```php
+Schedule::command('subscriptions:remind-expiring')->daily();
+```
+
+> Wajib memasang cron entry `php artisan schedule:run` setiap menit (lihat bagian 9).
+
+### Queue — ADA (driver: database)
+Aplikasi memakai queue driver **`database`** (`QUEUE_CONNECTION=database` di `.env`).
+Tabel `jobs` / `failed_jobs` sudah ada di migration.
+
+| Kebutuhan | Status |
+|---|---|
+| Tabel `jobs` & `failed_jobs` | Sudah di-migrate |
+| Queue worker | Perlu dijalankan (Supervisor) |
+| Email blast & notifikasi | Saat ini masih **sinkron** (belum `ShouldQueue`), jadi queue worker opsional untuk sekarang |
+
+> Catatan: untuk volume email besar (email blast promo ke banyak user), disarankan
+> mengubah notification menjadi `ShouldQueue` agar terkirim lewat queue. Untuk sekarang,
+> tetap sediakan worker-nya supaya siap dipakai.
+
+---
+
+## 2. Prasyarat server
+
+- OS: Ubuntu 22.04 / 24.04 atau Debian 12
+- **PHP 8.3+** (aplikasi butuh PHP `^8.3`)
+- **Composer 2**
+- **PostgreSQL 14+**
+- **Nginx**
+- **Node.js 20+** (hanya untuk build frontend)
+- **Supervisor** (untuk queue worker)
+- `git`
+
+Ekstensi PHP yang wajib:
+
+```
+pdo_pgsql mbstring openssl bcmath ctype curl dom fileinfo
+json tokenizer xml zip gd intl
+```
+
+---
+
+## 3. Instalasi paket dasar
+
+```bash
+sudo apt update && sudo apt upgrade -y
+
+# Nginx, git, curl, unzip (PostgreSQL pakai cloud, tidak perlu install lokal)
+sudo apt install -y nginx git curl unzip
+
+# Supervisor
+sudo apt install -y supervisor
+
+# PHP 8.3 (contoh Ubuntu 24.04 pakai repo ondrej/php)
+sudo add-apt-repository -y ppa:ondrej/php
+sudo apt update
+sudo apt install -y php8.3-fpm php8.3-cli php8.3-pgsql php8.3-mbstring \
+  php8.3-bcmath php8.3-curl php8.3-dom php8.3-fileinfo php8.3-gd \
+  php8.3-intl php8.3-xml php8.3-zip php8.3-opcache
+
+# Composer
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+
+# Node.js 20 (via NodeSource)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+---
+
+## 4. Siapkan database PostgreSQL
+
+```bash
+sudo -u postgres psql
+```
+
+Di dalam `psql`:
+
+```sql
+CREATE USER tulisin WITH PASSWORD 'GANTI_PASSWORD_AMAN';
+CREATE DATABASE tulisin OWNER tulisin;
+GRANT ALL PRIVILEGES ON DATABASE tulisin TO tulisin;
+\q
+```
+
+---
+
+## 5. Deploy aplikasi
+
+```bash
+cd /var/www
+sudo git clone GIT_REPO_URL tulisin
+cd tulisin
+
+# Pastikan user web bisa akses
+sudo chown -R $USER:www-data .
+```
+
+Install dependency:
+
+```bash
+composer install --no-dev --optimize-autoloader
+npm ci --ignore-scripts
+npm run build
+```
+
+---
+
+## 6. Konfigurasi `.env`
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+Edit `.env` dengan `nano .env`, isi minimal:
+
+```env
+APP_NAME="Tulisin"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://domain-anda.com
+APP_TIMEZONE=Asia/Jakarta
+
+DB_CONNECTION=pgsql
+DB_HOST=host-cloud-provider-anda.com
+DB_PORT=5432
+DB_DATABASE=nama_database
+DB_USERNAME=user_database
+DB_PASSWORD=password_database
+DB_SSLMODE=require
+
+# Queue (database driver)
+QUEUE_CONNECTION=database
+
+# Mail (SMTP)
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.provider-anda.com
+MAIL_PORT=587
+MAIL_USERNAME=user@domain-anda.com
+MAIL_PASSWORD=password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="no-reply@domain-anda.com"
+MAIL_FROM_NAME="${APP_NAME}"
+
+# ---- Pembayaran SumoPod ----
+PAYMENT_PROVIDER=sumopod
+PAYMENT_FEE_FIXED=2000
+PAYMENT_FEE_PERCENT=0
+
+# Saat produksi: pakai live
+SUMOPOD_SANDBOX=false
+SUMOPOD_LIVE_API_KEY=API_KEY_LIVE_SUMOPOD
+SUMOPOD_WEBHOOK_SECRET=SECRET_WEBHOOK
+
+# URL redirect (WAJIB https domain publik)
+PAYMENT_SUCCESS_RETURN_URL=https://domain-anda.com/apps/u/topup?status=success
+PAYMENT_CANCEL_RETURN_URL=https://domain-anda.com/apps/u/topup?status=cancel
+```
+
+> `APP_URL` dan `PAYMENT_*_RETURN_URL` harus memakai domain publik https,
+> karena SumoPod menolak `localhost`.
+
+---
+
+## 7. Migrasi & seed
+
+```bash
+php artisan migrate --force
+php artisan db:seed --force
+```
+
+Cache & permission:
+
+```bash
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
+
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+---
+
+## 8. Nginx
+
+Buat file `/etc/nginx/sites-available/tulisin`:
+
+```nginx
+server {
+    listen 80;
+    server_name domain-anda.com;
+
+    root /var/www/tulisin/public;
+    index index.php;
+
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-Content-Type-Options "nosniff";
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+```
+
+Aktifkan:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/tulisin /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## 9. Cron (Scheduler)
+
+Tambahkan cron agar `schedule:run` jalan tiap menit:
+
+```bash
+sudo crontab -e
+```
+
+Isi:
+
+```cron
+* * * * * cd /var/www/tulisin && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Verifikasi daftar schedule:
+
+```bash
+php artisan schedule:list
+```
+
+---
+
+## 10. Queue worker (Supervisor)
+
+Buat file `/etc/supervisor/conf.d/tulisin-worker.conf`:
+
+```ini
+[program:tulisin-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/tulisin/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/www/tulisin/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+Muat ulang Supervisor:
+
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl status tulisin-worker:*
+```
+
+Cek antrian gagal:
+
+```bash
+php artisan queue:failed
+```
+
+---
+
+## 11. HTTPS (Let's Encrypt)
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d domain-anda.com
+```
+
+---
+
+## 12. Firewall
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+---
+
+## 13. Konfigurasi webhook SumoPod (live)
+
+Setelah live, daftarkan webhook di dashboard SumoPod ke:
+
+```
+https://domain-anda.com/api/payments/webhook/sumopod
+```
+
+Isi `SUMOPOD_WEBHOOK_SECRET` di `.env` sesuai secret yang diset di dashboard SumoPod.
+> Pemetaan field respons/webhook SumoPod saat ini diasumsikan (`status`, `order_id`,
+> `payment_id`). **Samakan nama field aktual** di
+> `app/Services/Payments/SumoPodProvider.php` sebelum go-live.
+
+---
+
+## 14. Email notifikasi
+
+Pastikan `MAIL_*` di `.env` sudah benar. Email yang dikirim:
+- Verifikasi email (registrasi)
+- Reset password
+- Reminder langganan (5 hari sebelum habis)
+- Notifikasi pembelian ke admin
+- Email blast promo ke user
+
+---
+
+## 15. Update / deploy ulang
+
+```bash
+cd /var/www/tulisin
+git pull
+composer install --no-dev --optimize-autoloader
+npm ci --ignore-scripts
+npm run build
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+sudo supervisorctl restart tulisin-worker:*
+```
+
+---
+
+## 16. Cek kesehatan
+
+```bash
+php artisan about
+php artisan migrate:status
+php artisan schedule:list
+php artisan queue:failed
+curl -I https://domain-anda.com
+```
