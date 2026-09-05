@@ -80,9 +80,16 @@ sudo apt install -y php8.3-fpm php8.3-cli php8.3-pgsql php8.3-mbstring \
 curl -sS https://getcomposer.org/installer | php
 sudo mv composer.phar /usr/local/bin/composer
 
-# Node.js 20 (via NodeSource)
+# Node.js 20 LTS (via NodeSource) — sudah cukup untuk Vite 8 (butuh Node 20.19+)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
+
+# Catatan npm:
+# Notif "npm 12 tersedia" bisa diabaikan (bukan error). npm 12 butuh Node 22+.
+# Jika tetap ingin npm terbaru, upgrade Node dulu ke 22 LTS:
+#   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+#   sudo apt install -y nodejs
+#   sudo npm install -g npm@12
 
 # Chromium (untuk fitur export PDF via headless browser)
 sudo apt install -y chromium

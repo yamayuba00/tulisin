@@ -13,8 +13,8 @@
         <link rel="canonical" href="{{ config('app.url') }}">
 
         {{-- Favicon --}}
-        <link rel="icon" href="/favicon.ico">
-        <link rel="apple-touch-icon" href="/favicon.ico">
+        <link rel="icon" href="/img/favicon.png">
+        <link rel="apple-touch-icon" href="/img/favicon.png">
 
         {{-- Theme / PWA --}}
         <meta name="theme-color" content="#0a0a0a">
@@ -49,7 +49,7 @@
                         'url' => $seoSiteUrl,
                         'logo' => [
                             '@type' => 'ImageObject',
-                            'url' => $seoSiteUrl . '/favicon.ico',
+                            'url' => $seoSiteUrl . '/img/favicon.png',
                         ],
                     ],
                     [
