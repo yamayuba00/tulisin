@@ -55,7 +55,7 @@ import { listReferences as listWorkspaceReferences } from '../../utils/workspace
 import { PROJECT_CATEGORY_OPTIONS, DEFAULT_PROJECT_CATEGORY } from '../../utils/projectCategories';
 import { touchProject } from '../../utils/projectIndex';
 import { DOCUMENT_SECTIONS, buildSectionBlocks, findSection } from '../../utils/sections';
-import { getJson, request } from '../../utils/http';
+import { getJson, request, ensureCsrf } from '../../utils/http';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 import { buildTemplateBlocks } from '../../utils/templates';
 import { renderMarkdown } from '../../utils/markdown';
