@@ -28,8 +28,12 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Rate limiter ketat untuk endpoint auth (anti-bruteforce / anti-spam).
+        // Dibatasi per kombinasi email+IP agar serangan terarah ke satu akun
+        // dari IP yang sama juga ikut terkunci.
         RateLimiter::for('auth', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip());
+            $email = strtolower((string) $request->input('email', ''));
+
+            return Limit::perMinute(5)->by($email !== '' ? $email.'|'.$request->ip() : $request->ip());
         });
 
         // Rate limiter untuk pencarian paper (proxy ke Crossref).

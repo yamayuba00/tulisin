@@ -37,6 +37,7 @@ return [
             'sandbox_api_key' => env('SUMOPOD_SANDBOX_API_KEY'),
             'live_api_key' => env('SUMOPOD_LIVE_API_KEY'),
             'webhook_secret' => env('SUMOPOD_WEBHOOK_SECRET'),
+            'webhook_token' => env('SUMOPOD_WEBHOOK_TOKEN'),
         ],
     ],
 ];

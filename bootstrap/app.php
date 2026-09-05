@@ -16,9 +16,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->statefulApi();
         $middleware->throttleApi();
 
+        // Percayai header proxy (X-Forwarded-*) agar deteksi HTTPS & cookie
+        // Secure benar saat app berada di belakang Nginx/reverse proxy.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'permission' => \App\Http\Middleware\EnsurePermission::class,
         ]);
+
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

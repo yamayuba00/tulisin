@@ -1,3 +1,4 @@
+import './utils/polyfills';
 import '../css/app.css';
 
 import { createApp } from 'vue';

@@ -26,6 +26,17 @@ class SharedDocumentController extends Controller
 
         $timeView = $data['time_view'] ?? 1440;
 
+        // Pastikan project yang ditautkan benar-benar milik user (anti-IDOR).
+        if (! empty($data['project_uuid'])) {
+            $owns = Project::where('uuid', $data['project_uuid'])
+                ->where('user_id', $request->user()->id)
+                ->exists();
+
+            if (! $owns) {
+                return response()->json(['error' => 'Project tidak ditemukan.'], 404);
+            }
+        }
+
         $share = SharedDocument::create([
             'user_id' => $request->user()->id,
             'name' => $data['name'],
@@ -107,6 +118,17 @@ class SharedDocumentController extends Controller
         ]);
 
         $timeView = $data['time_view'] ?? $share->time_view ?? 1440;
+
+        // Anti-IDOR: project yang ditautkan harus milik user.
+        if (! empty($data['project_uuid'])) {
+            $owns = Project::where('uuid', $data['project_uuid'])
+                ->where('user_id', $request->user()->id)
+                ->exists();
+
+            if (! $owns) {
+                return response()->json(['error' => 'Project tidak ditemukan.'], 404);
+            }
+        }
 
         $share->update([
             'name' => $data['name'],

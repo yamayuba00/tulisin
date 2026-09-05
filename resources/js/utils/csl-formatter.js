@@ -142,7 +142,18 @@ function firstPage(page) {
 
 function em(text) {
     if (!text) return '';
-    return `<i>${text}</i>`;
+    return `<i>${esc(text)}</i>`;
+}
+
+// Escape karakter HTML agar data referensi (judul/penulis/dll.) tidak bisa
+// menyisipkan tag/script saat dirender lewat v-html / insertHTML.
+function esc(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
 }
 
 // ============================================================================
@@ -182,14 +193,14 @@ export function formatCitation(item, style, index = 1) {
 }
 
 function chicagoFootnote(item) {
-    const authors = joinNames(item.authors.map((a) => authorName(a, 'Chicago', false)), 'Chicago');
+    const authors = esc(joinNames(item.authors.map((a) => authorName(a, 'Chicago', false)), 'Chicago'));
     let s = authors || 'Anonim';
-    if (item.title) s += `, "${item.title},"`;
+    if (item.title) s += `, "${esc(item.title)},"`;
     if (item.containerTitle) s += ` ${em(item.containerTitle)}`;
-    if (item.volume) s += ` ${item.volume}`;
-    if (item.issue) s += `, no. ${item.issue}`;
-    if (item.year) s += ` (${item.year})`;
-    if (item.page) s += `: ${firstPage(item.page)}`;
+    if (item.volume) s += ` ${esc(item.volume)}`;
+    if (item.issue) s += `, no. ${esc(item.issue)}`;
+    if (item.year) s += ` (${esc(item.year)})`;
+    if (item.page) s += `: ${esc(firstPage(item.page))}`;
     return `${s}.`;
 }
 
@@ -210,14 +221,14 @@ export function formatBibliography(item, style, index = 1) {
 }
 
 function ieeeBibliography(item, index) {
-    const authors = bibliographyAuthors(item, 'IEEE');
+    const authors = esc(bibliographyAuthors(item, 'IEEE'));
     let s = `[${index}] ${authors}`;
-    if (item.title) s += `, "${item.title},"`;
+    if (item.title) s += `, "${esc(item.title)},"`;
     if (item.containerTitle) s += ` ${em(item.containerTitle)}`;
-    if (item.volume) s += `, vol. ${item.volume}`;
-    if (item.issue) s += `, no. ${item.issue}`;
-    if (item.page) s += `, pp. ${item.page}`;
-    if (item.year) s += `, ${item.year}`;
+    if (item.volume) s += `, vol. ${esc(item.volume)}`;
+    if (item.issue) s += `, no. ${esc(item.issue)}`;
+    if (item.page) s += `, pp. ${esc(item.page)}`;
+    if (item.year) s += `, ${esc(item.year)}`;
     return `${s}.`;
 }
 
@@ -255,14 +266,14 @@ function harvardBibliography(item) {
 }
 
 function chicagoBibliography(item) {
-    const authors = bibliographyAuthors(item, 'Chicago');
+    const authors = esc(bibliographyAuthors(item, 'Chicago'));
     let s = `${authors}.`;
-    if (item.title) s += ` "${item.title}."`;
+    if (item.title) s += ` "${esc(item.title)}."`;
     if (item.containerTitle) s += ` ${em(item.containerTitle)}`;
-    if (item.volume) s += ` ${item.volume}`;
-    if (item.issue) s += `, no. ${item.issue}`;
-    if (item.year) s += ` (${item.year})`;
-    if (item.page) s += `: ${item.page}`;
+    if (item.volume) s += ` ${esc(item.volume)}`;
+    if (item.issue) s += `, no. ${esc(item.issue)}`;
+    if (item.year) s += ` (${esc(item.year)})`;
+    if (item.page) s += `: ${esc(item.page)}`;
     return `${s}.`;
 }
 

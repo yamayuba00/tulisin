@@ -153,6 +153,13 @@ APP_DEBUG=false
 APP_URL=https://domain-anda.com
 APP_TIMEZONE=Asia/Jakarta
 
+# Wajib: domain SPA yang boleh memakai auth cookie Sanctum.
+# Isi sesuai domain yang kamu akses (dan varian www bila dipakai).
+SANCTUM_STATEFUL_DOMAINS=domain-anda.com,www.domain-anda.com
+
+# Wajib true di produksi (HTTPS) agar cookie sesi hanya dikirim via HTTPS.
+SESSION_SECURE_COOKIE=true
+
 DB_CONNECTION=pgsql
 DB_HOST=host-cloud-provider-anda.com
 DB_PORT=6432
@@ -191,6 +198,11 @@ PAYMENT_CANCEL_RETURN_URL=https://domain-anda.com/apps/u/topup?status=cancel
 
 > `APP_URL` dan `PAYMENT_*_RETURN_URL` harus memakai domain publik https,
 > karena SumoPod menolak `localhost`.
+
+> **Error "Session store not set on request"** biasanya karena `SANCTUM_STATEFUL_DOMAINS`
+> belum memuat domain produksi. Auth aplikasi ini memakai cookie/session Sanctum (SPA),
+> jadi domain frontend harus terdaftar di sana. Pastikan nilainya sama persis dengan
+> domain yang dipakai akses (termasuk `www.` bila ada), lalu `config:clear` + `config:cache`.
 
 ### PostgreSQL cloud & PgBouncer (port 6432)
 
@@ -256,7 +268,10 @@ server {
     index index.php;
 
     add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;

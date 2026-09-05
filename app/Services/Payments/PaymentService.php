@@ -91,7 +91,10 @@ class PaymentService
      */
     public function handleWebhook(string $providerName, Request $request): Payment
     {
-        $data = $this->provider($providerName)->parseWebhook($request);
+        $provider = $this->provider($providerName);
+        $provider->verifyWebhook($request);
+
+        $data = $provider->parseWebhook($request);
 
         if (empty($data['invoice_number'])) {
             throw new RuntimeException('Webhook tidak menyertakan order_id / invoice_number.');

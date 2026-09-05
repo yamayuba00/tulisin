@@ -20,4 +20,10 @@ interface PaymentProvider
      * @return array{invoice_number:string, provider_ref:?string, status:string, raw:array}
      */
     public function parseWebhook(Request $request): array;
+
+    /**
+     * Verifikasi keaslian request webhook (signature/token). Harus melempar
+     * exception bila tidak valid, agar webhook palsu tidak diproses.
+     */
+    public function verifyWebhook(Request $request): void;
 }

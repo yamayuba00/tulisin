@@ -143,7 +143,7 @@ class AuthController extends Controller
         $data = Validator::make($request->all(), [
             'token' => ['required', 'string'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', Password::min(6)],
+            'password' => ['required', 'confirmed', Password::min(8)->letters()->numbers()],
         ])->validate();
 
         $status = PasswordBroker::reset(
@@ -154,10 +154,11 @@ class AuthController extends Controller
         );
 
         if ($status !== PasswordBroker::PASSWORD_RESET) {
-            return response()->json(['error' => __($status)], 422);
+            // Pesan generik agar tidak membedakan token salah vs email tidak terdaftar.
+            return response()->json(['error' => 'Token reset tidak valid atau sudah kedaluwarsa.'], 422);
         }
 
-        return response()->json(['message' => __($status)]);
+        return response()->json(['message' => 'Password berhasil direset.']);
     }
 
     /**

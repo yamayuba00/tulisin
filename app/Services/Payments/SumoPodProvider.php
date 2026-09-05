@@ -84,4 +84,65 @@ class SumoPodProvider implements PaymentProvider
             'raw' => $data,
         ];
     }
+
+    /**
+     * Verifikasi webhook SumoPod: token statis ATAU signature Svix-style HMAC.
+     */
+    public function verifyWebhook(Request $request): void
+    {
+        $config = (array) config('payments.providers.sumopod', []);
+        $secret = (string) ($config['webhook_secret'] ?? '');
+        $token = (string) ($config['webhook_token'] ?? '');
+
+        // Metode 1: token statis (Authorization: Bearer <token>).
+        if ($token !== '') {
+            $provided = $request->bearerToken();
+            if ($provided === null || ! hash_equals($token, $provided)) {
+                throw new RuntimeException('Token webhook tidak valid.');
+            }
+
+            return;
+        }
+
+        // Metode 2: signature Svix-style (header svix-id/timestamp/signature).
+        if ($secret === '') {
+            throw new RuntimeException('Webhook secret belum dikonfigurasi.');
+        }
+
+        $id = (string) $request->header('svix-id', '');
+        $timestamp = (string) $request->header('svix-timestamp', '');
+        $signatures = (string) $request->header('svix-signature', '');
+
+        if ($id === '' || $timestamp === '' || $signatures === '') {
+            throw new RuntimeException('Header signature webhook tidak lengkap.');
+        }
+
+        $secretKey = $this->decodeWebhookSecret($secret);
+        $signedContent = $id . '.' . $timestamp . '.' . $request->getContent();
+        $expected = base64_encode(hash_hmac('sha256', $signedContent, $secretKey, true));
+
+        foreach (explode(' ', $signatures) as $part) {
+            // Format Svix: "v1,<base64>" (bisa lebih dari satu, dipisah spasi).
+            $sig = str_contains($part, ',') ? substr($part, strpos($part, ',') + 1) : $part;
+            if ($sig !== '' && hash_equals($expected, $sig)) {
+                return;
+            }
+        }
+
+        throw new RuntimeException('Signature webhook tidak valid.');
+    }
+
+    /**
+     * Secret Svix berawalan "whsec_" dan isinya base64.
+     */
+    private function decodeWebhookSecret(string $secret): string
+    {
+        if (str_starts_with($secret, 'whsec_')) {
+            $secret = substr($secret, 6);
+        }
+
+        $decoded = base64_decode($secret, true);
+
+        return $decoded === false ? $secret : $decoded;
+    }
 }
