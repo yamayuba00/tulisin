@@ -2736,10 +2736,17 @@ async function exportPdf(scope, sectionName) {
     ].join('');
 
     try {
+        // Pastikan cookie CSRF tersedia, lalu sertakan tokennya — endpoint POST
+        // stateful (Sanctum) memvalidasi CSRF, jadi tanpa header ini akan 419.
+        await ensureCsrf();
+        const csrfToken = (document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/) || [])[1];
+        const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+        if (csrfToken) headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
+
         const res = await fetch('/api/export/pdf', {
             method: 'POST',
             credentials: 'include',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            headers,
             body: JSON.stringify({ html: doc, project: projectId.value || null, format: 'pdf' }),
         });
         if (!res.ok) {
