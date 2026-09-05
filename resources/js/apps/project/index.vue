@@ -2764,14 +2764,15 @@ async function exportPdf(scope, sectionName) {
 
 async function downloadProject(opt) {
     if (exporting.value) return; // cegah unduhan ganda saat ekspor berjalan
-    // Potong saldo sesuai biaya unduh (4 koin dasar + 1 per 10 halaman).
     const cost = Number(opt.cost) || 0;
-    if (cost > 0) {
-        const ok = await spendCredits(cost, 'download');
-        if (!ok) return; // saldo tidak cukup (toast sudah ditampilkan)
-    }
     const scope = opt.scope || 'all';
     const sectionName = opt.label || 'Semua';
+
+    // Cek saldo dulu (tanpa memotong) agar tidak mengunduh lalu gagal bayar.
+    if (cost > 0 && totalCredits.value < cost) {
+        showToast('Saldo koin tidak mencukupi.');
+        return;
+    }
 
     exporting.value = true;
     let ok = true;
@@ -2786,8 +2787,18 @@ async function downloadProject(opt) {
     } finally {
         exporting.value = false;
     }
-    // Tutup modal hanya jika ekspor berhasil; biarkan terbuka saat gagal agar bisa dicoba ulang.
-    if (ok) downloadOpen.value = false;
+
+    // Jangan pernah memotong koin bila ekspor gagal.
+    if (!ok) return;
+
+    // Potong koin hanya setelah ekspor benar-benar berhasil.
+    if (cost > 0) {
+        const paid = await spendCredits(cost, 'download');
+        if (!paid) return;
+    }
+
+    // Tutup modal hanya jika unduhan sukses dan pembayaran koin berhasil.
+    downloadOpen.value = false;
 }
 
 // ---- Grid & ruler ----

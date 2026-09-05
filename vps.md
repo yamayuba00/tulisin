@@ -157,8 +157,10 @@ APP_TIMEZONE=Asia/Jakarta
 # Isi sesuai domain yang kamu akses (dan varian www bila dipakai).
 SANCTUM_STATEFUL_DOMAINS=domain-anda.com,www.domain-anda.com
 
-# Wajib true di produksi (HTTPS) agar cookie sesi hanya dikirim via HTTPS.
-SESSION_SECURE_COOKIE=true
+# Hanya "true" bila situs diakses via HTTPS (sudah SSL). Kalau masih HTTP/IP
+# (tanpa SSL), wajib "false" — kalau tidak cookie sesi ber-flag Secure tidak
+# dikirim browser lewat HTTP, dan semua POST akan kena "CSRF token mismatch".
+SESSION_SECURE_COOKIE=false
 
 DB_CONNECTION=pgsql
 DB_HOST=host-cloud-provider-anda.com
