@@ -155,7 +155,7 @@ APP_TIMEZONE=Asia/Jakarta
 
 DB_CONNECTION=pgsql
 DB_HOST=host-cloud-provider-anda.com
-DB_PORT=5432
+DB_PORT=6432
 DB_DATABASE=nama_database
 DB_USERNAME=user_database
 DB_PASSWORD=password_database
@@ -191,6 +191,35 @@ PAYMENT_CANCEL_RETURN_URL=https://domain-anda.com/apps/u/topup?status=cancel
 
 > `APP_URL` dan `PAYMENT_*_RETURN_URL` harus memakai domain publik https,
 > karena SumoPod menolak `localhost`.
+
+### PostgreSQL cloud & PgBouncer (port 6432)
+
+Provider PostgreSQL cloud biasanya memberi dua endpoint: koneksi **langsung** (port
+`5432`) dan koneksi **pooled/PgBouncer** (port `6432`, mode transaction pooling).
+Kalau `.env` kamu memakai `DB_PORT=6432`, maka koneksi lewat PgBouncer.
+
+Masalah yang muncul: PgBouncer transaction pooling bisa melepas *prepared statement*
+server-side di antara transaksi, sehingga muncul error:
+
+```
+SQLSTATE[26000]: prepared statement "pdo_stmt_00000001" does not exist
+```
+
+Solusinya sudah diterapkan di `config/database.php`: koneksi `pgsql` mengaktifkan
+emulasi prepared statement (`PDO::ATTR_EMULATE_PREPARES => true`), jadi query tetap
+jalan normal lewat PgBouncer. Tidak perlu ubah apa-apa di `.env` untuk ini.
+
+Setelah deploy/ubah `config/database.php`, jalankan ulang cache config:
+
+```bash
+sudo -u www-data php artisan config:clear
+sudo -u www-data php artisan config:cache
+```
+
+> Opsional: kalau provider menyediakan endpoint langsung (port 5432) dan kamu mau
+> migrasi/DDL lebih aman, kamu bisa memakai fitur `pooled`/`direct` bawaan Laravel 13
+> (lihat dokumentasi "Pooled PostgreSQL Connections"). Untuk sekarang, emulasi di atas
+> sudah cukup untuk query aplikasi.
 
 ---
 
@@ -267,7 +296,7 @@ sudo crontab -e
 Isi:
 
 ```cron
-* * * * * cd /var/www/tulisin && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/tulisin && sudo -u www-data php artisan schedule:run >> /dev/null 2>&1
 ```
 
 Verifikasi daftar schedule:
