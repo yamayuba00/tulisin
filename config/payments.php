@@ -23,9 +23,9 @@ return [
     'currency' => env('PAYMENT_CURRENCY', 'IDR'),
     'expires_in_hours' => (int) env('PAYMENT_EXPIRES_HOURS', 24),
 
-    // URL redirect setelah bayar / batal. Wajib URL publik yang valid
-    // (localhost biasanya ditolak SumoPod). Untuk tes lokal pakai tunnel
-    // (ngrok/cloudflared) lalu set di .env.
+    // URL redirect setelah bayar / batal. Kosongkan untuk memakai halaman
+    // bawaan aplikasi: /payment/success dan /payment/failed (dibangun dari APP_URL).
+    // Isi hanya bila ingin redirect ke URL lain.
     'success_return_url' => env('PAYMENT_SUCCESS_RETURN_URL'),
     'cancel_return_url' => env('PAYMENT_CANCEL_RETURN_URL'),
 

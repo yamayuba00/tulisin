@@ -8,6 +8,13 @@ import {
     ScanSearch, ClipboardCheck, Star,
 } from 'lucide-vue-next';
 import FloatingChat from '../components/FloatingChat.vue';
+import { useAuth } from '../utils/auth';
+
+const { currentUser, isAuthenticated } = useAuth();
+
+const dashboardPath = computed(() =>
+    currentUser.value?.is_super_admin ? '/apps/u/admin/dashboard' : '/apps/u/dashboard'
+);
 
 const menuOpen = ref(false);
 const openFaq = ref(0);
@@ -315,11 +322,19 @@ onBeforeUnmount(() => {
                 </nav>
 
                 <div class="hidden items-center gap-2 md:flex">
-                    <RouterLink to="/login" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">Masuk</RouterLink>
-                    <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
-                        Mulai Menulis
-                        <ArrowRight class="h-4 w-4" />
-                    </RouterLink>
+                    <template v-if="isAuthenticated">
+                        <RouterLink :to="dashboardPath" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                            Dashboard
+                            <ArrowRight class="h-4 w-4" />
+                        </RouterLink>
+                    </template>
+                    <template v-else>
+                        <RouterLink to="/login" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">Masuk</RouterLink>
+                        <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                            Mulai Menulis
+                            <ArrowRight class="h-4 w-4" />
+                        </RouterLink>
+                    </template>
                 </div>
 
                 <button
@@ -340,8 +355,13 @@ onBeforeUnmount(() => {
                     <a href="#testimoni" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Testimoni</a>
                     <a href="#paket" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Paket</a>
                     <div class="mt-2 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-                        <RouterLink to="/login" class="rounded-lg border border-neutral-200 px-4 py-2 text-center font-medium dark:border-neutral-800" @click="menuOpen = false">Masuk</RouterLink>
-                        <RouterLink to="/register" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Mulai Menulis</RouterLink>
+                        <template v-if="isAuthenticated">
+                            <RouterLink :to="dashboardPath" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Dashboard</RouterLink>
+                        </template>
+                        <template v-else>
+                            <RouterLink to="/login" class="rounded-lg border border-neutral-200 px-4 py-2 text-center font-medium dark:border-neutral-800" @click="menuOpen = false">Masuk</RouterLink>
+                            <RouterLink to="/register" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Mulai Menulis</RouterLink>
+                        </template>
                     </div>
                 </nav>
             </div>

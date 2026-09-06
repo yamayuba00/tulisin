@@ -29,9 +29,9 @@ class SumoPodProvider implements PaymentProvider
         $invoice = $payment->invoice_number;
 
         $successUrl = config('payments.success_return_url')
-            ?: $appUrl . '/apps/u/topup?status=success&order=' . $invoice;
+            ?: $appUrl . '/payment/success?order=' . $invoice;
         $cancelUrl = config('payments.cancel_return_url')
-            ?: $appUrl . '/apps/u/topup?status=cancel&order=' . $invoice;
+            ?: $appUrl . '/payment/failed?order=' . $invoice;
 
         $response = Http::asJson()
             ->acceptJson()

@@ -239,6 +239,18 @@ const routes = [
         meta: { requiresAuth: true, title: 'Editor Project' },
     },
     {
+        path: '/payment/success',
+        name: 'payment-success',
+        component: () => import('../pages/PaymentResultPage.vue'),
+        meta: { title: 'Pembayaran Berhasil' },
+    },
+    {
+        path: '/payment/failed',
+        name: 'payment-failed',
+        component: () => import('../pages/PaymentResultPage.vue'),
+        meta: { title: 'Pembayaran Gagal' },
+    },
+    {
         path: '/share',
         name: 'share',
         component: () => import('../pages/SharedViewerPage.vue'),
