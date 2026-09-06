@@ -3,21 +3,28 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
 
 class PdfExportController extends Controller
 {
     /**
-     * Render dokumen menjadi PDF per halaman (chunk) lalu gabungkan kembali.
+     * Jumlah halaman per batch render Chrome.
+     * Makin kecil makin ringan tiap proses, makin besar makin cepat totalnya.
+     * 5 = titik tengah yang aman.
+     */
+    private const BATCH_SIZE = 5;
+
+    /**
+     * Render dokumen menjadi PDF secara ter-batch, lalu gabungkan kembali.
      *
      * Menerima salah satu dari:
      * - `head` (CSS bersama) + `pages` (array HTML per halaman), atau
      * - `html` (dokumen utuh) untuk kompatibilitas lama.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): Response
     {
         if (! $request->user()->hasActiveSubscription()) {
             return response()->json(['error' => 'Download PDF memerlukan langganan aktif.'], 402);
@@ -53,38 +60,30 @@ class PdfExportController extends Controller
         $pdfPaths = [];
 
         try {
-            $canMerge = count($pages) <= 1 || $this->canMerge();
+            // Tanpa alat penggabung (mis. lokal Windows), render sekali penuh.
+            $chunks = $this->canMerge()
+                ? array_chunk($pages, self::BATCH_SIZE)
+                : [$pages];
 
-            if ($canMerge) {
-                foreach ($pages as $index => $page) {
-                    $pdf = $this->renderPage($bin, $dir, $base, $profileDir, $head, $page, $index);
-                    if ($pdf === null) {
-                        return response()->json([
-                            'error' => 'Gagal membuat PDF pada halaman '.($index + 1).'.',
-                        ], 500);
-                    }
-                    $pdfPaths[] = $pdf;
-                }
-
-                $content = count($pdfPaths) === 1
-                    ? (string) file_get_contents($pdfPaths[0])
-                    : $this->mergePdfs($mergedPath, $pdfPaths);
-            } else {
-                // Tidak ada alat penggabung PDF (mis. lokal Windows): render satu
-                // dokumen utuh sekaligus agar ekspor tetap jalan tanpa chunk.
-                $fullDoc = '<!doctype html><html><head>'.$head.'</head><body><div class="print-only">'.implode('', $pages).'</div></body></html>';
-                $pdf = $this->renderPage($bin, $dir, $base, $profileDir, '', $fullDoc, 0);
+            foreach ($chunks as $index => $chunk) {
+                $doc = $head === '' ? $chunk[0] : $this->buildDocument($head, $chunk);
+                $pdf = $this->renderHtml($bin, $dir, $base, $profileDir, $doc, $index);
                 if ($pdf === null) {
-                    return response()->json(['error' => 'Gagal membuat PDF.'], 500);
+                    return response()->json([
+                        'error' => 'Gagal membuat PDF pada bagian '.($index + 1).'.',
+                    ], 500);
                 }
                 $pdfPaths[] = $pdf;
-                $content = (string) file_get_contents($pdf);
             }
+
+            $content = count($pdfPaths) === 1
+                ? (string) file_get_contents($pdfPaths[0])
+                : $this->mergePdfs($mergedPath, $pdfPaths);
 
             record_audit($request, 'export_pdf', [
                 'project' => $request->input('project', null),
                 'format' => $request->input('format', 'pdf'),
-                'pages' => count($pdfPaths),
+                'pages' => count($pages),
             ]);
 
             return response($content, 200, ['Content-Type' => 'application/pdf']);
@@ -100,19 +99,21 @@ class PdfExportController extends Controller
     }
 
     /**
-     * Render satu halaman menjadi PDF via Chrome headless.
+     * Susun dokumen HTML utuh dari head CSS + kumpulan halaman.
      */
-    private function renderPage(string $bin, string $dir, string $base, string $profileDir, string $head, string $page, int $index): ?string
+    private function buildDocument(string $head, array $pages): string
+    {
+        return '<!doctype html><html><head>'.$head.'</head><body><div class="print-only">'.implode('', $pages).'</div></body></html>';
+    }
+
+    /**
+     * Render satu dokumen HTML menjadi PDF via Chrome headless.
+     */
+    private function renderHtml(string $bin, string $dir, string $base, string $profileDir, string $doc, int $index): ?string
     {
         $suffix = str_pad((string) $index, 4, '0', STR_PAD_LEFT);
         $htmlPath = $dir.DIRECTORY_SEPARATOR.$base.'_'.$suffix.'.html';
         $pdfPath = $dir.DIRECTORY_SEPARATOR.$base.'_'.$suffix.'.pdf';
-
-        if ($head !== '') {
-            $doc = '<!doctype html><html><head>'.$head.'</head><body><div class="print-only">'.$page.'</div></body></html>';
-        } else {
-            $doc = $page;
-        }
 
         file_put_contents($htmlPath, $doc);
         $fileUrl = 'file:///'.ltrim(str_replace('\\', '/', $htmlPath), '/');
