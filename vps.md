@@ -196,9 +196,10 @@ SUMOPOD_LIVE_API_KEY=API_KEY_LIVE_SUMOPOD
 SUMOPOD_WEBHOOK_SECRET=SECRET_WEBHOOK      # signature Svix (prefix whsec_)
 # SUMOPOD_WEBHOOK_TOKEN=                   # token statis (header X-Webhook-Token)
 
-# URL redirect (WAJIB https domain publik)
-PAYMENT_SUCCESS_RETURN_URL=https://domain-anda.com/apps/u/topup?status=success
-PAYMENT_CANCEL_RETURN_URL=https://domain-anda.com/apps/u/topup?status=cancel
+# URL redirect. Kosongkan untuk memakai halaman bawaan /payment/success & /payment/failed.
+# Atau isi manual bila ingin mengarahkan ke URL lain.
+PAYMENT_SUCCESS_RETURN_URL=
+PAYMENT_CANCEL_RETURN_URL=
 ```
 
 > `APP_URL` dan `PAYMENT_*_RETURN_URL` harus memakai domain publik https,
@@ -403,6 +404,26 @@ Webhook diverifikasi dulu sebelum diproses (menolak request palsu). Pilih salah 
 > Pemetaan field respons/webhook SumoPod saat ini diasumsikan (`status`, `order_id`,
 > `payment_id`). **Samakan nama field aktual** di
 > `app/Services/Payments/SumoPodProvider.php` sebelum go-live.
+
+### Return URL setelah bayar/batal
+
+SumoPod mengarahkan browser kembali ke **domain root** dengan query
+`?order_id=...&status=completed|failed|expired` (bukan ke `success_return_url`
+yang dikirim lewat API). Aplikasi sudah menangani ini di router guard
+(`resources/js/router/index.js`): status tersebut otomatis dialihkan ke
+`/payment/success` atau `/payment/failed`, lalu halaman menampilkan animasi dan
+auto-redirect 5 detik ke Topup.
+
+Jika di dashboard SumoPod tersedia field **Success Return URL** / **Cancel
+Return URL**, isi dengan:
+
+```
+Success Return URL = https://domain-anda.com/payment/success
+Cancel Return URL  = https://domain-anda.com/payment/failed
+```
+
+Baik dikosongkan (pakai default root) maupun diisi URL di atas, keduanya tetap
+tertangani oleh aplikasi.
 
 ---
 

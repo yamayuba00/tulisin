@@ -275,6 +275,21 @@ router.beforeEach(async (to) => {
     const { isAuthenticated, currentUser, init } = useAuth();
     await init();
 
+    // SumoPod redirect balik ke domain root dengan query ?order_id=&status=.
+    // Arahkan ke halaman hasil pembayaran yang sesuai.
+    if (to.query?.status && to.name !== 'payment-success' && to.name !== 'payment-failed') {
+        const status = String(to.query.status).toLowerCase();
+        const order = to.query.order_id || to.query.order || null;
+        const query = order ? { order } : {};
+
+        if (['completed', 'paid', 'success', 'settlement', 'settled'].includes(status)) {
+            return { name: 'payment-success', query };
+        }
+        if (['failed', 'failure', 'cancelled', 'canceled', 'expired'].includes(status)) {
+            return { name: 'payment-failed', query };
+        }
+    }
+
     if (to.meta.requiresAuth && !isAuthenticated.value) {
         return { name: 'login', query: { redirect: to.fullPath } };
     }

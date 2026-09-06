@@ -6,7 +6,14 @@ import { ArrowRight, CheckCircle2, RefreshCw, XCircle } from 'lucide-vue-next';
 const route = useRoute();
 const router = useRouter();
 
-const isSuccess = computed(() => route.name === 'payment-success');
+const statusParam = computed(() => String(route.query?.status || '').toLowerCase());
+
+const isSuccess = computed(() => {
+    if (statusParam.value) {
+        return ['completed', 'paid', 'success', 'settlement', 'settled'].includes(statusParam.value);
+    }
+    return route.name === 'payment-success';
+});
 
 const countdown = ref(5);
 let timer = null;
