@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Media;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Process\Exception\RuntimeException as ProcessRuntimeException;
 use Symfony\Component\Process\Process;
@@ -46,6 +48,11 @@ class PdfExportController extends Controller
         } else {
             return response()->json(['error' => 'Konten dokumen kosong.'], 422);
         }
+
+        // Gambar disimpan sebagai `/api/media/files/{uuid}` (butuh sesi login),
+        // yang tidak bisa dimuat Chrome saat render via `file://`. Tanam gambar
+        // sebagai data URI agar tetap muncul di PDF.
+        $pages = array_map(fn (string $p) => $this->embedImages($p), $pages);
 
         $bin = find_chromium_binary();
         if ($bin === null) {
@@ -115,6 +122,46 @@ class PdfExportController extends Controller
     private function buildDocument(string $head, array $pages): string
     {
         return '<!doctype html><html><head>'.$head.'</head><body><div class="print-only">'.implode('', $pages).'</div></body></html>';
+    }
+
+    /**
+     * Ganti `src` gambar media (`/api/media/files/{uuid}`) menjadi data URI
+     * sehingga bisa dirender Chrome tanpa sesi login maupun akses file.
+     */
+    private function embedImages(string $html): string
+    {
+        $result = preg_replace_callback(
+            '/(<img\b[^>]*?\bsrc\s*=\s*)(["\'])(.*?)\2/is',
+            function (array $m): string {
+                $dataUri = $this->imageToDataUri($m[3]);
+
+                return $m[1].$m[2].($dataUri ?? $m[3]).$m[2];
+            },
+            $html,
+        );
+
+        return $result ?? $html;
+    }
+
+    private function imageToDataUri(string $src): ?string
+    {
+        if (! preg_match('#/api/media/(?:files/)?([0-9a-fA-F-]{36})#', $src, $m)) {
+            return null;
+        }
+
+        $media = Media::where('uuid', $m[1])->first();
+        if (! $media) {
+            return null;
+        }
+
+        $disk = Storage::disk('s3');
+        if (! $disk->exists($media->path)) {
+            return null;
+        }
+
+        $mime = $media->mime ?: 'application/octet-stream';
+
+        return 'data:'.$mime.';base64,'.base64_encode($disk->get($media->path));
     }
 
     /**
