@@ -101,9 +101,23 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
-            'expire' => 60,
+            'expire' => 720,
             'throttle' => 60,
         ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | Lama waktu (dalam menit) tautan verifikasi email dianggap valid.
+    | 720 menit = 12 jam.
+    |
+    */
+
+    'verification' => [
+        'expire' => 720,
     ],
 
     /*

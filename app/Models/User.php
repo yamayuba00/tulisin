@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasUuid;
+use App\Notifications\EmailVerificationNotification;
 use App\Notifications\ResetPasswordNotification;
 use Database\Factories\UserFactory;
 use Illuminate\Auth\MustVerifyEmail;
@@ -85,6 +86,14 @@ class User extends Authenticatable implements MustVerifyEmailContract
         return $this->roles()
             ->whereHas('permissions', fn ($q) => $q->where('name', $permission))
             ->exists();
+    }
+
+    /**
+     * Kirim notifikasi verifikasi email memakai template Blade kustom.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new EmailVerificationNotification());
     }
 
     /**

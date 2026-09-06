@@ -277,16 +277,15 @@ router.beforeEach(async (to) => {
 
     // SumoPod redirect balik ke domain root dengan query ?order_id=&status=.
     // Arahkan ke halaman hasil pembayaran yang sesuai.
-    if (to.query?.status && to.name !== 'payment-success' && to.name !== 'payment-failed') {
+    const order = to.query?.order_id || to.query?.order || null;
+    if (order && to.query?.status && to.name !== 'payment-success' && to.name !== 'payment-failed') {
         const status = String(to.query.status).toLowerCase();
-        const order = to.query.order_id || to.query.order || null;
-        const query = order ? { order } : {};
 
         if (['completed', 'paid', 'success', 'settlement', 'settled'].includes(status)) {
-            return { name: 'payment-success', query };
+            return { name: 'payment-success', query: { order } };
         }
         if (['failed', 'failure', 'cancelled', 'canceled', 'expired'].includes(status)) {
-            return { name: 'payment-failed', query };
+            return { name: 'payment-failed', query: { order } };
         }
     }
 

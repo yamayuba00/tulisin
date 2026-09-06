@@ -28,10 +28,9 @@ class ResetPasswordNotification extends Notification
 
         return (new MailMessage)
             ->subject('Reset Password Tulisin')
-            ->greeting('Halo,')
-            ->line('Kamu menerima email ini karena ada permintaan reset password untuk akun Tulisin kamu.')
-            ->action('Reset Password', $url)
-            ->line('Tautan ini berlaku 60 menit. Abaikan email ini jika kamu tidak meminta reset password.')
-            ->salutation('Salam, Tim Tulisin');
+            ->view('emails.reset-password', [
+                'name' => $notifiable->name,
+                'url' => $url,
+            ]);
     }
 }

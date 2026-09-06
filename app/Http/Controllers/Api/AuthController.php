@@ -69,11 +69,13 @@ class AuthController extends Controller
             $this->processReferral((string) $data['ref'], $user);
         }
 
+        $user->sendEmailVerificationNotification();
+
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
         return response()->json([
-            'message' => 'Registrasi berhasil.',
+            'message' => 'Registrasi berhasil. Email verifikasi telah dikirim.',
             'user' => $this->userPayload($user),
         ], 201);
     }

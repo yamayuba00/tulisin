@@ -173,13 +173,12 @@ DB_SSLMODE=require
 # Queue (database driver)
 QUEUE_CONNECTION=database
 
-# Mail (SMTP)
+# Mail (SMTP SumoPod — Port 465, SSL/SMTPS)
 MAIL_MAILER=smtp
-MAIL_HOST=smtp.provider-anda.com
-MAIL_PORT=587
+MAIL_HOST=smtp.sumopod.com
+MAIL_PORT=465
 MAIL_USERNAME=user@domain-anda.com
 MAIL_PASSWORD=password
-MAIL_ENCRYPTION=tls
 MAIL_FROM_ADDRESS="no-reply@domain-anda.com"
 MAIL_FROM_NAME="${APP_NAME}"
 
@@ -430,11 +429,20 @@ tertangani oleh aplikasi.
 ## 14. Email notifikasi
 
 Pastikan `MAIL_*` di `.env` sudah benar. Email yang dikirim:
-- Verifikasi email (registrasi)
-- Reset password
+- Verifikasi email (registrasi) — tautan berlaku 12 jam
+- Reset password — token berlaku 12 jam
 - Reminder langganan (5 hari sebelum habis)
 - Notifikasi pembelian ke admin
 - Email blast promo ke user
+
+SMTP memakai **SumoPod** (`smtp.sumopod.com`, port `465`, SSL/SMTPS). Laravel
+13 otomatis memakai skema `smtps` (SSL) saat port diisi `465`, jadi tidak perlu
+`MAIL_ENCRYPTION`.
+
+Template email (Blade) ada di `resources/views/emails/`:
+- `layout.blade.php` — bungkus umum + footer "Best Regards, Tim Tulisin"
+- `verify-email.blade.php` — tombol verifikasi
+- `reset-password.blade.php` — tombol reset password
 
 ---
 

@@ -120,7 +120,7 @@ async function submit() {
         return;
     }
 
-    router.push('/apps/u/dashboard');
+    router.push({ path: '/verify-email', query: { status: 'sent', email: email.value } });
 }
 </script>
 
