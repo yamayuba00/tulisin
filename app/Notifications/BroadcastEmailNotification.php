@@ -3,15 +3,17 @@
 namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class PromoEmailNotification extends Notification
+class BroadcastEmailNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     public function __construct(
         public string $subject,
+        public string $title,
         public string $message,
     ) {
     }
@@ -26,13 +28,11 @@ class PromoEmailNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $lines = preg_split('/\r\n|\r|\n/', trim($this->message)) ?: ['Ada promo terbaru untuk kamu.'];
-
-        $mail = (new MailMessage)->subject($this->subject);
-        foreach ($lines as $line) {
-            $mail->line($line);
-        }
-
-        return $mail->salutation('Salam, Tim Tulisin');
+        return (new MailMessage)
+            ->subject($this->subject)
+            ->view('emails.broadcast', [
+                'title' => $this->title !== '' ? $this->title : $this->subject,
+                'content' => $this->message,
+            ]);
     }
 }

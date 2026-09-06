@@ -85,9 +85,9 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::put('/coupons/{id}', [CouponController::class, 'update'])->middleware('permission:coupons.manage');
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy'])->middleware('permission:coupons.manage');
 
-    Route::get('/notification-settings', [NotificationController::class, 'settings'])->middleware('permission:notifications.manage');
-    Route::put('/notification-settings', [NotificationController::class, 'updateSettings'])->middleware('permission:notifications.manage');
     Route::post('/email-blast', [NotificationController::class, 'emailBlast'])->middleware('permission:notifications.manage');
+    Route::get('/broadcast-recipients', [NotificationController::class, 'broadcastRecipients'])->middleware('permission:notifications.manage');
+    Route::post('/blast-images', [NotificationController::class, 'uploadBlastImage'])->middleware('permission:notifications.manage');
 });
 
 // ---- Tarif kredit (dibaca semua halaman untuk menampilkan biaya fitur) ----
@@ -159,6 +159,7 @@ Route::middleware('auth:sanctum')->prefix('ai')->group(function () {
 // ---- Shared document (bagikan dokumen agar bisa dilihat publik tanpa login) ----
 Route::get('/shared/{uuid}', [SharedDocumentController::class, 'show']);
 Route::get('/media/public/{uuid}', [MediaController::class, 'publicShow']);
+Route::get('/blast-images/{uuid}', [NotificationController::class, 'showBlastImage']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/shared', [SharedDocumentController::class, 'store']);
     Route::put('/shared/{uuid}', [SharedDocumentController::class, 'update']);

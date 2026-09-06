@@ -282,12 +282,10 @@ class PaymentService
 
     private function notifyAdmin(Payment $payment): void
     {
-        $settings = \App\Models\Setting::where('key', 'notifications')->first();
-        $value = $settings ? ($settings->value ?? []) : [];
-        $adminEmail = $value['admin_email'] ?? null;
-        $enabled = (bool) ($value['notify_payment'] ?? true);
+        // Notifikasi pembelian bersifat wajib; penerima memakai alamat no-reply dari .env.
+        $adminEmail = config('mail.from.address');
 
-        if (! $adminEmail || ! $enabled) {
+        if (! $adminEmail) {
             return;
         }
 

@@ -3,76 +3,133 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Setting;
+use App\Models\BlastImage;
 use App\Models\User;
-use App\Notifications\PromoEmailNotification;
+use App\Notifications\BroadcastEmailNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class NotificationController extends Controller
 {
-    /**
-     * Ambil pengaturan notifikasi admin.
-     */
-    public function settings(Request $request): JsonResponse
-    {
-        $setting = Setting::where('key', 'notifications')->first();
-        $value = $setting ? ($setting->value ?? []) : [];
-
-        return response()->json([
-            'admin_email' => $value['admin_email'] ?? '',
-            'notify_payment' => (bool) ($value['notify_payment'] ?? true),
-            'promo_enabled' => (bool) ($value['promo_enabled'] ?? true),
-        ]);
-    }
+    private const MAX_BLAST_IMAGE_KB = 2048; // 2 MB
 
     /**
-     * Simpan pengaturan notifikasi admin.
-     */
-    public function updateSettings(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'admin_email' => ['nullable', 'email'],
-            'notify_payment' => ['required', 'boolean'],
-            'promo_enabled' => ['required', 'boolean'],
-        ]);
-
-        Setting::updateOrCreate(
-            ['key' => 'notifications'],
-            ['value' => [
-                'admin_email' => $data['admin_email'] ?? null,
-                'notify_payment' => (bool) $data['notify_payment'],
-                'promo_enabled' => (bool) $data['promo_enabled'],
-            ]],
-        );
-
-        return response()->json([
-            'message' => 'Pengaturan notifikasi berhasil disimpan.',
-            'settings' => $data,
-        ]);
-    }
-
-    /**
-     * Kirim email blast promo ke seluruh pengguna.
+     * Kirim email broadcast (promo, pengumuman, info, dsb.) ke seluruh atau sebagian pengguna.
      */
     public function emailBlast(Request $request): JsonResponse
     {
         $data = $request->validate([
             'subject' => ['required', 'string', 'max:120'],
-            'message' => ['required', 'string', 'max:5000'],
+            'title' => ['nullable', 'string', 'max:120'],
+            'message' => ['required', 'string', 'max:100000'],
+            'all' => ['sometimes', 'boolean'],
+            'user_ids' => ['sometimes', 'array'],
+            'user_ids.*' => ['integer'],
         ]);
 
-        $users = User::whereNotNull('email')->get();
+        $subject = (string) $data['subject'];
+        $title = (string) ($data['title'] ?? '');
+        $message = (string) $data['message'];
 
-        Notification::send($users, new PromoEmailNotification(
-            (string) $data['subject'],
-            (string) $data['message'],
-        ));
+        $query = User::whereNotNull('email');
+
+        if (! $request->boolean('all')) {
+            $ids = array_values(array_filter(
+                (array) ($data['user_ids'] ?? []),
+                fn ($id) => is_int($id) || ctype_digit((string) $id),
+            ));
+
+            if ($ids === []) {
+                return response()->json(['error' => 'Pilih setidaknya satu penerima.'], 422);
+            }
+
+            $query->whereIn('id', $ids);
+        }
+
+        $users = $query->get();
+
+        Notification::send($users, new BroadcastEmailNotification($subject, $title, $message));
 
         return response()->json([
-            'message' => 'Email promo sedang dikirim.',
+            'message' => 'Email masuk antrian pengiriman.',
             'recipients' => $users->count(),
         ]);
+    }
+
+    /**
+     * Daftar pengguna yang bisa menerima email broadcast.
+     */
+    public function broadcastRecipients(): JsonResponse
+    {
+        $users = User::whereNotNull('email')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email']);
+
+        return response()->json(['users' => $users]);
+    }
+
+    /**
+     * Unggah gambar untuk body email broadcast ke object storage (folder blast_email/).
+     */
+    public function uploadBlastImage(Request $request): JsonResponse
+    {
+        $file = $request->file('file');
+
+        if (! $file) {
+            return response()->json(['error' => 'File gambar wajib diunggah.'], 422);
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension());
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+            return response()->json(['error' => 'Format gambar tidak didukung (jpg/png/gif/webp).'], 422);
+        }
+
+        if ($file->getSize() > self::MAX_BLAST_IMAGE_KB * 1024) {
+            return response()->json(['error' => 'Ukuran gambar melebihi 2 MB.'], 422);
+        }
+
+        $uuid = (string) Str::uuid();
+        $name = $uuid.'.'.$ext;
+        $path = Storage::disk('s3')->putFileAs('blast_email', $file, $name);
+
+        if ($path === false) {
+            return response()->json(['error' => 'Gagal menyimpan gambar ke object storage.'], 500);
+        }
+
+        BlastImage::create([
+            'uuid' => $uuid,
+            'mime' => $file->getMimeType() ?: 'image/'.$ext,
+            'path' => $path,
+        ]);
+
+        return response()->json(['url' => url('/api/blast-images/'.$uuid)], 201);
+    }
+
+    /**
+     * Tampilkan gambar broadcast secara publik (dipakai di dalam email).
+     */
+    public function showBlastImage(string $uuid)
+    {
+        $image = BlastImage::where('uuid', $uuid)->first();
+
+        if (! $image) {
+            return response()->json(['error' => 'Gambar tidak ditemukan.'], 404);
+        }
+
+        $disk = Storage::disk('s3');
+        if (! $disk->exists($image->path)) {
+            return response()->json(['error' => 'Gambar tidak ditemukan.'], 404);
+        }
+
+        return response()->stream(function () use ($disk, $image) {
+            $stream = $disk->readStream($image->path);
+            fpassthru($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }, 200, ['Content-Type' => $image->mime ?: 'application/octet-stream']);
     }
 }

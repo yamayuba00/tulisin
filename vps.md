@@ -29,12 +29,11 @@ Tabel `jobs` / `failed_jobs` sudah ada di migration.
 | Kebutuhan | Status |
 |---|---|
 | Tabel `jobs` & `failed_jobs` | Sudah di-migrate |
-| Queue worker | Perlu dijalankan (Supervisor) |
-| Email blast & notifikasi | Saat ini masih **sinkron** (belum `ShouldQueue`), jadi queue worker opsional untuk sekarang |
+| Queue worker | Wajib dijalankan (Supervisor) |
+| Email blast & notifikasi | Sudah `ShouldQueue` (`BroadcastEmailNotification`), jadi dikirim lewat queue |
 
-> Catatan: untuk volume email besar (email blast promo ke banyak user), disarankan
-> mengubah notification menjadi `ShouldQueue` agar terkirim lewat queue. Untuk sekarang,
-> tetap sediakan worker-nya supaya siap dipakai.
+> Email broadcast (blast) sudah memakai `ShouldQueue`, jadi **queue worker wajib jalan**
+> agar email benar-benar terkirim. Worker dijalankan lewat Supervisor (bagian 10).
 
 ---
 
