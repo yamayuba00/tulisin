@@ -65,9 +65,14 @@ async function loadData() {
     try {
         const data = await getJson('/api/wallet');
         balance.value = data.balance ?? 0;
-        transactions.value = data.transactions || [];
     } catch {
         balance.value = 0;
+    }
+    try {
+        const tx = await getJson('/api/wallet/transactions');
+        transactions.value = tx.transactions || [];
+    } catch {
+        transactions.value = [];
     }
 }
 

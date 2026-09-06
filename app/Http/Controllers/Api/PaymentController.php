@@ -68,6 +68,10 @@ class PaymentController extends Controller
             return response()->json(['error' => $e->getMessage()], 422);
         }
 
+        if ($payment === null) {
+            return response()->json(['status' => 'ok', 'test' => true]);
+        }
+
         return response()->json([
             'status' => $payment->status,
             'invoice_number' => $payment->invoice_number,

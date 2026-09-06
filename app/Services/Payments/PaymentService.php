@@ -5,6 +5,7 @@ namespace App\Services\Payments;
 use App\Contracts\PaymentProvider;
 use App\Models\Coupon;
 use App\Models\Payment;
+use App\Models\Subscription;
 use App\Models\TopupOrder;
 use App\Models\User;
 use App\Models\Wallet;
@@ -87,16 +88,71 @@ class PaymentService
     }
 
     /**
+     * Buat order langganan + payment intent QRIS. Langganan diaktifkan
+     * setelah pembayaran dikonfirmasi lewat webhook provider.
+     */
+    public function createSubscriptionPayment(User $user, int $price): Payment
+    {
+        $fee = $this->feeFor($price);
+        $total = $price + $fee;
+        $invoice = $this->generateInvoiceNumber();
+
+        return DB::transaction(function () use ($user, $price, $fee, $total, $invoice) {
+            $payment = Payment::create([
+                'user_id' => $user->id,
+                'invoice_number' => $invoice,
+                'amount' => $total,
+                'fee' => $fee,
+                'method' => 'QRIS',
+                'provider' => config('payments.provider'),
+                'status' => 'pending',
+            ]);
+
+            Subscription::create([
+                'user_id' => $user->id,
+                'payment_id' => $payment->id,
+                'status' => 'pending',
+                'price' => $price,
+                'payment_method' => 'QRIS',
+            ]);
+
+            $result = $this->provider()->createPayment(
+                $payment,
+                $total,
+                (string) config('payments.currency', 'IDR'),
+            );
+
+            $payment->update([
+                'provider_ref' => $result['provider_ref'] ?? null,
+                'payment_url' => $result['payment_url'] ?? null,
+                'payload' => $result,
+                'expires_at' => now()->addHours((int) config('payments.expires_in_hours', 24)),
+            ]);
+
+            return $payment->fresh();
+        });
+    }
+
+    /**
      * Proses webhook provider: tandai lunas, tambah koin, kirim notifikasi admin.
      */
-    public function handleWebhook(string $providerName, Request $request): Payment
+    public function handleWebhook(string $providerName, Request $request): ?Payment
     {
         $provider = $this->provider($providerName);
         $provider->verifyWebhook($request);
 
         $data = $provider->parseWebhook($request);
 
+        // Event "payment.test" dari dashboard SumoPod hanya untuk cek konektivitas.
+        if (($data['event_type'] ?? '') === 'payment.test') {
+            return null;
+        }
+
         if (empty($data['invoice_number'])) {
+            Log::warning('Webhook tanpa invoice_number.', [
+                'event_type' => $data['event_type'] ?? null,
+                'payload' => $data['raw'] ?? null,
+            ]);
             throw new RuntimeException('Webhook tidak menyertakan order_id / invoice_number.');
         }
 
@@ -142,9 +198,37 @@ class PaymentService
 
                 $this->redeemCoupon($order);
             }
+
+            $subscription = Subscription::where('payment_id', $payment->id)->first();
+            if ($subscription && $subscription->status === 'pending') {
+                $this->activateSubscription($subscription);
+            }
         });
 
         $this->notifyAdmin($payment);
+    }
+
+    private function activateSubscription(Subscription $subscription): void
+    {
+        $active = Subscription::where('user_id', $subscription->user_id)
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->latest()
+            ->first();
+
+        if ($active) {
+            $active->update([
+                'ends_at' => $active->ends_at->addDays(Subscription::PERIOD_DAYS),
+                'price' => (int) $active->price + $subscription->price,
+            ]);
+            $subscription->delete();
+        } else {
+            $subscription->update([
+                'status' => 'active',
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
+            ]);
+        }
     }
 
     private function redeemCoupon(TopupOrder $order): void

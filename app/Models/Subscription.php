@@ -42,6 +42,11 @@ class Subscription extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active' && $this->ends_at?->isFuture();

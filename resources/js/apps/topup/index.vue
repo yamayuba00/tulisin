@@ -192,15 +192,21 @@ async function loadWallet() {
     try {
         const data = await getJson('/api/wallet');
         balance.value = data.balance || 0;
-        transactions.value = (data.transactions || []).map((t) => ({
+    } catch (e) {
+        toast(e.message || 'Gagal memuat saldo.', 'error');
+    }
+
+    try {
+        const tx = await getJson('/api/wallet/transactions');
+        transactions.value = (tx.transactions || []).map((t) => ({
             id: t.id,
             date: t.created_at,
             type: t.type,
             amount: t.amount,
             balance_after: t.balance_after,
         }));
-    } catch (e) {
-        toast(e.message || 'Gagal memuat saldo.', 'error');
+    } catch {
+        transactions.value = [];
     } finally {
         loading.value = false;
     }

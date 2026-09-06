@@ -102,6 +102,7 @@ Route::middleware('auth:sanctum')->prefix('papers')->group(function () {
 // ---- Wallet / Kredit ----
 Route::middleware('auth:sanctum')->prefix('wallet')->group(function () {
     Route::get('/', [WalletController::class, 'show']);
+    Route::get('/transactions', [WalletController::class, 'transactions']);
     Route::post('/topup', [WalletController::class, 'topup']);
     Route::post('/spend', [WalletController::class, 'spend']);
 });

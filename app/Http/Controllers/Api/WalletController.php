@@ -13,7 +13,7 @@ use RuntimeException;
 class WalletController extends Controller
 {
     /**
-     * Saldo + riwayat transaksi kredit pengguna saat ini.
+     * Saldo kredit pengguna saat ini (tanpa riwayat).
      */
     public function show(Request $request): JsonResponse
     {
@@ -22,10 +22,23 @@ class WalletController extends Controller
         return response()->json([
             'balance' => $wallet->balance,
             'on_hold' => $wallet->on_hold,
-            'transactions' => $wallet->transactions()
-                ->latest()
-                ->limit(20)
-                ->get()
+        ]);
+    }
+
+    /**
+     * Riwayat transaksi kredit pengguna saat ini (endpoint terpisah dari saldo).
+     */
+    public function transactions(Request $request): JsonResponse
+    {
+        $wallet = $this->walletFor($request);
+
+        $perPage = min(50, max(1, (int) $request->query('per_page', 20)));
+        $paginator = $wallet->transactions()
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'transactions' => $paginator->getCollection()
                 ->map(fn ($t) => [
                     'id' => $t->uuid,
                     'type' => $t->type,
@@ -33,7 +46,12 @@ class WalletController extends Controller
                     'balance_after' => $t->balance_after,
                     'reason' => $t->reason,
                     'created_at' => $t->created_at?->toIso8601String(),
-                ]),
+                ])
+                ->values(),
+            'total' => $paginator->total(),
+            'page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'last_page' => $paginator->lastPage(),
         ]);
     }
 

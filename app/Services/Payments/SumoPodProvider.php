@@ -85,6 +85,7 @@ class SumoPodProvider implements PaymentProvider
         };
 
         return [
+            'event_type' => $eventType,
             'invoice_number' => (string) ($data['order_id'] ?? $data['invoice_number'] ?? $data['reference'] ?? ''),
             'provider_ref' => $data['payment_id'] ?? $data['id'] ?? null,
             'status' => $status,

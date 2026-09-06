@@ -38,40 +38,33 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Aktifkan / perpanjang langganan (simulasi pembayaran tanpa gateway).
+     * Aktifkan / perpanjang langganan via pembayaran QRIS (SumoPod).
+     * Langganan baru diaktifkan setelah webhook konfirmasi pembayaran.
      */
     public function subscribe(Request $request): JsonResponse
     {
         $user = $request->user();
         $price = $this->resolvePrice();
 
-        $active = Subscription::where('user_id', $user->id)
-            ->where('status', 'active')
-            ->where('ends_at', '>', now())
-            ->latest()
-            ->first();
-
-        if ($active) {
-            $active->update([
-                'ends_at' => $active->ends_at->addDays(Subscription::PERIOD_DAYS),
-                'price' => (int) $active->price + $price,
-            ]);
-            $subscription = $active;
-        } else {
-            $subscription = Subscription::create([
-                'user_id' => $user->id,
-                'status' => 'active',
-                'starts_at' => now(),
-                'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
-                'price' => $price,
-                'payment_method' => 'simulation',
-            ]);
+        try {
+            $payment = app(PaymentService::class)->createSubscriptionPayment($user, $price);
+        } catch (RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 502);
         }
 
+        $checkout = app(PaymentService::class)->checkoutData($payment);
+
         return response()->json([
-            'message' => 'Langganan berhasil diaktifkan.',
-            'active' => true,
-            'ends_at' => $subscription->ends_at?->toISOString(),
+            'message' => 'Silakan selesaikan pembayaran QRIS.',
+            'payment' => [
+                'uuid' => $payment->uuid,
+                'invoice_number' => $payment->invoice_number,
+                'amount' => $payment->amount,
+                'fee' => $payment->fee,
+                'status' => $payment->status,
+                'payment_url' => $checkout['payment_url'],
+                'qr_payload' => $checkout['qr_payload'],
+            ],
         ], 201);
     }
 
