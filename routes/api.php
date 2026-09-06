@@ -220,7 +220,13 @@ Route::middleware('auth:sanctum')->post('/export/pdf', function (Request $reques
     $run = function (array $args) use ($pdfPath): Process {
         $process = new Process($args);
         $process->setTimeout(120);
-        $process->run();
+        try {
+            $process->run();
+        } catch (\Symfony\Component\Process\Exception\ProcessFailedException $e) {
+            // Proses terhenti oleh sinyal/timeout (mis. Chrome crash dengan SIGTRAP).
+            // Biarkan pengecekan isSuccessful()/getErrorOutput() di bawah yang menangani
+            // agar API mengembalikan pesan error bersih, bukan HTTP 500.
+        }
 
         return $process;
     };
@@ -231,6 +237,8 @@ Route::middleware('auth:sanctum')->post('/export/pdf', function (Request $reques
         '--disable-gpu',
         '--no-sandbox',
         '--disable-dev-shm-usage',
+        '--no-zygote',
+        '--disable-crash-reporter',
         '--hide-scrollbars',
         '--no-pdf-header-footer',
         '--virtual-time-budget=10000',
