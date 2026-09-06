@@ -4,7 +4,7 @@ import { Upload, Trash2, Type, Coins } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import AppButton from '../../components/AppButton.vue';
-import { listCustomFonts, addCustomFont, removeCustomFont, registerAllCustomFonts } from '../../utils/fontManager';
+import { listCustomFonts, addCustomFont, removeCustomFont, registerFontFace, unregisterFontFace } from '../../utils/fontManager';
 import { request } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
@@ -13,14 +13,14 @@ const fonts = ref([]);
 const uploading = ref(false);
 const fileInput = ref(null);
 
-function refresh() {
-    fonts.value = listCustomFonts();
+async function refresh() {
+    fonts.value = await listCustomFonts();
+    fonts.value.forEach(registerFontFace);
 }
 
-onMounted(() => {
-    registerAllCustomFonts();
+onMounted(async () => {
     loadCreditPricing();
-    refresh();
+    await refresh();
 });
 
 function openUpload() {
@@ -46,15 +46,23 @@ async function onFileChange(e) {
         for (const file of files) {
             await addCustomFont(file);
         }
-        refresh();
+        await refresh();
+    } catch (err) {
+        toast(err?.message || 'Gagal mengunggah font.', 'error');
     } finally {
         uploading.value = false;
     }
 }
 
-function remove(family) {
-    removeCustomFont(family);
-    refresh();
+async function remove(id) {
+    const target = fonts.value.find((f) => f.id === id);
+    try {
+        await removeCustomFont(id);
+        if (target) unregisterFontFace(target.family);
+        await refresh();
+    } catch (err) {
+        toast(err?.message || 'Gagal menghapus font.', 'error');
+    }
 }
 </script>
 
@@ -96,7 +104,7 @@ function remove(family) {
         <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div
                 v-for="font in fonts"
-                :key="font.family"
+                :key="font.id"
                 class="group flex items-center gap-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800"
             >
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
@@ -110,7 +118,7 @@ function remove(family) {
                     type="button"
                     class="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-400 transition-colors hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-400"
                     title="Hapus"
-                    @click="remove(font.family)"
+                    @click="remove(font.id)"
                 >
                     <Trash2 class="h-4 w-4" />
                 </button>

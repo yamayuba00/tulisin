@@ -8,6 +8,7 @@ import AppButton from '../../components/AppButton.vue';
 import { buildProjectPreview } from '../../utils/projectIndex';
 import { getJson, request } from '../../utils/http';
 import { formatDate } from '../../utils/format';
+import { toast } from '../../utils/toast';
 
 const router = useRouter();
 const projects = ref([]);
@@ -52,9 +53,14 @@ async function confirmDelete() {
     const id = deleteTarget.value;
     deleteTarget.value = null;
     try {
-        await request(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        const res = await request(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (res.ok) {
+            toast('Project berhasil dihapus.', 'success');
+        } else {
+            toast(res.data?.error || 'Gagal menghapus project.', 'error');
+        }
     } catch {
-        // abaikan; refresh tetap dijalankan
+        toast('Gagal menghapus project.', 'error');
     }
     refresh();
 }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CreditSettingController;
 use App\Http\Controllers\Api\CreditSubmissionController;
+use App\Http\Controllers\Api\FontController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaperController;
@@ -183,6 +184,13 @@ Route::middleware('auth:sanctum')->prefix('media')->group(function () {
     Route::post('/', [MediaController::class, 'store']);
     Route::get('/files/{id}', [MediaController::class, 'show']);
     Route::delete('/{id}', [MediaController::class, 'destroy']);
+});
+
+// ---- Font kustom (TTF/OTF/WOFF/WOFF2, disimpan di object storage) ----
+Route::middleware('auth:sanctum')->prefix('fonts')->group(function () {
+    Route::get('/', [FontController::class, 'index']);
+    Route::post('/', [FontController::class, 'store']);
+    Route::delete('/{uuid}', [FontController::class, 'destroy']);
 });
 
 // Render HTML (dari preview) menjadi PDF via Chrome/Edge/Chromium headless.

@@ -49,7 +49,7 @@ import ImageFileManager from './components/ImageFileManager.vue';
 import WorkspaceViewer from './components/WorkspaceViewer.vue';
 import AgentCanvasModal from './components/AgentCanvasModal.vue';
 import ShareModal from './components/ShareModal.vue';
-import { listCustomFonts, addCustomFont, registerAllCustomFonts } from '../../utils/fontManager';
+import { listCustomFonts, addCustomFont, registerFontFace } from '../../utils/fontManager';
 import { formatCitation, authorYearLabel, parseCSLItem, cslFormatter } from '../../utils/csl-formatter';
 import { listReferences as listWorkspaceReferences } from '../../utils/workspaceLibrary';
 import { PROJECT_CATEGORY_OPTIONS, DEFAULT_PROJECT_CATEGORY } from '../../utils/projectCategories';
@@ -228,7 +228,7 @@ const baseFontOptions = [
 ];
 
 // Font custom (TTF/OTF/WOFF) yang diunggah pengguna, digabung ke daftar font.
-const customFonts = ref(listCustomFonts());
+const customFonts = ref([]);
 const fontOptions = computed(() => [
     ...baseFontOptions,
     ...customFonts.value.map((f) => f.family),
@@ -1150,7 +1150,12 @@ function onGlobalKeydown(e) {
 onMounted(async () => {
     if (workspaceView.value) return;
     ensureBuilderQuery();
-    registerAllCustomFonts();
+    try {
+        customFonts.value = await listCustomFonts();
+        customFonts.value.forEach(registerFontFace);
+    } catch {
+        customFonts.value = [];
+    }
     refreshPages();
     loadCredits();
     loadCreditPricing();
@@ -2316,7 +2321,8 @@ async function onFontFileChange(e) {
     if (!(await spendCredits(files.length * creditPricing.value.font, 'font_upload'))) return;
     for (const file of files) {
         const font = await addCustomFont(file);
-        customFonts.value = listCustomFonts();
+        registerFontFace(font);
+        customFonts.value = await listCustomFonts();
         // Terapkan langsung sebagai font dokumen (bisa diganti lagi di daftar).
         fontChoice.value = font.family;
         customFont.value = '';
