@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Contracts\PaymentProvider;
+use App\Exceptions\WebhookVerificationException;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -94,11 +95,11 @@ class SumoPodProvider implements PaymentProvider
         $secret = (string) ($config['webhook_secret'] ?? '');
         $token = (string) ($config['webhook_token'] ?? '');
 
-        // Metode 1: token statis (Authorization: Bearer <token>).
+        // Metode 1: token statis via header X-Webhook-Token (fallback bearer).
         if ($token !== '') {
-            $provided = $request->bearerToken();
+            $provided = $request->header('X-Webhook-Token') ?: $request->bearerToken();
             if ($provided === null || ! hash_equals($token, $provided)) {
-                throw new RuntimeException('Token webhook tidak valid.');
+                throw new WebhookVerificationException('Token webhook tidak valid.');
             }
 
             return;
@@ -106,7 +107,7 @@ class SumoPodProvider implements PaymentProvider
 
         // Metode 2: signature Svix-style (header svix-id/timestamp/signature).
         if ($secret === '') {
-            throw new RuntimeException('Webhook secret belum dikonfigurasi.');
+            throw new WebhookVerificationException('Webhook secret belum dikonfigurasi.');
         }
 
         $id = (string) $request->header('svix-id', '');
@@ -114,7 +115,7 @@ class SumoPodProvider implements PaymentProvider
         $signatures = (string) $request->header('svix-signature', '');
 
         if ($id === '' || $timestamp === '' || $signatures === '') {
-            throw new RuntimeException('Header signature webhook tidak lengkap.');
+            throw new WebhookVerificationException('Header signature webhook tidak lengkap.');
         }
 
         $secretKey = $this->decodeWebhookSecret($secret);
@@ -129,7 +130,7 @@ class SumoPodProvider implements PaymentProvider
             }
         }
 
-        throw new RuntimeException('Signature webhook tidak valid.');
+        throw new WebhookVerificationException('Signature webhook tidak valid.');
     }
 
     /**

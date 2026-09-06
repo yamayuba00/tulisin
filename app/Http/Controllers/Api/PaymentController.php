@@ -62,6 +62,8 @@ class PaymentController extends Controller
     {
         try {
             $payment = app(PaymentService::class)->handleWebhook($provider, $request);
+        } catch (WebhookVerificationException $e) {
+            return response()->json(['error' => $e->getMessage()], 401);
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }

@@ -191,7 +191,10 @@ PAYMENT_FEE_PERCENT=0
 # Saat produksi: pakai live
 SUMOPOD_SANDBOX=false
 SUMOPOD_LIVE_API_KEY=API_KEY_LIVE_SUMOPOD
-SUMOPOD_WEBHOOK_SECRET=SECRET_WEBHOOK
+
+# Verifikasi webhook — isi SALAH SATU:
+SUMOPOD_WEBHOOK_SECRET=SECRET_WEBHOOK      # signature Svix (prefix whsec_)
+# SUMOPOD_WEBHOOK_TOKEN=                   # token statis (header X-Webhook-Token)
 
 # URL redirect (WAJIB https domain publik)
 PAYMENT_SUCCESS_RETURN_URL=https://domain-anda.com/apps/u/topup?status=success
@@ -386,7 +389,17 @@ Setelah live, daftarkan webhook di dashboard SumoPod ke:
 https://domain-anda.com/api/payments/webhook/sumopod
 ```
 
-Isi `SUMOPOD_WEBHOOK_SECRET` di `.env` sesuai secret yang diset di dashboard SumoPod.
+Webhook diverifikasi dulu sebelum diproses (menolak request palsu). Pilih salah satu:
+
+1. **Signature Svix-style** — isi `SUMOPOD_WEBHOOK_SECRET` (prefix `whsec_`) sesuai
+   secret dari dashboard. Provider memverifikasi header `svix-id`, `svix-timestamp`,
+   dan `svix-signature` (HMAC-SHA256).
+2. **Token statis** — isi `SUMOPOD_WEBHOOK_TOKEN` (prefix `whtok_`). Provider
+   memverifikasi header `X-Webhook-Token`.
+
+> Bila keduanya diisi, token diprioritaskan. Webhook dengan signature/token tidak
+> valid dibalas `401` dan tidak diproses.
+
 > Pemetaan field respons/webhook SumoPod saat ini diasumsikan (`status`, `order_id`,
 > `payment_id`). **Samakan nama field aktual** di
 > `app/Services/Payments/SumoPodProvider.php` sebelum go-live.
