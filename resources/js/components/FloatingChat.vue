@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { MessageCircle, X, Send, Sparkles } from 'lucide-vue-next';
+import { request, ensureCsrf } from '../utils/http';
 
 // Cangkang konteks (knowledge base) per jalur/route.
 // Setiap jalur punya `label`, `system` (instruksi AI), dan `fallback`
@@ -54,26 +55,25 @@ async function send(textOverride) {
     sending.value = true;
     scrollToBottom();
 
-    // Payload yang akan dikirim ke backend AI (cangkang siap pakai).
+    // Payload yang dikirim ke backend AI.
     const payload = {
-        context: props.context,
-        system: ctx.value.system,
         message: text,
-        history: messages.value.slice(0, -1),
+        history: messages.value.slice(0, -1).map((m) => ({
+            role: m.from === 'ai' ? 'assistant' : 'user',
+            content: m.text,
+        })),
     };
 
     try {
-        await new Promise((r) => setTimeout(r, 700)); // simulasi latensi
+        await ensureCsrf();
+        const res = await request('/api/chat', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
 
-        // TODO: ganti dengan panggilan backend sungguhan, contoh:
-        // const res = await fetch('/api/chat', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(payload),
-        // });
-        // const data = await res.json();
-        // const reply = data.reply;
-        const reply = ctx.value.fallback;
+        const reply = res.ok
+            ? (res.data?.reply || ctx.value.fallback)
+            : (res.data?.error || 'Maaf, terjadi kendala. Coba lagi sebentar lagi.');
 
         messages.value.push({ from: 'ai', text: reply });
     } catch {

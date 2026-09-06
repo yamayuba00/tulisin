@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AffiliateController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CreditSettingController;
 use App\Http\Controllers\Api\CreditSubmissionController;
@@ -23,6 +24,9 @@ use Illuminate\Support\Facades\Route;
 use Symfony\Component\Process\Process;
 
 Route::get('/ping', fn () => response()->json(['message' => 'pong']));
+
+// ---- Asisten chat landing (publik, hanya tanya-jawab) ----
+Route::post('/chat', [ChatController::class, 'store']);
 
 // ---- Auth (Sanctum) ----
 Route::prefix('auth')->group(function () {
