@@ -162,9 +162,7 @@ export function buildProjectPayload(template) {
 }
 
 // ---- Template kustom (buatan user) ----
-// Disimpan di localStorage agar bisa dibuat & dipakai ulang tanpa backend.
-
-const CUSTOM_TEMPLATES_KEY = 'tulisin.customTemplates';
+// Disimpan di database via API /api/templates (bukan localStorage).
 
 // Jenis blok yang bisa dipilih saat membuat template sendiri.
 export const TEMPLATE_BLOCK_TYPES = [
@@ -187,24 +185,3 @@ export const TEMPLATE_BLOCK_TYPES = [
     { type: 'blankPage', label: 'Halaman Kosong' },
 ];
 
-export function listCustomTemplates() {
-    try {
-        return JSON.parse(localStorage.getItem(CUSTOM_TEMPLATES_KEY) || '[]');
-    } catch {
-        return [];
-    }
-}
-
-export function saveCustomTemplate(template) {
-    const list = listCustomTemplates();
-    const idx = list.findIndex((t) => t.id === template.id);
-    if (idx >= 0) list[idx] = template;
-    else list.push(template);
-    localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(list));
-    return template;
-}
-
-export function deleteCustomTemplate(id) {
-    const list = listCustomTemplates().filter((t) => t.id !== id);
-    localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(list));
-}

@@ -5,9 +5,9 @@ import { LayoutTemplate, Coins, FileText, Plus, Trash2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import TemplateBuilderModal from './components/TemplateBuilderModal.vue';
-import { TEMPLATES, buildProjectPayload, listCustomTemplates, saveCustomTemplate, deleteCustomTemplate } from '../../utils/templates';
+import { TEMPLATES, buildProjectPayload } from '../../utils/templates';
 import { touchProject } from '../../utils/projectIndex';
-import { request } from '../../utils/http';
+import { getJson, request } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 
@@ -19,7 +19,7 @@ const showBuilder = ref(false);
 
 onMounted(() => {
     loadCreditPricing();
-    customTemplates.value = listCustomTemplates();
+    loadCustomTemplates();
 });
 
 async function useTemplate(template) {
@@ -51,14 +51,52 @@ async function useTemplate(template) {
     }
 }
 
-function onSaveCustom(template) {
-    saveCustomTemplate(template);
-    customTemplates.value = listCustomTemplates();
+async function loadCustomTemplates() {
+    try {
+        const data = await getJson('/api/templates');
+        customTemplates.value = data.templates || [];
+    } catch (e) {
+        toast(e.message, 'error');
+        customTemplates.value = [];
+    }
 }
 
-function onDeleteCustom(id) {
-    deleteCustomTemplate(id);
-    customTemplates.value = listCustomTemplates();
+async function onSaveCustom(template) {
+    try {
+        const res = await request('/api/templates', {
+            method: 'POST',
+            body: JSON.stringify({
+                title: template.title,
+                category: template.category,
+                description: template.description,
+                format: template.format,
+                font: template.font,
+                blocks: template.blocks,
+            }),
+        });
+        if (res.ok) {
+            toast('Template tersimpan.', 'success');
+            await loadCustomTemplates();
+        } else {
+            toast(res.data?.error || 'Gagal menyimpan template.', 'error');
+        }
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+async function onDeleteCustom(id) {
+    try {
+        const res = await request(`/api/templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (res.ok) {
+            toast('Template dihapus.', 'success');
+        } else {
+            toast(res.data?.error || 'Gagal menghapus template.', 'error');
+        }
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+    await loadCustomTemplates();
 }
 </script>
 

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectAiResultController;
 use App\Http\Controllers\Api\SharedDocumentController;
 use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WorkspaceController;
 use Illuminate\Http\Request;
@@ -125,6 +126,13 @@ Route::middleware('auth:sanctum')->prefix('coupons')->group(function () {
     Route::get('/validate', [CouponController::class, 'validate']);
 });
 
+// ---- Template kustom (buatan user) ----
+Route::middleware('auth:sanctum')->prefix('templates')->group(function () {
+    Route::get('/', [TemplateController::class, 'index']);
+    Route::post('/', [TemplateController::class, 'store']);
+    Route::delete('/{uuid}', [TemplateController::class, 'destroy']);
+});
+
 // ---- Affiliate / Referral ----
 Route::middleware('auth:sanctum')->prefix('affiliate')->group(function () {
     Route::get('/', [AffiliateController::class, 'show']);
@@ -156,6 +164,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // ---- Project / Builder (payload dokumen disimpan sebagai JSONB di PostgreSQL) ----
 Route::middleware('auth:sanctum')->prefix('projects')->group(function () {
     Route::get('/', [ProjectController::class, 'index']);
+    Route::get('/public', [ProjectController::class, 'publicIndex']);
     Route::get('/{uuid}', [ProjectController::class, 'show']);
     Route::put('/{uuid}', [ProjectController::class, 'save']);
     Route::delete('/{uuid}', [ProjectController::class, 'destroy']);

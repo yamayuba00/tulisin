@@ -29,6 +29,32 @@ class ProjectController extends Controller
     }
 
     /**
+     * Daftar project publik (untuk halaman Lists Project — jelajah project
+     * pengguna lain). Hanya project yang sudah dipublikasikan.
+     */
+    public function publicIndex(Request $request): JsonResponse
+    {
+        $projects = Project::query()
+            ->where('is_public', true)
+            ->where('status', 'published')
+            ->where('user_id', '!=', $request->user()->id)
+            ->with('user:id,name')
+            ->orderByDesc('published_at')
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(fn (Project $p) => [
+                'id' => $p->uuid,
+                'title' => $p->title,
+                'author' => $p->user?->name ?? 'Anonim',
+                'category' => $p->category,
+                'description' => $p->description,
+                'updatedAt' => ($p->published_at ?? $p->updated_at)?->toISOString(),
+            ]);
+
+        return response()->json(['projects' => $projects]);
+    }
+
+    /**
      * Ambil dokumen milik pengguna yang sedang login.
      */
     public function show(Request $request, string $uuid): JsonResponse

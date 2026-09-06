@@ -72,6 +72,23 @@ const canSubmit = computed(() => effectiveAmount.value >= MIN_AMOUNT && !submitt
 const isSubscribed = computed(() => !!sub.value?.active);
 const subEndsAt = computed(() => sub.value?.subscription?.ends_at || null);
 
+// Perpanjangan hanya bisa dilakukan mulai 5 hari sebelum masa aktif berakhir.
+const RENEW_WINDOW_DAYS = 5;
+const canRenew = computed(() => {
+    if (!subEndsAt.value) return false;
+    const ends = new Date(subEndsAt.value).getTime();
+    if (Number.isNaN(ends)) return false;
+    const threshold = ends - RENEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    return Date.now() >= threshold;
+});
+const daysUntilRenewable = computed(() => {
+    if (!subEndsAt.value) return 0;
+    const ends = new Date(subEndsAt.value).getTime();
+    if (Number.isNaN(ends)) return 0;
+    const threshold = ends - RENEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    return Math.max(0, Math.ceil((threshold - Date.now()) / (24 * 60 * 60 * 1000)));
+});
+
 function selectPackage(id) {
     selected.value = id;
     customAmount.value = '';
@@ -244,11 +261,19 @@ function handleReturnStatus() {
     else if (status === 'cancel') toast('Pembayaran dibatalkan.', 'error');
 }
 
+let subscriptionPoll = null;
+
 onMounted(() => {
     loadWallet();
     loadSubscription();
     loadPaymentMeta();
     handleReturnStatus();
+    // Pantau status langganan agar UI berubah tanpa refresh (mis. setelah bayar).
+    subscriptionPoll = setInterval(loadSubscription, 30000);
+});
+
+onBeforeUnmount(() => {
+    if (subscriptionPoll) clearInterval(subscriptionPoll);
 });
 </script>
 
@@ -409,9 +434,12 @@ onMounted(() => {
                         <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
                             Berlaku sampai <span class="font-medium">{{ formatDate(subEndsAt, { withTime: true }) }}</span>.
                         </p>
-                        <AppButton block variant="outline" class="mt-3" :disabled="subscribing" @click="subscribe">
+                        <AppButton block variant="outline" class="mt-3" :disabled="subscribing || !canRenew" @click="subscribe">
                             {{ subscribing ? 'Memproses…' : 'Perpanjang Langganan' }}
                         </AppButton>
+                        <p v-if="!canRenew" class="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
+                            Perpanjangan tersedia {{ daysUntilRenewable }} hari lagi (5 hari sebelum berakhir).
+                        </p>
                     </div>
 
                     <div v-else class="mt-3">

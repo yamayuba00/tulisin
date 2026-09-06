@@ -1,18 +1,16 @@
 <script setup>
-import { computed, ref } from 'vue';
-import { Eye, Search, X, Lock } from 'lucide-vue-next';
+import { computed, onMounted, ref } from 'vue';
+import { Eye, Search, X, Lock, Loader2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import { PROJECT_CATEGORIES } from '../../utils/projectCategories';
+import { getJson } from '../../utils/http';
+import { formatDate } from '../../utils/format';
+import { toast } from '../../utils/toast';
 
-// Data sementara (contoh). Nantinya diambil dari API backend (project publik pengguna lain).
-const projects = ref([
-    { id: 1, title: 'Analisis Sentimen Ulasan Aplikasi', author: 'Rina P.', category: 'Skripsi', description: 'Studi klasifikasi sentimen menggunakan machine learning.', updatedAt: '28 Agu 2026' },
-    { id: 2, title: 'Pengaruh AI terhadap Produktivitas Kerja', author: 'Budi S.', category: 'Makalah', description: 'Kajian literatur tentang adopsi AI di tempat kerja.', updatedAt: '25 Agu 2026' },
-    { id: 3, title: 'Perancangan Sistem Informasi Perpustakaan', author: 'Citra W.', category: 'Laporan', description: 'Dokumentasi perancangan sistem untuk perpustakaan kampus.', updatedAt: '20 Agu 2026' },
-    { id: 4, title: 'Model Prediksi Curah Hujan', author: 'Dedi K.', category: 'Jurnal', description: 'Artikel jurnal tentang prediksi cuaca berbasis data.', updatedAt: '15 Agu 2026' },
-    { id: 5, title: 'Proposal Penelitian Kesehatan Mental', author: 'Eka N.', category: 'Proposal', description: 'Rancangan penelitian tentang kesehatan mental mahasiswa.', updatedAt: '10 Agu 2026' },
-]);
+// Daftar project publik diambil dari database (bukan data contoh lokal).
+const projects = ref([]);
+const loading = ref(true);
 
 const activeCategory = ref('Semua');
 const query = ref('');
@@ -34,6 +32,24 @@ function chipClass(cat) {
         ? 'border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-950'
         : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:text-neutral-300 dark:hover:border-neutral-600';
 }
+
+async function loadProjects() {
+    loading.value = true;
+    try {
+        const data = await getJson('/api/projects/public');
+        projects.value = (data.projects || []).map((p) => ({
+            ...p,
+            updatedAt: formatDate(p.updatedAt),
+        }));
+    } catch (e) {
+        toast(e.message, 'error');
+        projects.value = [];
+    } finally {
+        loading.value = false;
+    }
+}
+
+onMounted(loadProjects);
 </script>
 
 <template>
@@ -65,8 +81,14 @@ function chipClass(cat) {
             </div>
         </div>
 
+        <!-- Loading -->
+        <div v-if="loading" class="mt-6 flex items-center justify-center rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-neutral-400 dark:border-neutral-700">
+            <Loader2 class="h-5 w-5 animate-spin" />
+            <span class="ml-2 text-sm">Memuat project publik…</span>
+        </div>
+
         <!-- Grid -->
-        <div v-if="filtered.length > 0" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-else-if="filtered.length > 0" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="p in filtered" :key="p.id" class="flex flex-col rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
                 <span class="inline-flex w-fit rounded-full border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
                     {{ p.category }}
@@ -90,7 +112,7 @@ function chipClass(cat) {
         </div>
 
         <div v-else class="mt-6 rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
-            <p class="text-sm text-neutral-500 dark:text-neutral-400">Tidak ada project yang cocok dengan filter.</p>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada project publik yang tersedia.</p>
         </div>
 
         <!-- Detail modal (read-only) -->

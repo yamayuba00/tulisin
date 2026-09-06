@@ -20,6 +20,12 @@ const fields = [
         min: 0,
     },
     {
+        key: 'agent_generate',
+        label: 'Agent AI (Buat Project)',
+        hint: 'Koin per sekali membuat project lewat Agent AI.',
+        min: 0,
+    },
+    {
         key: 'ai_plagiarism',
         label: 'AI Plagiarism Check',
         hint: 'Koin per sekali pengecekan plagiarisme.',

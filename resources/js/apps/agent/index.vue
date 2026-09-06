@@ -1,11 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Sparkles, FileText, ListOrdered, CornerDownRight, Loader2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import { AGENT_DOCUMENT_TYPES, DEFAULT_CHAPTERS, buildAgentProject } from '../../utils/agentProject';
 import { touchProject } from '../../utils/projectIndex';
+import { request } from '../../utils/http';
+import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 import { toast } from '../../utils/toast';
 
 const router = useRouter();
@@ -26,7 +28,11 @@ const previewChapters = computed(() => {
     return DEFAULT_CHAPTERS[documentType.value] || DEFAULT_CHAPTERS.Lainnya;
 });
 
-function createProject() {
+onMounted(() => {
+    loadCreditPricing();
+});
+
+async function createProject() {
     if (!title.value.trim()) {
         toast('Judul / topik wajib diisi.', 'warning');
         return;
@@ -34,6 +40,16 @@ function createProject() {
 
     generating.value = true;
     try {
+        const cost = Number(creditPricing.value.agent_generate) || 1;
+        const res = await request('/api/wallet/spend', {
+            method: 'POST',
+            body: JSON.stringify({ credits: cost, reason: 'agent_generate' }),
+        });
+        if (!res.ok) {
+            toast(res.data?.error || 'Saldo koin tidak mencukupi.', 'error');
+            return;
+        }
+
         const payload = buildAgentProject({
             title: title.value,
             documentType: documentType.value,
@@ -46,8 +62,8 @@ function createProject() {
         touchProject(builderId, { name: payload.name, category: payload.category, blocks: payload.blocks });
 
         router.push({ path: '/apps/u/project', query: { builder: builderId } });
-    } catch {
-        toast('Gagal membuat project. Coba lagi.', 'error');
+    } catch (e) {
+        toast(e.message || 'Gagal membuat project. Coba lagi.', 'error');
     } finally {
         generating.value = false;
     }
@@ -116,7 +132,7 @@ function createProject() {
                         <AppButton block :disabled="generating" @click="createProject">
                             <Loader2 v-if="generating" class="h-4 w-4 animate-spin" />
                             <Sparkles v-else class="h-4 w-4" />
-                            {{ generating ? 'Membuat project…' : 'Buat Project dengan AI' }}
+                            {{ generating ? 'Membuat project…' : `Buat Project dengan AI · ${creditPricing.agent_generate} Koin` }}
                         </AppButton>
                     </div>
                 </div>

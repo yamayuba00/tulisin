@@ -54,6 +54,7 @@ class CreditSettingController extends Controller
     {
         return [
             'ai_generate' => ['required', 'integer', 'min:0'],
+            'agent_generate' => ['required', 'integer', 'min:0'],
             'ai_plagiarism' => ['required', 'integer', 'min:0'],
             'ai_turnitin' => ['required', 'integer', 'min:0'],
             'template' => ['required', 'integer', 'min:0'],

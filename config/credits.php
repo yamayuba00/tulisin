@@ -7,6 +7,7 @@
 return [
     'pricing' => [
         'ai_generate' => 5,
+        'agent_generate' => 1,
         'ai_plagiarism' => 1,
         'ai_turnitin' => 20,
         'template' => 5,
