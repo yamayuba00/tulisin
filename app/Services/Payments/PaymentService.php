@@ -10,8 +10,11 @@ use App\Models\TopupOrder;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Notifications\PaymentReceivedNotification;
+use App\Notifications\SubscriptionActivatedNotification;
+use App\Notifications\TopupReceiptNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -183,7 +186,10 @@ class PaymentService
 
     private function markPaid(Payment $payment, ?string $providerRef): void
     {
-        DB::transaction(function () use ($payment, $providerRef) {
+        $order = null;
+        $activatedSubscription = null;
+
+        DB::transaction(function () use ($payment, $providerRef, &$order, &$activatedSubscription) {
             $payment->update([
                 'status' => 'paid',
                 'provider_ref' => $providerRef ?? $payment->provider_ref,
@@ -201,14 +207,29 @@ class PaymentService
 
             $subscription = Subscription::where('payment_id', $payment->id)->first();
             if ($subscription && $subscription->status === 'pending') {
-                $this->activateSubscription($subscription);
+                $activatedSubscription = $this->activateSubscription($subscription);
             }
         });
 
-        $this->notifyAdmin($payment);
+        try {
+            $this->notifyAdmin($payment);
+
+            if ($order && $order->status === 'completed') {
+                $payment->user?->notify(new TopupReceiptNotification($payment, $order));
+            }
+
+            if ($activatedSubscription) {
+                $payment->user?->notify(new SubscriptionActivatedNotification($activatedSubscription));
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Gagal mengirim email notifikasi pembayaran.', [
+                'invoice' => $payment->invoice_number,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
-    private function activateSubscription(Subscription $subscription): void
+    private function activateSubscription(Subscription $subscription): Subscription
     {
         $active = Subscription::where('user_id', $subscription->user_id)
             ->where('status', 'active')
@@ -222,13 +243,17 @@ class PaymentService
                 'price' => (int) $active->price + $subscription->price,
             ]);
             $subscription->delete();
-        } else {
-            $subscription->update([
-                'status' => 'active',
-                'starts_at' => now(),
-                'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
-            ]);
+
+            return $active->fresh();
         }
+
+        $subscription->update([
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
+        ]);
+
+        return $subscription->fresh();
     }
 
     private function redeemCoupon(TopupOrder $order): void

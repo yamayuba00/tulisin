@@ -167,7 +167,15 @@ async function subscribe() {
             toast(res.data?.error || 'Gagal berlangganan. Coba lagi.', 'error');
             return;
         }
-        toast(res.data?.message || 'Langganan berhasil diaktifkan.', 'success');
+
+        const payment = res.data?.payment;
+        toast(res.data?.message || 'Silakan selesaikan pembayaran QRIS.', 'success');
+
+        if (payment?.payment_url) {
+            window.location.href = payment.payment_url;
+            return;
+        }
+
         await loadSubscription();
     } catch (e) {
         toast(e.message || 'Gagal berlangganan.', 'error');

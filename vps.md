@@ -431,6 +431,8 @@ tertangani oleh aplikasi.
 Pastikan `MAIL_*` di `.env` sudah benar. Email yang dikirim:
 - Verifikasi email (registrasi) — tautan berlaku 12 jam
 - Reset password — token berlaku 12 jam
+- Struk pembelian koin (ke user setelah topup lunas)
+- Langganan aktif/diperpanjang (ke user)
 - Reminder langganan (5 hari sebelum habis)
 - Notifikasi pembelian ke admin
 - Email blast promo ke user
@@ -443,6 +445,8 @@ Template email (Blade) ada di `resources/views/emails/`:
 - `layout.blade.php` — bungkus umum + footer "Best Regards, Tim Tulisin"
 - `verify-email.blade.php` — tombol verifikasi
 - `reset-password.blade.php` — tombol reset password
+- `topup-receipt.blade.php` — struk pembelian koin
+- `subscription-activated.blade.php` — langganan aktif
 
 ---
 
