@@ -1158,12 +1158,11 @@ onMounted(async () => {
     window.addEventListener('beforeunload', flushSave);
     document.addEventListener('keydown', onGlobalKeydown);
 
-    // Utamakan cache lokal (cepat + tetap berfungsi offline). Bila kosong —
-    // misalnya login dari perangkat/browser baru — ambil dari server supaya
-    // data yang tersimpan di database tidak tampak "hilang".
-    let loaded = loadProjectSettings();
+    // Database adalah sumber kebenaran. Muat dari server dulu; localStorage
+    // hanya dipakai sebagai cadangan bila server tidak bisa dihubungi (offline).
+    let loaded = await loadProjectFromServer();
     if (!loaded) {
-        loaded = await loadProjectFromServer();
+        loaded = loadProjectSettings();
     }
     if (!loaded) {
         openSetup();
