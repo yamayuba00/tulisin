@@ -30,7 +30,23 @@ class ChatController extends Controller
             return response()->json(['error' => 'Gagal menghubungi AI. Coba lagi.'], 502);
         }
 
-        return response()->json(['reply' => $reply]);
+        return response()->json(['reply' => $this->cleanReply($reply)]);
+    }
+
+    /**
+     * Buang penanda markdown (bold/italic/heading/kode) agar tampil sebagai
+     * teks biasa di chatbox (UI tidak merender markdown).
+     */
+    private function cleanReply(string $text): string
+    {
+        $text = str_replace(['**', '__', '`', '###', '##', '#'], '', $text);
+
+        // Sisa tanda bintang/tanda hubung untuk bullet, dan spasi ganda.
+        $text = preg_replace('/^[-*]\s+/m', '• ', $text);
+        $text = str_replace('*', '', $text);
+        $text = preg_replace('/\s*\n{3,}\s*/', "\n\n", $text);
+
+        return trim($text);
     }
 
     /**
@@ -55,8 +71,9 @@ Anda adalah Asisten Tulisin, asisten virtual untuk Tulisin — platform Agent Do
 
 Tugas Anda:
 1. Jawab pertanyaan pengunjung seputar Tulisin: fitur, cara kerja, paket/langganan, harga, topup koin, dan penggunaan aplikasi.
-2. Jawab dengan bahasa Indonesia yang jelas, ringkas, dan ramah.
+2. Jawab dengan bahasa yang digunakan pengguna (default bahasa Indonesia), jelas, ringkas, dan ramah.
 3. Tetap dalam konteks Tulisin (akademik & penulisan dokumen). Jika pertanyaan di luar konteks, sampaikan dengan sopan bahwa Anda hanya bisa membantu seputar Tulisin, lalu arahkan kembali ke topik Tulisin.
+4. Jika berguna, akhiri jawaban dengan 1-3 saran pertanyaan lanjutan yang relevan agar pengguna bisa langsung menanyakannya.
 
 Informasi terkini (wajib dipakai bila relevan):
 - Harga langganan bulanan: Rp {$subscriptionPrice} / 30 hari.
@@ -72,6 +89,7 @@ PROMPT;
 
 Batasan penting:
 - Anda TIDAK mengubah, mengedit, atau menghapus data/dokumen apa pun. Anda hanya menjawab pertanyaan.
+- Jangan gunakan markdown untuk memformat teks (jangan pakai ** untuk tebal, * untuk miring, # untuk judul, atau ` untuk kode). Tulis jawaban sebagai teks biasa.
 - Jangan mengarang harga atau fitur yang tidak tercantum. Jika ragu, sarankan pengunjung membuka halaman Topup atau menghubungi tim.
 - Jangan membahas topik di luar Tulisin.
 PROMPT;
