@@ -1147,7 +1147,7 @@ function onGlobalKeydown(e) {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
     if (workspaceView.value) return;
     ensureBuilderQuery();
     registerAllCustomFonts();
@@ -1157,7 +1157,14 @@ onMounted(() => {
     window.addEventListener('resize', onWindowResize);
     window.addEventListener('beforeunload', flushSave);
     document.addEventListener('keydown', onGlobalKeydown);
-    const loaded = loadProjectSettings();
+
+    // Utamakan cache lokal (cepat + tetap berfungsi offline). Bila kosong —
+    // misalnya login dari perangkat/browser baru — ambil dari server supaya
+    // data yang tersimpan di database tidak tampak "hilang".
+    let loaded = loadProjectSettings();
+    if (!loaded) {
+        loaded = await loadProjectFromServer();
+    }
     if (!loaded) {
         openSetup();
     }
@@ -2559,6 +2566,38 @@ function loadProjectSettings() {
             isLoading = false;
         });
     }
+}
+
+// Muat dokumen langsung dari server (GET /api/projects/{uuid}) saat cache
+// lokal kosong. Dipakai sebagai fallback setelah loadProjectSettings() gagal.
+async function loadProjectFromServer() {
+    if (!projectId.value) return false;
+
+    let data;
+    try {
+        data = await getJson(`/api/projects/${encodeURIComponent(projectId.value)}`);
+    } catch {
+        return false;
+    }
+
+    const payload = data?.payload && typeof data.payload === 'object' ? data.payload : null;
+    if (!payload) return false;
+
+    isLoading = true;
+    applyProjectData(payload);
+    if (typeof data.version === 'number') docVersion.value = data.version;
+
+    // Cache ke localStorage agar pembukaan berikutnya cepat & offline-safe.
+    try {
+        localStorage.setItem(storageKey.value, JSON.stringify({ ...payload, version: docVersion.value }));
+    } catch {
+        // abaikan jika localStorage tidak tersedia / penuh
+    }
+
+    nextTick(() => {
+        isLoading = false;
+    });
+    return true;
 }
 
 function openSetup(mode = 'setup') {
