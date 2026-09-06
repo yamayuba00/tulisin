@@ -154,6 +154,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // ---- Project / Builder (payload dokumen disimpan sebagai JSONB di PostgreSQL) ----
 Route::middleware('auth:sanctum')->prefix('projects')->group(function () {
+    Route::get('/', [ProjectController::class, 'index']);
     Route::get('/{uuid}', [ProjectController::class, 'show']);
     Route::put('/{uuid}', [ProjectController::class, 'save']);
     Route::delete('/{uuid}', [ProjectController::class, 'destroy']);

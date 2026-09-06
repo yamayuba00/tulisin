@@ -16,7 +16,6 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import StatCard from '../../components/StatCard.vue';
 import AppButton from '../../components/AppButton.vue';
-import { listProjects } from '../../utils/projectIndex';
 import { getJson } from '../../utils/http';
 import { useAuth } from '../../utils/auth';
 import { formatDate } from '../../utils/format';
@@ -57,7 +56,12 @@ function reasonLabel(reason) {
 }
 
 async function loadData() {
-    projects.value = listProjects();
+    try {
+        const data = await getJson('/api/projects');
+        projects.value = Array.isArray(data?.projects) ? data.projects : [];
+    } catch {
+        projects.value = [];
+    }
     try {
         const data = await getJson('/api/wallet');
         balance.value = data.balance ?? 0;

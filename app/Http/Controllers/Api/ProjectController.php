@@ -10,6 +10,25 @@ use Illuminate\Http\Request;
 class ProjectController extends Controller
 {
     /**
+     * Daftar dokumen milik pengguna yang sedang login (untuk halaman Projects).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $projects = Project::where('user_id', $request->user()->id)
+            ->orderByDesc('updated_at')
+            ->get()
+            ->map(fn (Project $p) => [
+                'id' => $p->uuid,
+                'name' => $p->title,
+                'category' => $p->category,
+                'lastEdited' => $p->updated_at ? (int) $p->updated_at->valueOf() : null,
+                'blocks' => data_get($p->payload, 'blocks', []),
+            ]);
+
+        return response()->json(['projects' => $projects]);
+    }
+
+    /**
      * Ambil dokumen milik pengguna yang sedang login.
      */
     public function show(Request $request, string $uuid): JsonResponse

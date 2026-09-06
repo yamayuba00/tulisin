@@ -5,18 +5,31 @@ import { FileText, Trash2, Clock, Plus } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import AppButton from '../../components/AppButton.vue';
-import { listProjects, removeProject, getProjectPreview } from '../../utils/projectIndex';
+import { buildProjectPreview } from '../../utils/projectIndex';
+import { getJson, request } from '../../utils/http';
 import { formatDate } from '../../utils/format';
 
 const router = useRouter();
 const projects = ref([]);
 const deleteTarget = ref(null);
+const loading = ref(false);
 
-function refresh() {
-    projects.value = listProjects().map((p) => ({
-        ...p,
-        preview: (Array.isArray(p.preview) && p.preview.length) ? p.preview : getProjectPreview(p.id),
-    }));
+async function refresh() {
+    loading.value = true;
+    try {
+        const data = await getJson('/api/projects');
+        const list = Array.isArray(data?.projects) ? data.projects : [];
+        projects.value = list
+            .map((p) => ({
+                ...p,
+                preview: buildProjectPreview(Array.isArray(p.blocks) ? p.blocks : []),
+            }))
+            .sort((a, b) => (Number(b.lastEdited) || 0) - (Number(a.lastEdited) || 0));
+    } catch {
+        projects.value = [];
+    } finally {
+        loading.value = false;
+    }
 }
 
 onMounted(refresh);
@@ -34,10 +47,15 @@ function remove(id) {
     deleteTarget.value = id;
 }
 
-function confirmDelete() {
+async function confirmDelete() {
     if (!deleteTarget.value) return;
-    removeProject(deleteTarget.value);
+    const id = deleteTarget.value;
     deleteTarget.value = null;
+    try {
+        await request(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    } catch {
+        // abaikan; refresh tetap dijalankan
+    }
     refresh();
 }
 
@@ -58,7 +76,7 @@ function cancelDelete() {
         </PageHeader>
 
         <EmptyState
-            v-if="projects.length === 0"
+            v-if="!loading && projects.length === 0"
             title="Belum ada project"
             description="Buat project pertamamu dan mulai menyusun dokumen dengan AI."
         >
