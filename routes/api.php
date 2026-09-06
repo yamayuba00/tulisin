@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy'])->middleware('permission:coupons.manage');
 
     Route::post('/email-blast', [NotificationController::class, 'emailBlast'])->middleware('permission:notifications.manage');
+    Route::get('/email-broadcasts', [NotificationController::class, 'emailBroadcasts'])->middleware('permission:notifications.manage');
     Route::get('/broadcast-recipients', [NotificationController::class, 'broadcastRecipients'])->middleware('permission:notifications.manage');
     Route::post('/blast-images', [NotificationController::class, 'uploadBlastImage'])->middleware('permission:notifications.manage');
 });

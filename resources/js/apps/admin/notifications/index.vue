@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { Send, Users, Search, Mail, PenLine, Eye } from 'lucide-vue-next';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { Send, Users, Search, Mail, PenLine, Eye, History, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import PageHeader from '../../../components/PageHeader.vue';
 import AppButton from '../../../components/AppButton.vue';
 import RichTextEditor from './components/RichTextEditor.vue';
@@ -18,6 +18,12 @@ const recipients = ref([]);
 const sendToAll = ref(true);
 const selectedIds = ref([]);
 const recipientSearch = ref('');
+
+const broadcasts = ref([]);
+const broadcastMeta = ref({ current_page: 1, last_page: 1, total: 0 });
+const broadcastPage = ref(1);
+const broadcastLoading = ref(false);
+let pollTimer = null;
 
 const filteredRecipients = computed(() => {
     const q = recipientSearch.value.trim().toLowerCase();
@@ -46,6 +52,13 @@ onMounted(async () => {
     } finally {
         loadingRecipients.value = false;
     }
+
+    loadBroadcasts(1);
+    startPolling();
+});
+
+onBeforeUnmount(() => {
+    stopPolling();
 });
 
 function validBroadcast() {
@@ -84,10 +97,83 @@ async function sendBroadcast() {
         subject.value = '';
         title.value = '';
         message.value = '';
+        loadBroadcasts(1);
     } catch (e) {
         toast(e.message, 'error');
     } finally {
         sending.value = false;
+    }
+}
+
+function statusLabel(status) {
+    return (
+        {
+            queued: 'Mengantri',
+            processing: 'Diproses',
+            completed: 'Berhasil',
+            partial: 'Sebagian gagal',
+            failed: 'Gagal',
+        }[status] || status
+    );
+}
+
+function statusClass(status) {
+    return (
+        {
+            queued: 'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-950/40 dark:text-amber-400 dark:ring-amber-500/20',
+            processing: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-950/40 dark:text-blue-400 dark:ring-blue-500/20',
+            completed: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/40 dark:text-emerald-400 dark:ring-emerald-500/20',
+            partial: 'bg-orange-50 text-orange-700 ring-orange-600/20 dark:bg-orange-950/40 dark:text-orange-400 dark:ring-orange-500/20',
+            failed: 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-500/20',
+        }[status] || 'bg-neutral-50 text-neutral-700 ring-neutral-600/20 dark:bg-neutral-900 dark:text-neutral-300 dark:ring-neutral-700'
+    );
+}
+
+function formatTime(iso) {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+async function loadBroadcasts(page = broadcastPage.value) {
+    broadcastLoading.value = true;
+    try {
+        const data = await getJson(`/api/admin/email-broadcasts?page=${page}&per_page=10`);
+        broadcasts.value = data.data || [];
+        broadcastMeta.value = {
+            current_page: data.current_page || 1,
+            last_page: data.last_page || 1,
+            total: data.total || 0,
+        };
+        broadcastPage.value = data.current_page || 1;
+    } catch (e) {
+        toast(e.message, 'error');
+    } finally {
+        broadcastLoading.value = false;
+    }
+}
+
+function changePage(page) {
+    if (page < 1 || page > broadcastMeta.value.last_page) return;
+    loadBroadcasts(page);
+}
+
+function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(() => {
+        loadBroadcasts(broadcastPage.value);
+    }, 60000);
+}
+
+function stopPolling() {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
     }
 }
 </script>
@@ -275,6 +361,96 @@ async function sendBroadcast() {
                     <div class="border-t border-neutral-200 bg-neutral-50 px-6 py-4 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
                         <p class="mb-1">Best Regards,</p>
                         <p class="font-semibold text-neutral-700 dark:text-neutral-200">Tim Tulisin</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Riwayat Broadcast -->
+        <div class="mt-8">
+            <div class="mb-3 flex items-center justify-between">
+                <span class="flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                    <span class="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900">
+                        <History class="h-3.5 w-3.5" />
+                    </span>
+                    Riwayat Email
+                </span>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-neutral-400">Auto-refresh 1 menit</span>
+                    <button
+                        type="button"
+                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        @click="loadBroadcasts(broadcastPage)"
+                    >
+                        <RefreshCw class="h-3.5 w-3.5" :class="{ 'animate-spin': broadcastLoading }" />
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">ID</th>
+                                <th class="px-4 py-3 font-medium">Subjek</th>
+                                <th class="px-4 py-3 font-medium">Penerima</th>
+                                <th class="px-4 py-3 font-medium">Terkirim</th>
+                                <th class="px-4 py-3 font-medium">Gagal</th>
+                                <th class="px-4 py-3 font-medium">Status</th>
+                                <th class="px-4 py-3 font-medium">Waktu</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            <tr v-if="broadcastLoading && broadcasts.length === 0">
+                                <td colspan="7" class="px-4 py-10 text-center text-neutral-400">Memuat…</td>
+                            </tr>
+                            <tr v-else-if="broadcasts.length === 0">
+                                <td colspan="7" class="px-4 py-10 text-center text-neutral-400">Belum ada email yang dikirim.</td>
+                            </tr>
+                            <tr v-for="b in broadcasts" :key="b.id" class="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+                                <td class="px-4 py-3 text-neutral-500">#{{ b.id }}</td>
+                                <td class="max-w-[260px] px-4 py-3">
+                                    <p class="truncate font-medium text-neutral-800 dark:text-neutral-100">{{ b.subject }}</p>
+                                    <p v-if="b.title" class="truncate text-xs text-neutral-400">{{ b.title }}</p>
+                                </td>
+                                <td class="px-4 py-3 text-neutral-600 dark:text-neutral-300">{{ b.recipients_total }}</td>
+                                <td class="px-4 py-3 text-emerald-600 dark:text-emerald-400">{{ b.processed - b.failed }}</td>
+                                <td class="px-4 py-3 text-red-600 dark:text-red-400">{{ b.failed }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset" :class="statusClass(b.status)">
+                                        {{ statusLabel(b.status) }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-xs text-neutral-500 dark:text-neutral-400">{{ formatTime(b.created_at) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div v-if="broadcastMeta.last_page > 1" class="flex items-center justify-between border-t border-neutral-200 px-4 py-3 dark:border-neutral-800">
+                    <p class="text-xs text-neutral-400">
+                        Total {{ broadcastMeta.total }} email · Halaman {{ broadcastMeta.current_page }} / {{ broadcastMeta.last_page }}
+                    </p>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            :disabled="broadcastMeta.current_page <= 1"
+                            class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            @click="changePage(broadcastMeta.current_page - 1)"
+                        >
+                            <ChevronLeft class="h-3.5 w-3.5" /> Sebelumnya
+                        </button>
+                        <button
+                            type="button"
+                            :disabled="broadcastMeta.current_page >= broadcastMeta.last_page"
+                            class="inline-flex cursor-pointer items-center gap-1 rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            @click="changePage(broadcastMeta.current_page + 1)"
+                        >
+                            Berikutnya <ChevronRight class="h-3.5 w-3.5" />
+                        </button>
                     </div>
                 </div>
             </div>
