@@ -59,6 +59,10 @@ class PdfExportController extends Controller
 
         $base = 'export_'.uniqid('', true);
         $profileDir = $dir.DIRECTORY_SEPARATOR.'profile_'.$base;
+        $homeDir = $dir.DIRECTORY_SEPARATOR.'home_'.$base;
+        if (! is_dir($homeDir)) {
+            mkdir($homeDir, 0777, true);
+        }
         $mergedPath = $dir.DIRECTORY_SEPARATOR.$base.'.pdf';
         $pdfPaths = [];
 
@@ -70,7 +74,7 @@ class PdfExportController extends Controller
 
             foreach ($chunks as $index => $chunk) {
                 $doc = $head === '' ? $chunk[0] : $this->buildDocument($head, $chunk);
-                $pdf = $this->renderHtml($bin, $dir, $base, $profileDir, $doc, $index);
+                $pdf = $this->renderHtml($bin, $dir, $base, $profileDir, $homeDir, $doc, $index);
                 if ($pdf === null) {
                     $detail = $this->lastChromeError !== ''
                         ? ': '.$this->lastChromeError
@@ -101,6 +105,7 @@ class PdfExportController extends Controller
             }
             @unlink($mergedPath);
             remove_tree($profileDir);
+            remove_tree($homeDir);
         }
     }
 
@@ -115,7 +120,7 @@ class PdfExportController extends Controller
     /**
      * Render satu dokumen HTML menjadi PDF via Chrome headless.
      */
-    private function renderHtml(string $bin, string $dir, string $base, string $profileDir, string $doc, int $index): ?string
+    private function renderHtml(string $bin, string $dir, string $base, string $profileDir, string $homeDir, string $doc, int $index): ?string
     {
         $suffix = str_pad((string) $index, 4, '0', STR_PAD_LEFT);
         $htmlPath = $dir.DIRECTORY_SEPARATOR.$base.'_'.$suffix.'.html';
@@ -140,12 +145,12 @@ class PdfExportController extends Controller
             $fileUrl,
         ];
 
-        $this->runChrome($args);
+        $this->runChrome($args, $homeDir);
 
         // Fallback untuk Chrome lama yang belum mengenali `--headless=new`.
         if (! is_file($pdfPath)) {
             $args[1] = '--headless';
-            $this->runChrome($args);
+            $this->runChrome($args, $homeDir);
         }
 
         @unlink($htmlPath);
@@ -157,10 +162,21 @@ class PdfExportController extends Controller
      * Jalankan Chrome headless. Bila proses terhenti oleh sinyal/timeout,
      * biarkan pemanggil yang memeriksa keberadaan file PDF hasilnya.
      */
-    private function runChrome(array $args): void
+    private function runChrome(array $args, string $homeDir): void
     {
         $process = new Process($args);
         $process->setTimeout(120);
+        // Chrome menulis direktori XDG (`.local`, `.config`, `.cache`) ke $HOME.
+        // Di VPS, HOME user PHP-FPM (www-data) = /var/www yang tidak boleh ditulis,
+        // sehingga muncul "mkdir /var/www/.local: Permission denied". Arahkan HOME
+        // ke folder sementara yang bisa ditulis agar render tidak gagal.
+        $process->setEnv([
+            'HOME' => $homeDir,
+            'XDG_CONFIG_HOME' => $homeDir.DIRECTORY_SEPARATOR.'.config',
+            'XDG_CACHE_HOME' => $homeDir.DIRECTORY_SEPARATOR.'.cache',
+            'XDG_DATA_HOME' => $homeDir.DIRECTORY_SEPARATOR.'.local'.DIRECTORY_SEPARATOR.'share',
+        ]);
+
         try {
             $process->run();
         } catch (ProcessRuntimeException $e) {
