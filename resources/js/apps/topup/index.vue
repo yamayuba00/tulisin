@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Loader2, Check, Coins, Ticket, BadgeCheck } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
