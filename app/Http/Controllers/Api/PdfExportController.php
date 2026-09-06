@@ -17,6 +17,9 @@ class PdfExportController extends Controller
      */
     private const BATCH_SIZE = 5;
 
+    /** Pesan error terakhir dari Chrome (untuk diagnostik saat render gagal). */
+    private string $lastChromeError = '';
+
     /**
      * Render dokumen menjadi PDF secara ter-batch, lalu gabungkan kembali.
      *
@@ -69,8 +72,11 @@ class PdfExportController extends Controller
                 $doc = $head === '' ? $chunk[0] : $this->buildDocument($head, $chunk);
                 $pdf = $this->renderHtml($bin, $dir, $base, $profileDir, $doc, $index);
                 if ($pdf === null) {
+                    $detail = $this->lastChromeError !== ''
+                        ? ': '.$this->lastChromeError
+                        : '';
                     return response()->json([
-                        'error' => 'Gagal membuat PDF pada bagian '.($index + 1).'.',
+                        'error' => 'Gagal membuat PDF pada bagian '.($index + 1).$detail,
                     ], 500);
                 }
                 $pdfPaths[] = $pdf;
@@ -159,6 +165,17 @@ class PdfExportController extends Controller
             $process->run();
         } catch (ProcessRuntimeException $e) {
             // Proses terhenti oleh sinyal/timeout (mis. SIGTRAP). Diabaikan di sini.
+            $this->lastChromeError = 'proses terhenti: '.$e->getMessage();
+        }
+
+        $error = trim($process->getErrorOutput());
+        if ($error !== '') {
+            $this->lastChromeError = $error;
+        } else {
+            $out = trim($process->getOutput());
+            if ($out !== '') {
+                $this->lastChromeError = $out;
+            }
         }
     }
 

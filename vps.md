@@ -91,10 +91,21 @@ sudo apt install -y nodejs
 #   sudo apt install -y nodejs
 #   sudo npm install -g npm@12
 
-# Chromium (untuk fitur export PDF via headless browser)
-sudo apt install -y chromium
-# Jika binary terdeteksi di path berbeda, set di .env:
-# CHROME_BIN=/usr/bin/chromium
+# Google Chrome asli (untuk fitur export PDF via headless browser).
+# PENTING: JANGAN `sudo apt install -y chromium` di Ubuntu — itu hanya wrapper Snap
+# yang GAGAL dijalankan oleh PHP-FPM (error: "cannot join mount namespace",
+# "cannot create snap home dir", "xdg-settings not found").
+sudo curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+sudo apt update
+sudo apt install -y google-chrome-stable
+
+# Alat penggabung PDF (agar export ter-chunk lalu digabung, lebih ringan)
+sudo apt install -y poppler-utils
+
+# Binary Chrome otomatis terdeteksi di /usr/bin/google-chrome(-stable).
+# Bila perlu set eksplisit di .env:
+# CHROME_BIN=/usr/bin/google-chrome
 ```
 
 ---
