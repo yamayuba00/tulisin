@@ -10,9 +10,10 @@ class DeepSeek
      * Kirim percakapan ke DeepSeek (OpenAI-compatible) dan kembalikan isi balasan.
      *
      * @param  bool  $json  aktifkan mode JSON (response_format json_object).
+     * @param  float  $temperature  kreativitas balasan (0 = deterministik, 1 = bebas).
      * @return string|null  isi balasan, atau null bila gagal.
      */
-    public function chat(string $system, string $user, bool $json = false): ?string
+    public function chat(string $system, string $user, bool $json = false, float $temperature = 0.7): ?string
     {
         $payload = [
             'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
@@ -20,7 +21,7 @@ class DeepSeek
                 ['role' => 'system', 'content' => $system],
                 ['role' => 'user', 'content' => $user],
             ],
-            'temperature' => $json ? 0 : 0.7,
+            'temperature' => $json ? 0 : $temperature,
         ];
 
         if ($json) {
