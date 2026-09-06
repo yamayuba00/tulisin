@@ -943,7 +943,7 @@ function setCanvasEl(el) {
 }
 
 function isPageBreakType(type) {
-    return ['cover', 'abstract', 'toc', 'listTables', 'listFigures', 'references', 'chapter', 'pageBreak'].includes(type);
+    return ['cover', 'abstract', 'toc', 'listTables', 'listFigures', 'references', 'blankPage', 'chapter', 'pageBreak'].includes(type);
 }
 
 function measureAndPaginate() {

@@ -2,13 +2,15 @@
 import { ref, onMounted } from 'vue';
 import { X, Upload, Image as ImageIcon, Coins } from 'lucide-vue-next';
 import { listImages, addImage, getImageUsage, recordImageUse } from '../../../utils/imageLibrary';
-import { request } from '../../../utils/http';
+import { request, ensureCsrf } from '../../../utils/http';
 import { toast } from '../../../utils/toast';
-import { creditPricing, imageCostPerItem } from '../../../utils/creditPricing';
+import { creditPricing, imageCostPerItem, loadCreditPricing } from '../../../utils/creditPricing';
 
 const open = defineModel('open', { type: Boolean, default: false });
 
 const emit = defineEmits(['select', 'close']);
+
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 
 const images = ref([]);
 const uploading = ref(false);
@@ -20,7 +22,10 @@ async function refresh() {
     usage.value = getImageUsage();
 }
 
-onMounted(refresh);
+onMounted(() => {
+    loadCreditPricing();
+    refresh();
+});
 
 function openUpload() {
     fileInput.value?.click();
@@ -30,8 +35,16 @@ async function onFileChange(e) {
     const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
     e.target.value = '';
     if (!files.length) return;
+
+    const oversized = files.filter((f) => f.size > MAX_IMAGE_SIZE);
+    if (oversized.length) {
+        toast(`Gagal mengunggah ${oversized.length} gambar melebihi 2 MB.`, 'error');
+        return;
+    }
+
     uploading.value = true;
     try {
+        await ensureCsrf();
         const credits = files.length * imageCostPerItem();
         const res = await request('/api/wallet/spend', {
             method: 'POST',
@@ -94,6 +107,8 @@ function formatSize(bytes) {
                     {{ creditPricing.image_package_size }} gambar = {{ creditPricing.image_package_credits }} koin
                     ({{ imageCostPerItem() }} koin/gambar)
                 </span>
+                <span class="text-neutral-300 dark:text-neutral-600">•</span>
+                <span>Maks. 2 MB/gambar</span>
                 <span class="text-neutral-300 dark:text-neutral-600">•</span>
                 <span>Terpakai: {{ usage.used }} gambar · {{ usage.creditsSpent }} koin</span>
             </div>

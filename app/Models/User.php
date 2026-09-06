@@ -55,7 +55,14 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function hasActiveSubscription(): bool
     {
-        return $this->subscription?->isActive() ?? false;
+        // Cek keberadaan langganan aktif apa pun, bukan hanya yang terbaru.
+        // (Subscription "pending" hasil perpanjangan tidak boleh menutupi
+        // langganan aktif yang sudah ada.)
+        return Subscription::query()
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->exists();
     }
 
     public function permissions(): BelongsToMany
