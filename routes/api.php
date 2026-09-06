@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaperController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PdfExportController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectAiResultController;
 use App\Http\Controllers\Api\SharedDocumentController;
@@ -19,9 +20,7 @@ use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WorkspaceController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Symfony\Component\Process\Process;
 
 Route::get('/ping', fn () => response()->json(['message' => 'pong']));
 
@@ -186,95 +185,6 @@ Route::middleware('auth:sanctum')->prefix('media')->group(function () {
     Route::delete('/{id}', [MediaController::class, 'destroy']);
 });
 
-// Render HTML (dari preview) menjadi PDF via Chrome/Edge/Chromium headless
-// tanpa package tambahan. Mendukung Windows, Linux (VPS), dan macOS.
-Route::middleware('auth:sanctum')->post('/export/pdf', function (Request $request) {
-    if (! $request->user()->hasActiveSubscription()) {
-        return response()->json(['error' => 'Download PDF memerlukan langganan aktif.'], 402);
-    }
-
-    $html = (string) $request->input('html', '');
-    if ($html === '') {
-        return response()->json(['error' => 'Konten dokumen kosong.'], 422);
-    }
-
-    $bin = find_chromium_binary();
-    if ($bin === null) {
-        return response()->json(['error' => 'Chrome/Edge/Chromium tidak ditemukan di sistem.'], 500);
-    }
-
-    $dir = storage_path('app/export');
-    if (! is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    $base = 'export_'.uniqid('', true);
-    $htmlPath = $dir.DIRECTORY_SEPARATOR.$base.'.html';
-    $pdfPath = $dir.DIRECTORY_SEPARATOR.$base.'.pdf';
-    $profileDir = $dir.DIRECTORY_SEPARATOR.'profile_'.$base;
-
-    file_put_contents($htmlPath, $html);
-
-    $fileUrl = 'file:///'.ltrim(str_replace('\\', '/', $htmlPath), '/');
-
-    $run = function (array $args) use ($pdfPath): Process {
-        $process = new Process($args);
-        $process->setTimeout(120);
-        try {
-            $process->run();
-        } catch (\Symfony\Component\Process\Exception\ProcessFailedException $e) {
-            // Proses terhenti oleh sinyal/timeout (mis. Chrome crash dengan SIGTRAP).
-            // Biarkan pengecekan isSuccessful()/getErrorOutput() di bawah yang menangani
-            // agar API mengembalikan pesan error bersih, bukan HTTP 500.
-        }
-
-        return $process;
-    };
-
-    $baseArgs = [
-        $bin,
-        '--headless=new',
-        '--disable-gpu',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--no-zygote',
-        '--disable-crash-reporter',
-        '--hide-scrollbars',
-        '--no-pdf-header-footer',
-        '--virtual-time-budget=10000',
-        '--user-data-dir='.$profileDir,
-        '--print-to-pdf='.$pdfPath,
-        $fileUrl,
-    ];
-
-    $process = $run($baseArgs);
-
-    // Fallback untuk Chrome lama yang belum mengenali `--headless=new`.
-    if (! is_file($pdfPath) || ! $process->isSuccessful()) {
-        $baseArgs[1] = '--headless';
-        $process = $run($baseArgs);
-    }
-
-    @unlink($htmlPath);
-
-    if (! is_file($pdfPath)) {
-        remove_tree($profileDir);
-
-        return response()->json([
-            'error' => 'Gagal membuat PDF: '.trim($process->getErrorOutput()),
-        ], 500);
-    }
-
-    $content = file_get_contents($pdfPath);
-    @unlink($pdfPath);
-    remove_tree($profileDir);
-
-    // Catat aktivitas ekspor ke log audit (riwayat).
-    record_audit($request, 'export_pdf', [
-        'project' => $request->input('project', null),
-        'format' => $request->input('format', 'pdf'),
-        'html_length' => strlen($html),
-    ]);
-
-    return response($content, 200, ['Content-Type' => 'application/pdf']);
-});
+// Render HTML (dari preview) menjadi PDF via Chrome/Edge/Chromium headless.
+// Dokumen di-chunk per halaman lalu digabung kembali (lihat PdfExportController).
+Route::middleware('auth:sanctum')->post('/export/pdf', [PdfExportController::class, 'store']);

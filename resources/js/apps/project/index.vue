@@ -2760,18 +2760,21 @@ async function exportPdf(scope, sectionName) {
         '.print-page:last-child{page-break-after:auto}',
         '.print-page .editor:empty::before, .print-page .section-title.editable-title:empty::before{content:none !important}',
     ].join('\n');
-    const doc = [
-        '<!doctype html><html><head><meta charset="utf-8">',
+    const head = [
+        '<meta charset="utf-8">',
         '<style>',
         css,
         '</style>',
         '<style>',
         printCss,
         '</style>',
-        '</head><body>',
-        printEl.outerHTML,
-        '</body></html>',
     ].join('');
+
+    const pages = Array.from(printEl.querySelectorAll('.print-page')).map((el) => el.outerHTML);
+    if (!pages.length) {
+        showToast('Dokumen belum siap dicetak.');
+        return false;
+    }
 
     try {
         // Pastikan cookie CSRF tersedia, lalu sertakan tokennya — endpoint POST
@@ -2785,7 +2788,7 @@ async function exportPdf(scope, sectionName) {
             method: 'POST',
             credentials: 'include',
             headers,
-            body: JSON.stringify({ html: doc, project: projectId.value || null, format: 'pdf' }),
+            body: JSON.stringify({ head, pages, project: projectId.value || null, format: 'pdf' }),
         });
         if (!res.ok) {
             const data = await res.json().catch(() => null);
