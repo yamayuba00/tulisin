@@ -53,8 +53,8 @@ class SumoPodProvider implements PaymentProvider
         $data = $response->json() ?? [];
 
         return [
-            'provider_ref' => $data['id'] ?? $data['payment_id'] ?? $data['order_id'] ?? null,
-            'payment_url' => $data['payment_url'] ?? $data['checkout_url'] ?? $data['pay_url'] ?? $data['url'] ?? null,
+            'provider_ref' => $data['payment_id'] ?? $data['id'] ?? $data['order_id'] ?? null,
+            'payment_url' => $data['payment_link_url'] ?? $data['payment_url'] ?? $data['checkout_url'] ?? $data['pay_url'] ?? $data['url'] ?? null,
             'qr_payload' => $data['qr_code'] ?? $data['qr_string'] ?? $data['qr_content'] ?? $data['qr_payload'] ?? null,
             'raw' => $data,
         ];
@@ -67,11 +67,17 @@ class SumoPodProvider implements PaymentProvider
      */
     public function parseWebhook(Request $request): array
     {
-        $data = $request->all();
+        $payload = $request->all();
 
-        $rawStatus = strtolower((string) ($data['status'] ?? $data['payment_status'] ?? ''));
+        // SumoPod membungkus isi event di "data", dengan "event_type" di level atas.
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+        $eventType = (string) ($payload['event_type'] ?? '');
+        $rawStatus = strtolower((string) ($data['status'] ?? ''));
 
         $status = match (true) {
+            $eventType === 'payment.completed' => 'paid',
+            $eventType === 'payment.failed' => 'failed',
+            $eventType === 'payment.expired' => 'expired',
             in_array($rawStatus, ['paid', 'success', 'completed', 'settled'], true) => 'paid',
             in_array($rawStatus, ['failed', 'failure', 'cancelled', 'canceled'], true) => 'failed',
             $rawStatus === 'expired' => 'expired',
@@ -82,7 +88,7 @@ class SumoPodProvider implements PaymentProvider
             'invoice_number' => (string) ($data['order_id'] ?? $data['invoice_number'] ?? $data['reference'] ?? ''),
             'provider_ref' => $data['payment_id'] ?? $data['id'] ?? null,
             'status' => $status,
-            'raw' => $data,
+            'raw' => $payload,
         ];
     }
 
