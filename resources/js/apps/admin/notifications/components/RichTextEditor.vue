@@ -287,18 +287,10 @@ function openImagePicker() {
     fileInput.value?.click();
 }
 
-async function onImageFileChange(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) {
-        replacingImage.value = false;
-        return;
-    }
-
+async function uploadImageFile(file) {
     if (file.size > MAX_IMAGE_SIZE) {
-        replacingImage.value = false;
         toast('Ukuran gambar melebihi 2 MB.', 'error');
-        return;
+        return null;
     }
 
     uploading.value = true;
@@ -307,27 +299,73 @@ async function onImageFileChange(e) {
         form.append('file', file);
         const res = await request('/api/admin/blast-images', { method: 'POST', body: form });
         if (!res.ok) {
-            replacingImage.value = false;
             toast(res.data?.error || 'Gagal mengunggah gambar.', 'error');
-            return;
+            return null;
         }
-        const url = res.data?.url;
-        if (!url) return;
-
-        if (replacingImage.value && currentImage.value) {
-            currentImage.value.src = url;
-            replacingImage.value = false;
-            emitInput();
-            updateContext();
-        } else {
-            insertImage(url);
-        }
+        return res.data?.url || null;
     } catch (err) {
-        replacingImage.value = false;
         toast(err?.message || 'Gagal mengunggah gambar.', 'error');
+        return null;
     } finally {
         uploading.value = false;
     }
+}
+
+async function onImageFileChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) {
+        replacingImage.value = false;
+        return;
+    }
+
+    const url = await uploadImageFile(file);
+    if (!url) {
+        replacingImage.value = false;
+        return;
+    }
+
+    if (replacingImage.value && currentImage.value) {
+        currentImage.value.src = url;
+        replacingImage.value = false;
+        emitInput();
+        updateContext();
+    } else {
+        insertImage(url);
+    }
+}
+
+// Saat paste: kalau ada gambar dari clipboard, unggah dulu ke object storage
+// (jangan biarkan jadi base64 yang bikin payload email membengkak).
+function onPaste(e) {
+    const items = e.clipboardData?.items || [];
+    for (const item of items) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) {
+                uploadImageFile(file).then((url) => {
+                    if (url) insertImage(url);
+                });
+            }
+            return;
+        }
+    }
+
+    // Buang gambar base64 yang lolos dari paste HTML agar pesan tetap kecil.
+    setTimeout(() => {
+        const el = editor.value;
+        if (!el) return;
+        let removed = false;
+        el.querySelectorAll('img[src^="data:"]').forEach((img) => {
+            img.remove();
+            removed = true;
+        });
+        if (removed) {
+            emitInput();
+            updateContext();
+        }
+    }, 0);
 }
 
 function insertImage(url) {
@@ -546,6 +584,7 @@ function replaceImage() {
                 @mousedown="onEditorMousedown"
                 @mouseup="updateContext"
                 @keyup="updateContext"
+                @paste="onPaste"
                 @focusin="onEditorFocus"
                 @focusout="onEditorBlur"
             ></div>
