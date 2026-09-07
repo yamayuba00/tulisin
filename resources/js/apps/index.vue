@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import { useAuth } from '../utils/auth';
@@ -25,6 +25,7 @@ const pageTitle = computed(() => {
         topup: 'Topup',
         affiliate: 'Affiliate',
         earn: 'Dapatkan Koin',
+        'my-reviews': 'Rating & Review',
         templates: 'Template',
         journals: 'Paper / Journal',
         workspace: 'Tulisin Workspace',
@@ -35,6 +36,8 @@ const pageTitle = computed(() => {
         'admin-roles': 'Roles & Permissions',
         'admin-projects': 'Projects',
         'admin-ai-results': 'Hasil AI',
+        'admin-reviews': 'Review Pengguna',
+        'admin-ai-settings': 'Mesin AI',
         'admin-coins': 'Riwayat Koin',
         'admin-shared': 'Dokumen Dibagikan',
         'admin-credits': 'Verifikasi Koin',
@@ -80,6 +83,7 @@ const userNavGroups = [
             { label: 'Topup', to: '/apps/u/topup', icon: Wallet },
             { label: 'Dapatkan Koin', to: '/apps/u/earn', icon: Gift },
             { label: 'Affiliate', to: '/apps/u/affiliate', icon: Handshake },
+            { label: 'Rating & Review', to: '/apps/u/reviews', icon: Star },
         ],
     },
 ];
@@ -98,6 +102,8 @@ const adminNavGroups = [
         items: [
             { label: 'Projects', to: '/apps/u/admin/projects', icon: FolderKanban },
             { label: 'Hasil AI', to: '/apps/u/admin/ai-results', icon: ScanSearch },
+            { label: 'Review Pengguna', to: '/apps/u/admin/reviews', icon: Star },
+            { label: 'Mesin AI', to: '/apps/u/admin/ai-settings', icon: Cpu },
             { label: 'Dokumen Dibagikan', to: '/apps/u/admin/shared', icon: Share2 },
         ],
     },

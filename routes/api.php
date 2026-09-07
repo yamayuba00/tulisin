@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CreditSettingController;
 use App\Http\Controllers\Api\CreditSubmissionController;
 use App\Http\Controllers\Api\FontController;
+use App\Http\Controllers\Api\LandingController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaperController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PdfExportController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectAiResultController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SharedDocumentController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TemplateController;
@@ -27,6 +29,10 @@ Route::get('/ping', fn () => response()->json(['message' => 'pong']));
 
 // ---- Asisten chat landing (publik, hanya tanya-jawab) ----
 Route::post('/chat', [ChatController::class, 'store']);
+
+// ---- Landing page (harga langganan + mesin AI) & review publik ----
+Route::get('/landing-settings', [LandingController::class, 'index']);
+Route::get('/reviews/published', [ReviewController::class, 'published']);
 
 // ---- Auth (Sanctum) ----
 Route::prefix('auth')->group(function () {
@@ -89,6 +95,18 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/email-broadcasts', [NotificationController::class, 'emailBroadcasts'])->middleware('permission:notifications.manage');
     Route::get('/broadcast-recipients', [NotificationController::class, 'broadcastRecipients'])->middleware('permission:notifications.manage');
     Route::post('/blast-images', [NotificationController::class, 'uploadBlastImage'])->middleware('permission:notifications.manage');
+
+    Route::get('/reviews', [AdminController::class, 'reviews'])->middleware('permission:submissions.review');
+    Route::post('/reviews/{review}/moderate', [AdminController::class, 'moderateReview'])->middleware('permission:submissions.review');
+
+    Route::get('/ai-settings', [AdminController::class, 'aiEngines'])->middleware('permission:subscriptions.manage');
+    Route::put('/ai-settings', [AdminController::class, 'updateAiEngines'])->middleware('permission:subscriptions.manage');
+});
+
+// ---- Review (auth) ----
+Route::middleware('auth:sanctum')->prefix('reviews')->group(function () {
+    Route::post('/', [ReviewController::class, 'store']);
+    Route::get('/mine', [ReviewController::class, 'mine']);
 });
 
 // ---- Tarif kredit (dibaca semua halaman untuk menampilkan biaya fitur) ----

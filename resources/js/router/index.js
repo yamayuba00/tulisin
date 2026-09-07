@@ -24,6 +24,12 @@ const routes = [
         meta: { title: 'Daftar', description: 'Buat akun Tulisin gratis dan mulai tulis dokumen pertamamu hari ini.' },
     },
     {
+        path: '/reviews',
+        name: 'reviews',
+        component: () => import('../pages/ReviewsPage.vue'),
+        meta: { title: 'Semua Rating', description: 'Lihat semua ulasan pengguna Tulisin dari mahasiswa dan penulis akademik.' },
+    },
+    {
         path: '/forgot-password',
         name: 'forgot-password',
         component: () => import('../pages/ForgotPasswordPage.vue'),
@@ -93,6 +99,12 @@ const routes = [
                 meta: { title: 'Affiliate' },
             },
             {
+                path: 'reviews',
+                name: 'my-reviews',
+                component: () => import('../apps/reviews/index.vue'),
+                meta: { title: 'Rating & Review' },
+            },
+            {
                 path: 'templates',
                 name: 'templates',
                 component: () => import('../apps/templates/index.vue'),
@@ -157,6 +169,18 @@ const routes = [
                 name: 'admin-shared',
                 component: () => import('../apps/admin/shared/index.vue'),
                 meta: { title: 'Dokumen Dibagikan' },
+            },
+            {
+                path: 'admin/reviews',
+                name: 'admin-reviews',
+                component: () => import('../apps/admin/reviews/index.vue'),
+                meta: { title: 'Review Pengguna' },
+            },
+            {
+                path: 'admin/ai-settings',
+                name: 'admin-ai-settings',
+                component: () => import('../apps/admin/ai-settings/index.vue'),
+                meta: { title: 'Mesin AI' },
             },
             {
                 path: 'admin/credits',

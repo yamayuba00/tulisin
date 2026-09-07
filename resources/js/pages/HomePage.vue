@@ -9,6 +9,8 @@ import {
 } from 'lucide-vue-next';
 import FloatingChat from '../components/FloatingChat.vue';
 import { useAuth } from '../utils/auth';
+import { getJson } from '../utils/http';
+import { formatCurrency } from '../utils/format';
 
 const { currentUser, isAuthenticated } = useAuth();
 
@@ -162,11 +164,29 @@ const steps = [
     { no: '03', title: 'Ekspor & Selesai', desc: 'Unduh dokumen yang rapi dan sesuai standar kampusmu.' },
 ];
 
-const plans = [
-    { name: 'Gratis', price: 'Rp 0', desc: 'Untuk mencoba dan menulis ringan.', features: ['Block canvas dasar', 'Ekspor dokumen', 'Template dasar', 'Penyimpanan lokal'] },
-    { name: 'Koin', price: 'Fleksibel', desc: 'Topup koin untuk fitur AI & premium.', features: ['Asisten AI penuh', 'Semua template', 'File manager', 'Dukungan prioritas'], highlight: true },
-    { name: 'Kampus', price: 'Custom', desc: 'Untuk institusi & agensi (B2B).', features: ['Manajemen seat anggota', 'Template kampus', 'Integrasi & API', 'Dukungan khusus'] },
-];
+// Data publik homepage: harga langganan & daftar mesin AI (tenaga agent).
+const landing = ref({ monthly_price: 30000, ai_engines: ['DeepSeek'] });
+
+const plans = computed(() => [
+    {
+        name: 'Langganan Bulanan',
+        price: formatCurrency(landing.value.monthly_price),
+        period: '/ 30 hari',
+        desc: 'Akses penuh semua fitur AI, optimasi, dan ekspor.',
+        features: ['Agent Canvas & Asisten AI penuh', 'Turnitin & Plagiarism Optimizer', 'Ekspor PDF siap cetak', 'Semua template & file manager'],
+        highlight: true,
+        cta: 'Berlangganan',
+    },
+    {
+        name: 'Koin',
+        price: 'Fleksibel',
+        period: '',
+        desc: 'Beli koin sesuai kebutuhan untuk fitur AI.',
+        features: ['Topup koin custom', 'Pakai fitur AI per pemakaian', 'Tanpa langganan bulanan', 'Saldo tidak hangus'],
+        highlight: false,
+        cta: 'Beli Koin',
+    },
+]);
 
 const faqs = [
     { q: 'Apakah Tulisin cocok untuk selain skripsi?', a: 'Ya. Tulisin dirancang untuk beragam dokumen: skripsi, tesis, makalah, jurnal, laporan, proposal, hingga esai.' },
@@ -207,15 +227,35 @@ const universities = [
     'Universitas Hasanuddin', 'Universitas Sumatera Utara', 'Universitas Andalas',
 ];
 
-// Testimoni / review pengguna.
-const testimonials = [
-    { name: 'Rani Puspita', role: 'Mahasiswa S1 · Universitas Indonesia', rating: 5, quote: 'Skripsi saya selesai 2 minggu lebih cepat. Turnitin AI Optimizer-nya bikin saya tenang soal deteksi AI.' },
-    { name: 'Bagas Pratama', role: 'Mahasiswa S2 · ITB', rating: 5, quote: 'Format otomatisnya persis standar kampus. Tinggal fokus nulis, sisanya Tulisin yang urus.' },
-    { name: 'Dinda Ayu', role: 'Mahasiswa S1 · UGM', rating: 5, quote: 'Asisten AI-nya paham konteks. Abstrak dan daftar pustaka beres dalam hitungan menit.' },
-    { name: 'Andi Saputra', role: 'Penulis · Agency Skripsi', rating: 4, quote: 'Kelola banyak proyek klien jadi lebih rapi. Template per klien benar-benar menghemat waktu.' },
-    { name: 'Maya Lestari', role: 'Mahasiswa S2 · Universitas Airlangga', rating: 5, quote: 'Plagiarism Optimizer-nya natural, paragraf tetap enak dibaca tapi skor kemiripan turun.' },
-    { name: 'Rizky Ramadhan', role: 'Dosen · Universitas Diponegoro', rating: 5, quote: 'Untuk menyusun modul dan jurnal, gaya per blok dan sitasi otomatisnya sangat membantu.' },
-];
+// Review pengguna (dari API, tampil maksimal 9 di homepage).
+const reviews = ref([]);
+const reviewsLoading = ref(true);
+
+async function loadLanding() {
+    try {
+        const data = await getJson('/api/landing-settings');
+        landing.value = {
+            monthly_price: Number(data.monthly_price) || 30000,
+            ai_engines: Array.isArray(data.ai_engines) && data.ai_engines.length ? data.ai_engines : ['DeepSeek'],
+        };
+    } catch {
+        // pakai nilai default bila API gagal dimuat
+    }
+}
+
+async function loadReviews() {
+    try {
+        const data = await getJson('/api/reviews/published?per_page=9');
+        reviews.value = data.reviews || [];
+    } catch {
+        reviews.value = [];
+    } finally {
+        reviewsLoading.value = false;
+    }
+}
+
+onMounted(loadLanding);
+onMounted(loadReviews);
 
 const chatSuggestions = [
     'Bagaimana cara kerja Tulisin?',
@@ -549,6 +589,17 @@ onBeforeUnmount(() => {
                     <p class="mt-4 text-neutral-500 dark:text-neutral-400">
                         Tidak sekadar chatbot. AI memahami konteks canvas — kamu bisa memintanya membuat abstrak, mengembangkan poin, atau merapikan gaya per blok yang dipilih.
                     </p>
+                    <div class="mt-5 flex flex-wrap items-center gap-2">
+                        <span class="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Ditenagai oleh</span>
+                        <span
+                            v-for="engine in landing.ai_engines"
+                            :key="engine"
+                            class="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-semibold text-neutral-700 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"
+                        >
+                            <Sparkles class="h-3.5 w-3.5 text-neutral-400" />
+                            {{ engine }}
+                        </span>
+                    </div>
                     <ul class="mt-6 space-y-3">
                         <li v-for="t in ['Buat abstrak & ringkasan otomatis', 'Kembangkan ide dari poin yang dipilih', 'Sesuaikan gaya sesuai format kampus']" :key="t" class="flex items-center gap-3 text-sm">
                             <Check class="h-4 w-4 shrink-0 text-emerald-500" />
@@ -689,28 +740,43 @@ onBeforeUnmount(() => {
                 <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Kata mereka yang sudah menulis bersama Tulisin</h2>
                 <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga penulis profesional — begini pengalaman mereka.</p>
             </div>
-            <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div v-if="reviewsLoading" class="mt-12 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                Memuat ulasan…
+            </div>
+
+            <div v-else-if="reviews.length === 0" class="mt-12 rounded-xl border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
+                <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada ulasan. Jadilah yang pertama berbagi pengalaman.</p>
+            </div>
+
+            <div v-else class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                 <figure
-                    v-for="t in testimonials"
-                    :key="t.name"
+                    v-for="t in reviews"
+                    :key="t.id"
                     class="flex flex-col rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700"
                 >
                     <div class="flex gap-0.5 text-amber-400">
                         <Star v-for="i in 5" :key="i" class="h-4 w-4" :class="i <= t.rating ? 'fill-current' : 'fill-transparent text-neutral-300 dark:text-neutral-600'" />
                     </div>
                     <blockquote class="mt-4 flex-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-                        "{{ t.quote }}"
+                        "{{ t.text }}"
                     </blockquote>
                     <figcaption class="mt-5 flex items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800">
                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                            {{ t.name[0] }}
+                            {{ t.initial }}
                         </span>
                         <div>
                             <p class="text-sm font-medium">{{ t.name }}</p>
-                            <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ t.role }}</p>
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Pengguna Tulisin</p>
                         </div>
                     </figcaption>
                 </figure>
+            </div>
+
+            <div class="mt-10 text-center">
+                <RouterLink to="/reviews" class="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 underline-offset-4 hover:underline dark:text-neutral-200">
+                    Lihat semua rating
+                    <ArrowRight class="h-4 w-4" />
+                </RouterLink>
             </div>
         </section>
 
@@ -736,7 +802,7 @@ onBeforeUnmount(() => {
                     <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Paket</span>
                     <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Pilih yang sesuai kebutuhanmu</h2>
                 </div>
-                <div class="mt-12 grid gap-6 md:grid-cols-3">
+                <div class="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
                     <div
                         v-for="p in plans"
                         :key="p.name"
@@ -744,7 +810,9 @@ onBeforeUnmount(() => {
                         :class="p.highlight ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800'"
                     >
                         <h3 class="font-semibold">{{ p.name }}</h3>
-                        <p class="mt-2 text-2xl font-bold">{{ p.price }}</p>
+                        <p class="mt-2 text-2xl font-bold">
+                            {{ p.price }}<span v-if="p.period" class="text-sm font-normal text-neutral-400 dark:text-neutral-500">{{ p.period }}</span>
+                        </p>
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ p.desc }}</p>
                         <ul class="mt-6 flex-1 space-y-3">
                             <li v-for="f in p.features" :key="f" class="flex items-center gap-3 text-sm">
@@ -757,7 +825,7 @@ onBeforeUnmount(() => {
                             class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors"
                             :class="p.highlight ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
                         >
-                            Mulai
+                            {{ p.cta }}
                         </RouterLink>
                     </div>
                 </div>

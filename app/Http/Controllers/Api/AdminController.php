@@ -7,7 +7,9 @@ use App\Models\CreditTransaction;
 use App\Models\Project;
 use App\Models\ProjectAiResult;
 use App\Models\Referral;
+use App\Models\Review;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\SharedDocument;
 use App\Models\User;
 use App\Models\Wallet;
@@ -587,6 +589,87 @@ class AdminController extends Controller
             ->get();
 
         return response()->json(['logs' => $logs]);
+    }
+
+    /**
+     * Daftar seluruh review user untuk moderasi.
+     */
+    public function reviews(Request $request): JsonResponse
+    {
+        $perPage = min(100, max(1, (int) $request->query('per_page', 20)));
+        $paginator = Review::with('user:id,name,email,uuid')
+            ->latest()
+            ->paginate($perPage);
+
+        return response()->json([
+            'reviews' => $paginator->getCollection()
+                ->map(fn (Review $r) => [
+                    'id' => $r->id,
+                    'uuid' => $r->uuid,
+                    'rating' => $r->rating,
+                    'text' => $r->text,
+                    'status' => $r->status,
+                    'user_name' => $r->user?->name,
+                    'user_email' => $r->user?->email,
+                    'created_at' => $r->created_at?->toISOString(),
+                ])
+                ->values(),
+            'total' => $paginator->total(),
+            'page' => $paginator->currentPage(),
+            'per_page' => $paginator->perPage(),
+            'last_page' => $paginator->lastPage(),
+        ]);
+    }
+
+    /**
+     * Publish / tolak review.
+     */
+    public function moderateReview(Request $request, Review $review): JsonResponse
+    {
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:published,rejected'],
+        ]);
+
+        $review->status = $data['status'];
+        $review->published_at = $data['status'] === 'published' ? now() : null;
+        $review->save();
+
+        return response()->json([
+            'message' => $data['status'] === 'published' ? 'Review dipublikasikan.' : 'Review ditolak.',
+            'status' => $review->status,
+        ]);
+    }
+
+    /**
+     * Daftar mesin AI (tenaga agent) untuk pengaturan.
+     */
+    public function aiEngines(Request $request): JsonResponse
+    {
+        return response()->json(['engines' => LandingController::resolveAiEngines()]);
+    }
+
+    /**
+     * Simpan daftar mesin AI (tenaga agent).
+     */
+    public function updateAiEngines(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'engines' => ['required', 'array', 'min:1'],
+            'engines.*' => ['required', 'string', 'max:40'],
+        ]);
+
+        $engines = array_values(array_filter(array_map('trim', $data['engines'])));
+
+        if ($engines === []) {
+            return response()->json(['error' => 'Minimal satu mesin AI diperlukan.'], 422);
+        }
+
+        Setting::updateOrCreate(['key' => 'ai_engines'], ['value' => $engines]);
+
+        return response()->json([
+            'message' => 'Pengaturan mesin AI berhasil disimpan.',
+            'engines' => LandingController::resolveAiEngines(),
+        ]);
     }
 
     /**
