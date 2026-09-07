@@ -21,6 +21,34 @@ const dashboardPath = computed(() =>
 const menuOpen = ref(false);
 const openFaq = ref(0);
 
+// ---- Scroll-spy: sorot menu navbar sesuai section yang sedang terlihat ----
+const activeSection = ref('');
+const spySectionIds = ['fitur', 'untuk-siapa', 'testimoni', 'paket'];
+
+function updateActiveSection() {
+    const offset = 120;
+    let current = '';
+    for (const id of spySectionIds) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= offset) {
+            current = id;
+        }
+    }
+    activeSection.value = current;
+}
+
+function onScrollSpy() {
+    updateActiveSection();
+}
+
+function navLinkClass(id) {
+    const base = 'rounded-lg px-3 py-2 transition-colors ';
+    return activeSection.value === id
+        ? base + 'bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-900 dark:text-white'
+        : base + 'text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-900 dark:hover:text-white';
+}
+
 // ---- Hero mockup: urutan build (drag blok dari sidebar → canvas) ----
 const buildBlocks = [
     { id: 'judul', label: 'Judul' },
@@ -334,12 +362,15 @@ function startDrag(e) {
 
 onMounted(() => {
     optimizerRaf = requestAnimationFrame(optimizerLoop);
+    window.addEventListener('scroll', onScrollSpy, { passive: true });
+    updateActiveSection();
 });
 
 onBeforeUnmount(() => {
     cancelAnimationFrame(optimizerRaf);
     window.removeEventListener('pointermove', onOptimizerDrag);
     window.removeEventListener('pointerup', endOptimizerDrag);
+    window.removeEventListener('scroll', onScrollSpy);
 });
 </script>
 
@@ -356,10 +387,10 @@ onBeforeUnmount(() => {
                 </RouterLink>
 
                 <nav class="hidden items-center gap-1 text-sm text-neutral-600 dark:text-neutral-300 md:flex">
-                    <a href="#fitur" class="rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white">Fitur</a>
-                    <a href="#untuk-siapa" class="rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white">Untuk Siapa</a>
-                    <a href="#testimoni" class="rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white">Testimoni</a>
-                    <a href="#paket" class="rounded-lg px-3 py-2 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-900 dark:hover:text-white">Paket</a>
+                    <a href="#fitur" :class="navLinkClass('fitur')">Fitur</a>
+                    <a href="#untuk-siapa" :class="navLinkClass('untuk-siapa')">Untuk Siapa</a>
+                    <a href="#testimoni" :class="navLinkClass('testimoni')">Testimoni</a>
+                    <a href="#paket" :class="navLinkClass('paket')">Paket</a>
                 </nav>
 
                 <div class="hidden items-center gap-2 md:flex">
@@ -391,10 +422,10 @@ onBeforeUnmount(() => {
 
             <div v-if="menuOpen" class="mx-auto mt-2 max-w-6xl rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 md:hidden">
                 <nav class="flex flex-col gap-1 text-sm">
-                    <a href="#fitur" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Fitur</a>
-                    <a href="#untuk-siapa" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Untuk Siapa</a>
-                    <a href="#testimoni" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Testimoni</a>
-                    <a href="#paket" class="rounded-lg px-3 py-2 text-neutral-600 dark:text-neutral-300" @click="menuOpen = false">Paket</a>
+                    <a href="#fitur" :class="navLinkClass('fitur')" @click="menuOpen = false">Fitur</a>
+                    <a href="#untuk-siapa" :class="navLinkClass('untuk-siapa')" @click="menuOpen = false">Untuk Siapa</a>
+                    <a href="#testimoni" :class="navLinkClass('testimoni')" @click="menuOpen = false">Testimoni</a>
+                    <a href="#paket" :class="navLinkClass('paket')" @click="menuOpen = false">Paket</a>
                     <div class="mt-2 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
                         <template v-if="isAuthenticated">
                             <RouterLink :to="dashboardPath" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Dashboard</RouterLink>
@@ -756,6 +787,43 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
+        <!-- Paket -->
+        <section id="paket" class="border-t border-neutral-200 bg-neutral-50 py-20 dark:border-neutral-800 dark:bg-neutral-900/40">
+            <div class="mx-auto max-w-6xl scroll-mt-20 px-4 lg:px-6">
+                <div class="text-center">
+                    <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Paket</span>
+                    <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Pilih yang sesuai kebutuhanmu</h2>
+                </div>
+                <div class="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
+                    <div
+                        v-for="p in plans"
+                        :key="p.name"
+                        class="relative flex flex-col rounded-xl border p-6 transition-colors"
+                        :class="p.highlight ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800'"
+                    >
+                        <h3 class="font-semibold">{{ p.name }}</h3>
+                        <p class="mt-2 text-2xl font-bold">
+                            {{ p.price }}<span v-if="p.period" class="text-sm font-normal text-neutral-400 dark:text-neutral-500">{{ p.period }}</span>
+                        </p>
+                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ p.desc }}</p>
+                        <ul class="mt-6 flex-1 space-y-3">
+                            <li v-for="f in p.features" :key="f" class="flex items-center gap-3 text-sm">
+                                <Check class="h-4 w-4 shrink-0 text-emerald-500" />
+                                {{ f }}
+                            </li>
+                        </ul>
+                        <RouterLink
+                            to="/register"
+                            class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors"
+                            :class="p.highlight ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
+                        >
+                            {{ p.cta }}
+                        </RouterLink>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Testimoni -->
         <section id="testimoni" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
             <div class="text-center">
@@ -814,43 +882,6 @@ onBeforeUnmount(() => {
                     <span class="font-mono text-3xl font-bold text-neutral-200 dark:text-neutral-700">{{ s.no }}</span>
                     <h3 class="mt-3 font-semibold">{{ s.title }}</h3>
                     <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ s.desc }}</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Paket -->
-        <section id="paket" class="border-t border-neutral-200 bg-neutral-50 py-20 dark:border-neutral-800 dark:bg-neutral-900/40">
-            <div class="mx-auto max-w-6xl scroll-mt-20 px-4 lg:px-6">
-                <div class="text-center">
-                    <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Paket</span>
-                    <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Pilih yang sesuai kebutuhanmu</h2>
-                </div>
-                <div class="mx-auto mt-12 grid max-w-3xl gap-6 md:grid-cols-2">
-                    <div
-                        v-for="p in plans"
-                        :key="p.name"
-                        class="relative flex flex-col rounded-xl border p-6 transition-colors"
-                        :class="p.highlight ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800'"
-                    >
-                        <h3 class="font-semibold">{{ p.name }}</h3>
-                        <p class="mt-2 text-2xl font-bold">
-                            {{ p.price }}<span v-if="p.period" class="text-sm font-normal text-neutral-400 dark:text-neutral-500">{{ p.period }}</span>
-                        </p>
-                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ p.desc }}</p>
-                        <ul class="mt-6 flex-1 space-y-3">
-                            <li v-for="f in p.features" :key="f" class="flex items-center gap-3 text-sm">
-                                <Check class="h-4 w-4 shrink-0 text-emerald-500" />
-                                {{ f }}
-                            </li>
-                        </ul>
-                        <RouterLink
-                            to="/register"
-                            class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors"
-                            :class="p.highlight ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
-                        >
-                            {{ p.cta }}
-                        </RouterLink>
-                    </div>
                 </div>
             </div>
         </section>
