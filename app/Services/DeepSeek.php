@@ -11,16 +11,27 @@ class DeepSeek
      *
      * @param  bool  $json  aktifkan mode JSON (response_format json_object).
      * @param  float  $temperature  kreativitas balasan (0 = deterministik, 1 = bebas).
+     * @param  array  $history  riwayat percakapan sebelumnya [{role, content}, ...].
      * @return string|null  isi balasan, atau null bila gagal.
      */
-    public function chat(string $system, string $user, bool $json = false, float $temperature = 0.7): ?string
+    public function chat(string $system, string $user, bool $json = false, float $temperature = 0.7, array $history = []): ?string
     {
+        $messages = [['role' => 'system', 'content' => $system]];
+
+        foreach ($history as $turn) {
+            $role = (string) ($turn['role'] ?? '');
+            $content = (string) ($turn['content'] ?? '');
+            if (! in_array($role, ['user', 'assistant'], true) || $content === '') {
+                continue;
+            }
+            $messages[] = ['role' => $role, 'content' => $content];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $user];
+
         $payload = [
             'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
-            'messages' => [
-                ['role' => 'system', 'content' => $system],
-                ['role' => 'user', 'content' => $user],
-            ],
+            'messages' => $messages,
             'temperature' => $json ? 0 : $temperature,
         ];
 

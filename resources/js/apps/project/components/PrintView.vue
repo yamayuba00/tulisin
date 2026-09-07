@@ -36,6 +36,8 @@ function pageNumberClassForPage(pIndex) {
             class="print-page"
             :style="pageBoxStyle"
         >
+            <WatermarkOverlay :watermark="watermark" />
+
             <template v-for="block in page" :key="block.chunkKey || block.uid">
                 <TableBlock
                     v-if="block.type === 'table'"
@@ -65,7 +67,6 @@ function pageNumberClassForPage(pIndex) {
                     :entry-slice="block.sliceStart == null ? null : [block.sliceStart, block.sliceEnd]"
                 />
             </template>
-            <WatermarkOverlay :watermark="watermark" />
 
             <span
                 v-if="pageNumberClassForPage(pIndex) && isCoverPage && !isCoverPage(pIndex)"

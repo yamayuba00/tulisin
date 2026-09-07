@@ -70,6 +70,10 @@ const sectionType = computed(() =>
     ['cover', 'abstract', 'toc', 'blankPage'].includes(props.block.type) ? props.block.type : null,
 );
 
+// List (bullet/number) dibuat rapat tanpa padding vertikal blok agar tidak ada
+// spasi ekstra sebelum/sesudah item daftar.
+const isListType = computed(() => props.block.type === 'bullet' || props.block.type === 'number');
+
 const sectionTitle = computed(() => {
     switch (sectionType.value) {
         case 'abstract': return 'ABSTRAK';
@@ -357,8 +361,8 @@ onMounted(() => {
 <template>
     <div
         :data-block-uid="block.uid"
-        class="group relative rounded-sm py-0.5"
-        :class="measure ? '' : 'cursor-pointer'"
+        class="group relative rounded-sm"
+        :class="[measure ? '' : 'cursor-pointer', isListType ? 'py-0' : 'py-0.5']"
         :style="rootStyle"
         @click="$emit('select')"
     >

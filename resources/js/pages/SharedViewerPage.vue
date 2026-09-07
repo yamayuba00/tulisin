@@ -629,6 +629,8 @@ onBeforeUnmount(() => {
                                 Halaman kosong
                             </div>
 
+                        <WatermarkOverlay :watermark="watermark" />
+
                         <template v-for="block in page" :key="block.chunkKey || block.uid">
                             <TableBlock
                                 v-if="block.type === 'table'"
@@ -658,8 +660,6 @@ onBeforeUnmount(() => {
                                 :entry-slice="block.sliceStart == null ? null : [block.sliceStart, block.sliceEnd]"
                             />
                         </template>
-
-                        <WatermarkOverlay :watermark="watermark" />
 
                         <span
                             v-if="pageNumberClassFor(i) && !(pageLabels[i] && pageLabels[i].isCover)"

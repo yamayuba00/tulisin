@@ -333,6 +333,8 @@ defineExpose({ scrollToPage });
                                 Seret blok H1, H2, paragraf, dan lainnya ke sini.
                             </div>
 
+                            <WatermarkOverlay :watermark="watermark" />
+
                             <template v-for="block in item.page" :key="block.chunkKey || block.uid">
                                 <div
                                     v-if="dropIndicatorBefore(block)"
@@ -400,8 +402,6 @@ defineExpose({ scrollToPage });
                                     @edit-code="emit('edit-code', block.uid)"
                                 />
                             </template>
-
-                            <WatermarkOverlay :watermark="watermark" />
 
                             <span
                                 v-if="pageNumberClassForPage(item.pIndex) && !coverPage(item.pIndex)"

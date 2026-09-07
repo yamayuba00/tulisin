@@ -13,7 +13,7 @@ const emit = defineEmits(['close', 'goto', 'apply', 'keep']);
 
 <template>
     <div v-if="open" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/50" @click="emit('close')"></div>
+        <div class="absolute inset-0 bg-black/50" @click="!loading && emit('close')"></div>
 
         <div class="relative z-10 flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
             <div class="flex shrink-0 items-start justify-between">
@@ -23,8 +23,9 @@ const emit = defineEmits(['close', 'goto', 'apply', 'keep']);
                 </div>
                 <button
                     type="button"
-                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-neutral-400 dark:hover:text-white"
                     aria-label="Tutup"
+                    :disabled="loading"
                     @click="emit('close')"
                 >
                     <X class="h-4 w-4" />

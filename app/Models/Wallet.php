@@ -39,20 +39,24 @@ class Wallet extends Model
     public function credit(int $amount, string $reason, ?string $refType = null, ?int $refId = null): int
     {
         return DB::transaction(function () use ($amount, $reason, $refType, $refId) {
-            $this->balance += $amount;
-            $this->save();
+            // Kunci baris wallet (pessimistic lock) agar saldo tidak berubah
+            // di tengah transaksi — mencegah race condition / lost update.
+            $wallet = static::query()->lockForUpdate()->findOrFail($this->getKey());
 
-            $this->transactions()->create([
-                'user_id' => $this->user_id,
+            $wallet->balance += $amount;
+            $wallet->save();
+
+            $wallet->transactions()->create([
+                'user_id' => $wallet->user_id,
                 'type' => 'credit',
                 'amount' => $amount,
-                'balance_after' => $this->balance,
+                'balance_after' => $wallet->balance,
                 'reason' => $reason,
                 'reference_type' => $refType,
                 'reference_id' => $refId,
             ]);
 
-            return $this->balance;
+            return $wallet->balance;
         });
     }
 
@@ -62,24 +66,28 @@ class Wallet extends Model
     public function debit(int $amount, string $reason, ?string $refType = null, ?int $refId = null): int
     {
         return DB::transaction(function () use ($amount, $reason, $refType, $refId) {
-            if ($this->balance < $amount) {
+            // Kunci baris wallet (pessimistic lock) agar saldo tidak berubah
+            // di tengah transaksi — mencegah race condition / lost update.
+            $wallet = static::query()->lockForUpdate()->findOrFail($this->getKey());
+
+            if ($wallet->balance < $amount) {
                 throw new RuntimeException('Saldo koin tidak mencukupi.');
             }
 
-            $this->balance -= $amount;
-            $this->save();
+            $wallet->balance -= $amount;
+            $wallet->save();
 
-            $this->transactions()->create([
-                'user_id' => $this->user_id,
+            $wallet->transactions()->create([
+                'user_id' => $wallet->user_id,
                 'type' => 'debit',
                 'amount' => $amount,
-                'balance_after' => $this->balance,
+                'balance_after' => $wallet->balance,
                 'reason' => $reason,
                 'reference_type' => $refType,
                 'reference_id' => $refId,
             ]);
 
-            return $this->balance;
+            return $wallet->balance;
         });
     }
 }

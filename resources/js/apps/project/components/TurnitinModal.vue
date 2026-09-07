@@ -25,8 +25,9 @@ const emit = defineEmits(['close', 'goto', 'apply', 'keep']);
                 </div>
                 <button
                     type="button"
-                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 dark:text-neutral-400 dark:hover:text-white"
                     aria-label="Tutup"
+                    :disabled="loading"
                     @click="emit('close')"
                 >
                     <X class="h-4 w-4" />

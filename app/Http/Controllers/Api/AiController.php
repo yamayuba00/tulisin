@@ -24,10 +24,19 @@ class AiController extends Controller
             'context' => ['nullable', 'string'],
             'uuid' => ['nullable', 'string', 'max:64'],
             'format' => ['nullable', 'string', 'in:skripsi,tesis,disertasi,makalah,jurnal,laporan,proposal,esai'],
+            'blockTypes' => ['nullable', 'array'],
+            'blockTypes.*' => ['string'],
+            'history' => ['nullable', 'array'],
+            'history.*.role' => ['required', 'string', 'in:user,assistant'],
+            'history.*.content' => ['required', 'string'],
         ]);
 
         $agent = (string) $data['agent'];
         $format = (string) ($data['format'] ?? '');
+        $blockTypes = array_values(array_filter(array_map(
+            fn ($t) => is_string($t) ? trim($t) : '',
+            $data['blockTypes'] ?? [],
+        )));
         $system = $this->systemPrompt($agent);
         $user = $this->buildUserPrompt(
             $agent,
@@ -35,12 +44,30 @@ class AiController extends Controller
             (string) ($data['context'] ?? ''),
             (string) ($data['uuid'] ?? ''),
             $format,
+            $blockTypes,
         );
 
         // Mode JSON untuk agent yang membutuhkan keluaran terstruktur.
         $json = in_array($agent, ['plagiarism', 'turnitin'], true);
 
-        $reply = app(DeepSeek::class)->chat($system, $user, $json);
+        $history = $agent === 'canvas'
+            ? array_values(array_map(
+                fn (array $turn) => [
+                    'role' => (string) $turn['role'],
+                    'content' => (string) $turn['content'],
+                ],
+                $data['history'] ?? [],
+            ))
+            : [];
+
+        // Temperature per agent: canvas lebih kreatif, sisanya deterministik
+        // (0.4) agar minim halusinasi & lebih akurat untuk penulisan/plagiarism.
+        $temperature = match ($agent) {
+            'canvas' => 0.7,
+            default => 0.4,
+        };
+
+        $reply = app(DeepSeek::class)->chat($system, $user, $json, $temperature, $history);
 
         if ($reply === null) {
             return response()->json(['error' => 'Gagal menghubungi AI. Coba lagi.'], 502);
@@ -52,7 +79,7 @@ class AiController extends Controller
     /**
      * Susun prompt user: UUID canvas + konteks + instruksi user.
      */
-    private function buildUserPrompt(string $agent, string $message, string $context, string $uuid, string $format = ''): string
+    private function buildUserPrompt(string $agent, string $message, string $context, string $uuid, string $format = '', array $blockTypes = []): string
     {
         $parts = [];
 
@@ -63,6 +90,10 @@ class AiController extends Controller
         if ($format !== '' && $agent === 'canvas') {
             $parts[] = "Format target dokumen: {$this->formatLabel($format)}";
             $parts[] = "Struktur baku yang harus diikuti:\n{$this->documentOutline($format)}";
+        }
+
+        if ($agent === 'canvas' && $blockTypes !== []) {
+            $parts[] = 'Jenis blok canvas yang tersedia: '.implode(', ', $blockTypes);
         }
 
         if ($context !== '') {
@@ -86,31 +117,63 @@ class AiController extends Controller
     {
         return match ($agent) {
             'canvas' => <<<'PROMPT'
-Anda adalah Agent AI Canvas, asisten ahli penyusun dokumen akademik yang bekerja langsung di dalam satu canvas milik user.
+Anda adalah Agent AI Canvas, asisten penyusun dokumen akademik. Anda bekerja di dalam satu canvas dokumen milik user dan selalu membaca SELURUH isi canvas (dikirim sebagai konteks) beserta daftar jenis blok yang tersedia sebelum menjawab.
 
-Tugas Anda:
-1. Baca seluruh isi canvas yang diberikan, lalu bantu user menyusun, melengkapi, menyunting, atau menata blok-blok dokumen sesuai kebutuhan.
-2. Jika canvas masih kosong, tawarkan langkah awal secara proaktif (kerangka, cover, abstrak, daftar isi, bab, hingga daftar pustaka).
-3. Jika diberikan "Format target dokumen" beserta strukturnya, susun jawaban persis mengikuti struktur baku tersebut (gunakan heading markdown untuk judul bab/sub-bab) agar hasilnya rapi dan bisa langsung dipakai.
-4. Jawab dengan bahasa Indonesia yang jelas dan langsung bisa dipakai.
+Prinsip utama:
+1. Fokus HANYA pada penyusunan isi dokumen. Jangan pernah membuat HTML, CSS, kode program, skrip, atau hal apa pun di luar kebutuhan dokumen.
+2. Hasil Anda harus bisa langsung diubah menjadi blok canvas, sama seperti user menyeret blok dari sidebar ke canvas.
 
-Batasan:
-- Hanya bekerja pada canvas milik user tersebut. Jangan membaca/menyebut/mengubah canvas lain.
-- Jangan menambahkan konten yang tidak relevan dengan kebutuhan dokumen.
-- Jangan menimpa/menghapus isi blok tanpa konfirmasi user.
-- Konten harus akademik, netral, dan bebas plagiarisme.
+Alur kerja:
+- Kenali maksud user dari kata-kata yang dipakai. Jika user menyebut kata yang berhubungan dengan jenis blok canvas (mis. "judul/bab" = chapter, "sub judul/heading" = h1..h10, "paragraf" = paragraph, "poin/list" = bullet/number, "tabel" = table, "gambar" = image, "kutipan" = quote, "pembatas" = divider), langsung petakan ke blok yang sesuai dan buat isinya. Jangan bertanya berlebihan.
+- Jika ada beberapa pilihan yang masuk akal (mis. beberapa opsi judul/struktur), tampilkan sebagai daftar bernomor SINGKAT (maksimal 5 opsi), lalu minta user memilih dengan mengetik angkanya.
+- Jika user membalas hanya dengan angka (mis. "3"), pahami angka itu sebagai pilihan dari daftar bernomor yang kamu berikan pada pesan sebelumnya, lalu langsung buat isi bloknya. Jangan bertanya ulang.
+- Batasi klarifikasi maksimal SATU kali. Jika masih bisa disimpulkan dari konteks/histori, langsung kerjakan saja.
+
+Format output saat membuat isi yang akan dimasukkan ke canvas:
+Bungkus SELURUH isi ke dalam fenced code block berlabel `canvas` (tanpa teks lain di dalamnya), contoh:
+
+```canvas
+# PENDAHULUAN
+## Latar Belakang
+Paragraf latar belakang yang menjelaskan alasan topik ini penting.
+
+- poin pertama
+- poin kedua
+```
+
+Aturan markdown blok (mengikuti jenis blok canvas):
+- `#` = Judul Bab (chapter). Tulis judul bab TANPA awalan "BAB" (mis. `# METODOLOGI PENELITIAN`) karena nomor bab sudah otomatis.
+- `##` sampai `###########` = Heading 1 sampai Heading 10
+- Teks biasa = Paragraf
+- `- ` = List Poin, `1. ` = List Nomor. Untuk list nomor gunakan penomoran berurutan 1., 2., 3. (jangan ulangi 1. untuk tiap item). Jika satu item punya deskripsi, lanjutkan di baris yang sama atau indentasi dua spasi; jangan buat paragraf baru yang memutus penomoran.
+- `> ` = Kutipan
+- Tabel markdown dengan `|` = Tabel
+- `![keterangan](url)` = Gambar
+- `---` = Pembatas
+- fenced code ``` ... ``` = Kode (hanya jika user memang butuh blok kode)
+
+Daftar Pustaka:
+- JANGAN mengarang daftar pustaka atau sitasi. Daftar pustaka otomatis diisi dari sitasi yang ada di Workspace. Jika user meminta daftar pustaka, arahkan ke blok "Daftar Pustaka"; bila belum ada sitasi, biarkan kosong.
+
+Selain saat menghasilkan isi yang dimasukkan ke canvas, jawablah dengan bahasa Indonesia yang ramah, ringkas, dan langsung bisa dipakai.
 PROMPT,
             'copilot' => <<<'PROMPT'
-Anda adalah AI Academic Co-Pilot, asisten penulisan akademik yang menemani user menulis di halaman aktif dokumennya.
+Anda adalah AI Academic Co-Pilot, asisten penulisan akademik yang menemani user menulis di halaman/paragraf aktif dokumennya (skripsi, tesis, disertasi, makalah, jurnal, laporan, proposal, esai).
 
 Tugas Anda:
-1. Baca isi halaman aktif yang diberikan, lalu bantu menulis atau menyunting konten pada halaman tersebut.
-2. Jawab pertanyaan seputar halaman ini: saran paragraf, ringkasan, pengembangan kalimat, atau perbaikan tata bahasa.
+1. Baca konteks halaman/paragraf aktif yang diberikan, lalu bantu user menulis, melanjutkan, atau menyunting kalimat secara natural.
+2. Bantu menyusun struktur teks: jika user menyebut "bab/heading/paragraf/poin/tabel/kutipan", petakan ke struktur yang sesuai dan langsung tulis isinya.
+3. Jika user meminta "lanjutkan / kembangkan / perbaiki / ringkas", kerjakan langsung pada teks yang sedang aktif tanpa bertanya berlebihan.
+
+Gaya penulisan:
+- Akademik, natural, dan mengalir seperti ditulis manusia. HINDARI kalimat baku, kaku, atau templat.
+- Jangan mengarang fakta, data, angka, nama sumber, atau sitasi yang tidak ada di konteks. Jika butuh sitasi dan belum ada, arahkan user mengambil dari Workspace.
+- Tulis dengan bahasa yang sama dengan user (default bahasa Indonesia).
+- Jangan membuat HTML/CSS/kode program. Fokus hanya pada isi dokumen.
 
 Batasan:
-- Hanya gunakan konteks halaman aktif. Jangan membaca/menjawab dari halaman lain kecuali diminta.
-- Jangan menimpa isi blok tanpa konfirmasi user.
-- Konten harus akademik dan mengikuti gaya penulisan dokumen.
+- Hanya gunakan konteks halaman/paragraf aktif. Jangan menimpa isi blok tanpa konfirmasi user.
+- Hindari plagiarisme: tulis ulang dengan gaya sendiri, jangan menyalin mentah dari sumber.
 PROMPT,
             'turnitin' => <<<'PROMPT'
 Anda adalah Turnitin Similarity Optimizer, ahli penyunting akademik yang menurunkan kemiripan teks (plagiarisme) dengan sumber lain tanpa mengubah makna.
@@ -182,60 +245,91 @@ PROMPT,
     {
         return match ($format) {
             'skripsi' => implode("\n", [
-                'Bagian Awal: Cover, Abstrak, Daftar Isi',
-                'BAB I Pendahuluan: Latar Belakang, Rumusan Masalah, Tujuan Penelitian',
-                'BAB II Kajian Pustaka: Landasan Teori',
-                'BAB III Metodologi Penelitian: Jenis Penelitian, Teknik Pengumpulan Data',
-                'BAB IV Hasil dan Pembahasan: Hasil, Pembahasan',
-                'BAB V Kesimpulan dan Saran',
-                'Daftar Pustaka',
+                'Bagian Awal (blok: cover, abstract, toc)',
+                '# PENDAHULUAN',
+                '## Latar Belakang',
+                '## Rumusan Masalah',
+                '## Tujuan Penelitian',
+                '# KAJIAN PUSTAKA',
+                '## Landasan Teori',
+                '# METODOLOGI PENELITIAN',
+                '## Jenis Penelitian',
+                '## Teknik Pengumpulan Data',
+                '# HASIL DAN PEMBAHASAN',
+                '## Hasil',
+                '## Pembahasan',
+                '# KESIMPULAN DAN SARAN',
+                '## Kesimpulan',
+                '## Saran',
+                'Daftar Pustaka (blok: references)',
             ]),
             'tesis' => implode("\n", [
-                'Bagian Awal: Cover, Abstrak, Daftar Isi',
-                'BAB I Pendahuluan: Latar Belakang, Rumusan Masalah, Tujuan dan Manfaat',
-                'BAB II Kajian Pustaka: Landasan Teori',
-                'BAB III Metodologi Penelitian: Desain Penelitian, Teknik Analisis Data',
-                'BAB IV Hasil dan Pembahasan',
-                'BAB V Kesimpulan dan Saran, Daftar Pustaka',
+                'Bagian Awal (blok: cover, abstract, toc)',
+                '# PENDAHULUAN',
+                '## Latar Belakang',
+                '## Rumusan Masalah',
+                '## Tujuan dan Manfaat',
+                '# KAJIAN PUSTAKA',
+                '## Landasan Teori',
+                '# METODOLOGI PENELITIAN',
+                '## Desain Penelitian',
+                '## Teknik Analisis Data',
+                '# HASIL DAN PEMBAHASAN',
+                '# KESIMPULAN DAN SARAN',
+                'Daftar Pustaka (blok: references)',
             ]),
             'disertasi' => implode("\n", [
-                'Bagian Awal: Cover, Abstrak, Daftar Isi',
-                'BAB I Pendahuluan: Latar Belakang, Rumusan Masalah, Tujuan dan Kontribusi',
-                'BAB II Kajian Pustaka',
-                'BAB III Kerangka Konseptual',
-                'BAB IV Metodologi Penelitian',
-                'BAB V Hasil dan Pembahasan',
-                'BAB VI Kesimpulan dan Saran, Daftar Pustaka',
+                'Bagian Awal (blok: cover, abstract, toc)',
+                '# PENDAHULUAN',
+                '## Latar Belakang',
+                '## Rumusan Masalah',
+                '## Tujuan dan Kontribusi',
+                '# KAJIAN PUSTAKA',
+                '# KERANGKA KONSEPTUAL',
+                '# METODOLOGI PENELITIAN',
+                '# HASIL DAN PEMBAHASAN',
+                '# KESIMPULAN DAN SARAN',
+                'Daftar Pustaka (blok: references)',
             ]),
             'makalah' => implode("\n", [
-                'Judul dan Abstrak',
-                'Pendahuluan',
-                'Pembahasan',
-                'Kesimpulan, Daftar Pustaka',
+                '# Judul Makalah',
+                '## Abstrak',
+                '# Pendahuluan',
+                '# Pembahasan',
+                '# Kesimpulan',
+                'Daftar Pustaka (blok: references)',
             ]),
             'jurnal' => implode("\n", [
-                'Abstrak dan Kata Kunci',
-                'Pendahuluan',
-                'Metode Penelitian',
-                'Hasil dan Pembahasan',
-                'Kesimpulan, Daftar Pustaka',
+                '# Judul Jurnal',
+                '## Abstrak dan Kata Kunci',
+                '# Pendahuluan',
+                '# Metode Penelitian',
+                '# Hasil dan Pembahasan',
+                '# Kesimpulan',
+                'Daftar Pustaka (blok: references)',
             ]),
             'laporan' => implode("\n", [
-                'Halaman Judul dan Ringkasan',
-                'Pendahuluan',
-                'Isi Laporan',
-                'Kesimpulan dan Saran',
+                '# Halaman Judul',
+                '## Ringkasan',
+                '# Pendahuluan',
+                '# Isi Laporan',
+                '# Kesimpulan dan Saran',
             ]),
             'proposal' => implode("\n", [
-                'Pendahuluan: Latar Belakang, Rumusan Masalah, Tujuan dan Manfaat',
-                'Tinjauan Pustaka',
-                'Metode Pelaksanaan',
-                'Penutup, Daftar Pustaka',
+                '# Pendahuluan',
+                '## Latar Belakang',
+                '## Rumusan Masalah',
+                '## Tujuan dan Manfaat',
+                '# Tinjauan Pustaka',
+                '# Metode Pelaksanaan',
+                '# Penutup',
+                'Daftar Pustaka (blok: references)',
             ]),
             'esai' => implode("\n", [
-                'Pendahuluan (tesis utama)',
-                'Isi / Pembahasan (argumen dan bukti)',
-                'Kesimpulan, Daftar Pustaka',
+                '# Pendahuluan (tesis utama)',
+                '# Isi / Pembahasan (argumen dan bukti)',
+                '# Kesimpulan',
+                'Daftar Pustaka (blok: references)',
             ]),
             default => '',
         };

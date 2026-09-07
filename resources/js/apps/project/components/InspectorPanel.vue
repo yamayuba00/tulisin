@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed } from 'vue';
 import {
     CornerDownRight,
     Eye,
@@ -11,6 +12,9 @@ import {
     ChevronUp,
     ChevronDown,
     Trash2,
+    ScanSearch,
+    Wand2,
+    History,
 } from 'lucide-vue-next';
 import FilterSelect from '../../../components/FilterSelect.vue';
 import FloatingAI from '../../../components/FloatingAI.vue';
@@ -30,7 +34,7 @@ const props = defineProps({
     citationStyleOptions: { type: Array, default: () => [] },
     alignOptions: { type: Array, default: () => [] },
     currentChapter: { type: String, default: '' },
-    canvasSummary: { type: String, default: '' },
+    pageContext: { type: String, default: '' },
     references: { type: Array, default: () => [] },
     blockAiPrompts: { type: Array, default: () => [] },
     aiGenLoading: { type: Boolean, default: false },
@@ -92,6 +96,9 @@ const emit = defineEmits([
     'remove-block',
     'generate-block-content',
     'insert-generated-content',
+    'run-plagiarism',
+    'run-turnitin',
+    'load-ai-history',
 ]);
 
 function typeLabelOf(type) {
@@ -102,6 +109,27 @@ function typeIconOf(type) {
 }
 function blockPreviewOf(b) {
     return typeof props.blockPreview === 'function' ? props.blockPreview(b) : '';
+}
+
+// ---- Riwayat hasil AI (Turnitin / Plagiarism) di sidebar ----
+const historyFilter = ref('turnitin'); // 'turnitin' | 'plagiarism'
+const historyExpandedId = ref(null);
+
+const filteredHistory = computed(() =>
+    (props.aiHistoryList || []).filter((e) => e.type === historyFilter.value),
+);
+
+function formatDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function toggleHistory(id) {
+    historyExpandedId.value = historyExpandedId.value === id ? null : id;
+}
+
+function historyTypeLabel() {
+    return historyFilter.value === 'turnitin' ? 'Turnitin AI Optimizer' : 'Screening Plagiarism';
 }
 </script>
 
@@ -148,6 +176,14 @@ function blockPreviewOf(b) {
                     @click="tab = 'ai'"
                 >
                     AI
+                </button>
+                <button
+                    type="button"
+                    class="flex-1 cursor-pointer rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
+                    :class="tab === 'history' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'"
+                    @click="tab = 'history'; emit('load-ai-history')"
+                >
+                    Riwayat
                 </button>
             </div>
 
@@ -435,20 +471,107 @@ function blockPreviewOf(b) {
                 </div>
             </template>
 
-            <!-- AI: asisten umum (membaca canvas) -->
+            <!-- AI: asisten menulis (fokus halaman/paragraf aktif) -->
             <template v-else-if="!selectedBlock && tab === 'ai'">
                 <div class="flex h-full flex-col">
                     <div class="mb-2">
                         <p class="text-sm font-semibold">Asisten AI</p>
-                        <p class="text-xs text-neutral-500 dark:text-neutral-400">Menemani di setiap bab. Selalu membaca isi canvas.</p>
+                        <p class="text-xs text-neutral-500 dark:text-neutral-400">Fokus membantu menulis di halaman / paragraf yang sedang aktif.</p>
                     </div>
+
+                    <div class="mb-3 grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-neutral-200 px-2 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                            @click="emit('run-plagiarism')"
+                        >
+                            <ScanSearch class="h-3.5 w-3.5" />
+                            Cek Plagiarism
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-neutral-200 px-2 py-2 text-xs font-medium text-neutral-600 transition-colors hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                            @click="emit('run-turnitin')"
+                        >
+                            <Wand2 class="h-3.5 w-3.5" />
+                            Turnitin
+                        </button>
+                    </div>
+
                     <FloatingAI
                         class="h-[56vh] min-h-0"
                         :context="currentChapter"
-                        :canvas-context="canvasSummary"
-                        placeholder="Tanyakan apa saja seputar dokumen kamu."
-                        :prompts="['Tolong Tambahkan paragraf di bab 2 di bagian blablablaa', 'Saran judul untuk bab 3', 'Ringkas bab 1']"
+                        :canvas-context="pageContext"
+                        placeholder="Minta lanjutan, perbaikan, atau kalimat baru untuk bagian ini."
+                        :prompts="['Lanjutkan paragraf pada halaman ini', 'Buatkan kalimat pembuka untuk bagian ini', 'Saran struktur paragraf di sini']"
                     />
+                </div>
+            </template>
+
+            <!-- Riwayat hasil AI (Turnitin / Plagiarism) -->
+            <template v-else-if="!selectedBlock && tab === 'history'">
+                <div>
+                    <p class="text-sm font-semibold">Riwayat Hasil AI</p>
+                    <p class="text-xs text-neutral-500 dark:text-neutral-400">Hasil Turnitin &amp; Plagiarism yang tersimpan.</p>
+
+                    <div class="mt-3 flex rounded-lg border border-neutral-200 p-1 dark:border-neutral-800">
+                        <button
+                            type="button"
+                            class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                            :class="historyFilter === 'turnitin' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'"
+                            @click="historyFilter = 'turnitin'"
+                        >Turnitin</button>
+                        <button
+                            type="button"
+                            class="flex-1 cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                            :class="historyFilter === 'plagiarism' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white'"
+                            @click="historyFilter = 'plagiarism'"
+                        >Plagiarism</button>
+                    </div>
+
+                    <div v-if="aiHistoryLoading" class="flex items-center gap-2 py-8 text-sm text-neutral-400 dark:text-neutral-500">
+                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
+                        Memuat riwayat…
+                    </div>
+
+                    <div v-else-if="filteredHistory.length" class="mt-3 space-y-2">
+                        <div v-for="e in filteredHistory" :key="e.id" class="rounded-lg border border-neutral-200 dark:border-neutral-800">
+                            <button
+                                type="button"
+                                class="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                                @click="toggleHistory(e.id)"
+                            >
+                                <div class="min-w-0">
+                                    <p class="text-xs font-medium">{{ historyTypeLabel() }}</p>
+                                    <p class="truncate text-[11px] text-neutral-400 dark:text-neutral-500">{{ formatDate(e.created_at) }}</p>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <span class="rounded-md border border-neutral-200 px-2 py-0.5 text-xs font-semibold dark:border-neutral-800">{{ e.score }}%</span>
+                                    <component :is="historyExpandedId === e.id ? ChevronUp : ChevronDown" class="h-4 w-4 text-neutral-400 dark:text-neutral-600" />
+                                </div>
+                            </button>
+
+                            <div v-if="historyExpandedId === e.id" class="space-y-2 border-t border-neutral-200 px-3 py-2.5 dark:border-neutral-800">
+                                <div v-for="(m, i) in (e.matches || [])" :key="i" class="rounded-md border border-neutral-200 p-2 dark:border-neutral-800">
+                                    <p class="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">{{ m.blockLabel || 'Teks terdeteksi' }}</p>
+                                    <div class="mt-1.5 grid gap-1.5">
+                                        <div>
+                                            <p class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500">Sebelum</p>
+                                            <p class="rounded border-l-2 border-red-400 bg-red-50 px-2 py-1 text-[11px] text-red-700 dark:bg-red-950/40 dark:text-red-300">{{ m.matched }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-[10px] font-medium text-neutral-400 dark:text-neutral-500">Sesudah</p>
+                                            <p class="rounded border-l-2 border-emerald-400 bg-emerald-50 px-2 py-1 text-[11px] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{{ m.suggestion }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p v-else class="py-8 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                        Belum ada hasil {{ historyFilter === 'turnitin' ? 'Turnitin' : 'Plagiarism' }}.
+                    </p>
                 </div>
             </template>
 

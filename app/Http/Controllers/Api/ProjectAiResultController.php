@@ -38,6 +38,32 @@ class ProjectAiResultController extends Controller
     }
 
     /**
+     * Daftar seluruh hasil AI (turnitin/plagiarism) milik user yang login,
+     * lintas project — dipakai di dashboard untuk menampilkan riwayat + download.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $results = ProjectAiResult::with('project:id,title,uuid,user_id')
+            ->whereHas('project', fn ($q) => $q->where('user_id', $request->user()->id))
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (ProjectAiResult $r) => [
+                'id' => $r->id,
+                'type' => $r->type,
+                'score' => $r->score,
+                'matches' => $r->matches ?? [],
+                'project_title' => $r->project?->title,
+                'project_uuid' => $r->project?->uuid,
+                'created_at' => $r->created_at?->toISOString(),
+            ]);
+
+        return response()->json([
+            'total' => $results->count(),
+            'results' => $results,
+        ]);
+    }
+
+    /**
      * Simpan hasil scan AI agar bisa dibuka kembali (laporan & pembelajaran).
      */
     public function store(Request $request, string $uuid): JsonResponse

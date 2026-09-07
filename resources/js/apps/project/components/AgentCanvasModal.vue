@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, nextTick } from 'vue';
-import { Sparkles, X, Send, Loader2, LayoutGrid, Plus } from 'lucide-vue-next';
+import { Sparkles, X, Send, Loader2, LayoutGrid, Plus, Info } from 'lucide-vue-next';
 import { request } from '../../../utils/http';
 import { renderMarkdown } from '../../../utils/markdown';
 
@@ -11,6 +11,8 @@ const props = defineProps({
     pageCount: { type: Number, default: 0 },
     projectUuid: { type: String, default: '' },
     blockTypes: { type: Array, default: () => [] },
+    hasSelection: { type: Boolean, default: false },
+    spendCredits: { type: Function, default: null },
 });
 
 const open = defineModel('open', { type: Boolean, default: false });
@@ -18,9 +20,21 @@ const emit = defineEmits(['close', 'apply']);
 
 const input = ref('');
 const format = ref('');
+const insertMode = ref('after'); // 'after' = tambah setelah blok, 'replace' = ganti blok terpilih
 const messages = ref([]);
 const listEl = ref(null);
 const sending = ref(false);
+
+// Hitungan prompt sesi ini (untuk tarif progresif). Tidak reset saat modal ditutup.
+const promptCount = ref(0);
+
+// Pesan pembuka agar ada "history chat" awal yang bisa dilihat/diikuti pengguna.
+if (messages.value.length === 0) {
+    messages.value.push({
+        role: 'assistant',
+        text: 'Halo! Saya Agent AI Canvas. Saya membaca seluruh isi canvas dan siap membantu menyusun dokumen kamu (bab, heading, paragraf, list, tabel, gambar, dan lainnya). Ceritakan apa yang ingin dibuat, atau pilih salah satu saran di bawah.',
+    });
+}
 
 const formatOptions = [
     { value: '', label: 'Umum (otomatis)' },
@@ -52,8 +66,21 @@ const starterPrompts = computed(() => {
 
 const blockTypeLabels = computed(() => props.blockTypes.map((b) => b.label).join(', '));
 
+// Apakah balasan berisi fenced block ```canvas ... ``` yang siap dimasukkan.
+function hasCanvasFence(text) {
+    return /```canvas\s*\n[\s\S]*?```/i.test(String(text || ''));
+}
+
 function scrollBottom() {
-    nextTick(() => listEl.value?.scrollTo({ top: listEl.value.scrollHeight }));
+    nextTick(() => {
+        const el = listEl.value;
+        if (!el) return;
+        el.scrollTop = el.scrollHeight;
+        // Cadangan: setelah v-html/balasan ter-render penuh.
+        requestAnimationFrame(() => {
+            if (listEl.value) listEl.value.scrollTop = listEl.value.scrollHeight;
+        });
+    });
 }
 
 function close() {
@@ -64,11 +91,25 @@ function close() {
 async function send(text) {
     const t = (text ?? input.value).trim();
     if (!t) return;
+
+    // Tarif progresif: 1 koin untuk 5 prompt pertama, lalu +2 koin tiap kelipatan 5
+    // (prompt 1-5 = 1 koin, 6-10 = 3 koin, 11-15 = 5 koin, dan seterusnya).
+    const cost = 1 + 2 * Math.floor(promptCount.value / 5);
+    if (props.spendCredits && !(await props.spendCredits(cost, 'ai_generate'))) {
+        messages.value.push({ role: 'assistant', text: 'Saldo koin kamu tidak cukup untuk prompt berikutnya. Silakan top up terlebih dahulu.' });
+        scrollBottom();
+        return;
+    }
+
+    // Riwayat sebelumnya dikirim agar agent punya memori percakapan.
+    const history = messages.value.map((m) => ({ role: m.role, content: m.text }));
     messages.value.push({ role: 'user', text: t });
+    promptCount.value += 1;
     if (!text) input.value = '';
     sending.value = true;
+    scrollBottom();
 
-    // Agent selalu membaca seluruh canvas (summary) + UUID project aktif.
+    // Agent selalu membaca seluruh canvas (summary) + UUID project aktif + riwayat chat.
     try {
         const res = await request('/api/ai/generate', {
             method: 'POST',
@@ -78,6 +119,8 @@ async function send(text) {
                 context: props.summary,
                 uuid: props.projectUuid,
                 format: format.value,
+                blockTypes: props.blockTypes.map((b) => b.id),
+                history,
             }),
         });
         const reply = res.ok
@@ -110,24 +153,34 @@ function onKeydown(e) {
         >
             <div class="absolute inset-0 bg-black/50" @click="close"></div>
 
-            <div class="relative z-10 flex h-[80vh] max-h-[640px] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <div class="relative z-10 flex h-[90vh] max-h-[920px] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
                 <!-- Header -->
                 <div class="flex items-start justify-between border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
                     <div class="flex items-center gap-2">
                         <Sparkles class="h-5 w-5 text-neutral-500 dark:text-neutral-400" />
                         <div>
                             <h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Agent AI Canvas</h3>
-                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Membaca seluruh isi canvas kamu.</p>
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Membaca seluruh canvas &amp; memberi rekomendasi.</p>
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
-                        aria-label="Tutup"
-                        @click="close"
-                    >
-                        <X class="h-5 w-5" />
-                    </button>
+                    <div class="flex items-center gap-1">
+                        <button
+                            type="button"
+                            class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                            aria-label="Cara kerja"
+                            @click="showHelp = !showHelp"
+                        >
+                            <Info class="h-5 w-5" />
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-white"
+                            aria-label="Tutup"
+                            @click="close"
+                        >
+                            <X class="h-5 w-5" />
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Konteks canvas + komponen sidebar kiri -->
@@ -140,14 +193,25 @@ function onKeydown(e) {
                     </span>
                 </div>
 
+                <!-- Cara kerja agent (bisa ditutup/dibuka) -->
+                <div v-if="showHelp" class="border-b border-neutral-200 bg-blue-50/70 px-4 py-3 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-blue-950/20 dark:text-neutral-300">
+                    <p class="font-semibold">Cara kerja Agent AI Canvas:</p>
+                    <ul class="mt-1 list-disc space-y-0.5 pl-4">
+                        <li>Agent membaca seluruh isi canvas + daftar jenis blok yang tersedia.</li>
+                        <li>Tulis permintaan, mis. "buat Bab 2", "tambahkan paragraf", "buat list poin".</li>
+                        <li>Agent menjawab dengan blok <code class="rounded bg-neutral-200/60 px-1 py-0.5 dark:bg-neutral-800">canvas</code>; klik "Generate ke Canvas" untuk menyisipkan ke dokumen.</li>
+                        <li>Biaya koin progresif: 1 koin (5 prompt pertama), lalu +2 koin tiap kelipatan 5 (3 → 5 → dst).</li>
+                    </ul>
+                </div>
+
                 <!-- Pesan / empty state -->
                 <div ref="listEl" class="flex-1 space-y-3 overflow-y-auto p-4">
                     <template v-if="messages.length === 0">
                         <div class="rounded-xl border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
                             <p class="font-medium text-neutral-700 dark:text-neutral-200">
-                                {{ isEmpty ? 'Canvas kamu masih kosong.' : 'Canvas sudah terisi.' }}
+                                {{ isEmpty ? 'Canvas kamu masih kosong.' : 'Canvas sudah terisi — agent siap membantumu.' }}
                             </p>
-                            <p class="mt-1 text-xs">Berikut pemicu yang bisa langsung kamu pilih:</p>
+                            <p class="mt-1 text-xs">{{ isEmpty ? 'Mulai dengan salah satu pemicu di bawah:' : 'Berikut saran yang bisa langsung kamu pilih:' }}</p>
                             <div class="mt-3 flex flex-wrap gap-1.5">
                                 <button
                                     v-for="p in starterPrompts"
@@ -178,12 +242,12 @@ function onKeydown(e) {
                                 v-html="renderMarkdown(m.text)"
                             ></span>
 
-                            <!-- Tombol generate: terapkan jawaban agent ke canvas -->
-                            <div v-if="m.role === 'assistant' && m.text" class="mt-1.5">
+                            <!-- Tombol generate: hanya tampil jika balasan berisi blok canvas -->
+                            <div v-if="m.role === 'assistant' && hasCanvasFence(m.text)" class="mt-1.5">
                                 <button
                                     type="button"
                                     class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-900 hover:text-white dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-white dark:hover:text-neutral-950"
-                                    @click="emit('apply', m.text)"
+                                    @click="emit('apply', { text: m.text, mode: insertMode })"
                                 >
                                     <Plus class="h-3.5 w-3.5" />
                                     Generate ke Canvas
@@ -220,6 +284,31 @@ function onKeydown(e) {
                             <option v-for="o in formatOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
                         </select>
                     </div>
+
+                    <div class="mb-2 flex items-center gap-2">
+                        <span class="shrink-0 text-xs font-medium text-neutral-500 dark:text-neutral-400">Sisipkan:</span>
+                        <div class="flex flex-1 gap-1 rounded-lg border border-neutral-200 p-0.5 dark:border-neutral-800">
+                            <button
+                                type="button"
+                                class="flex-1 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors"
+                                :class="insertMode === 'after'
+                                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950'
+                                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'"
+                                @click="insertMode = 'after'"
+                            >Setelah blok</button>
+                            <button
+                                type="button"
+                                class="flex-1 cursor-pointer rounded-md px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                                :class="insertMode === 'replace'
+                                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950'
+                                    : 'text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'"
+                                :disabled="!hasSelection"
+                                :title="hasSelection ? 'Ganti blok yang sedang dipilih' : 'Pilih blok di canvas terlebih dahulu'"
+                                @click="insertMode = 'replace'"
+                            >Ganti blok</button>
+                        </div>
+                    </div>
+
                     <div class="flex items-end gap-2">
                         <textarea
                             v-model="input"

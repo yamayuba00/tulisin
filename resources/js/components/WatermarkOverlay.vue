@@ -34,7 +34,7 @@ const imageStyle = computed(() => ({
 <template>
     <div
         v-if="enabled"
-        class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden"
+        class="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
         :style="{ opacity }"
         aria-hidden="true"
     >

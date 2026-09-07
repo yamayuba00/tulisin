@@ -1504,11 +1504,63 @@ function stripInlineMarkdown(text) {
         .replace(/`([^`]+)`/g, '$1');
 }
 
+function escapeHtmlText(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// Gaya sel tabel disamakan dengan TableBlock.vue agar konsisten di canvas.
+const AGENT_TABLE_CELL_STYLE = 'border: 1px solid #d4d4d4; padding: 6px 8px; vertical-align: top;';
+
+// Ubah tabel markdown (baris yang diawali `|`) menjadi HTML tabel canvas.
+function markdownTableToHtml(lines) {
+    const rows = [];
+    for (const raw of lines) {
+        let s = raw.trim();
+        if (s.startsWith('|')) s = s.slice(1);
+        if (s.endsWith('|')) s = s.slice(0, -1);
+        const cells = s.split('|').map((c) => c.trim());
+        if (cells.length) rows.push(cells);
+    }
+    if (!rows.length) return '';
+
+    const isSeparator = (cells) => cells.length > 0 && cells.every((c) => /^:?-{3,}:?$/.test(c));
+    const html = ['<table style="border-collapse: collapse; width: 100%; table-layout: fixed;">'];
+    rows.forEach((cells, i) => {
+        if (i === 1 && isSeparator(cells)) return; // lewati baris pemisah `---|---`
+        const isHeader = i === 0;
+        const tds = cells.map((c) => {
+            const text = escapeHtmlText(c) || '<br>';
+            const inner = isHeader ? `<strong>${text}</strong>` : text;
+            return `<td style="${AGENT_TABLE_CELL_STYLE}">${inner}</td>`;
+        }).join('');
+        html.push(`<tr>${tds}</tr>`);
+    });
+    html.push('</table>');
+    return html.join('');
+}
+
+// Ambil isi fenced block ```canvas ... ``` bila ada; selain itu pakai seluruh teks.
+function extractCanvasFence(text) {
+    const src = String(text || '').replace(/\r\n/g, '\n');
+    const m = src.match(/```canvas\s*\n([\s\S]*?)```/i);
+    return m ? m[1].trim() : src;
+}
+
+// Ubah markdown hasil Agent AI menjadi spec blok canvas.
+// Konvensi: `#` = chapter, `##` = h1, `###` = h2, ... `###########` = h10.
 function parseAgentToBlocks(text) {
-    const lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+    const lines = extractCanvasFence(text).split('\n');
     const blocks = [];
     let para = [];
-    let list = null;
+    let list = null;   // { type: 'bullet'|'number', items: [] }
+    let quote = [];    // baris kutipan `>`
+    let table = [];    // baris tabel markdown `|`
+    let code = null;   // { lines: [] } untuk fenced code block
 
     const flushPara = () => {
         if (para.length) {
@@ -1522,26 +1574,99 @@ function parseAgentToBlocks(text) {
             list = null;
         }
     };
+    const flushQuote = () => {
+        if (quote.length) {
+            blocks.push({ type: 'quote', content: renderMarkdown(quote.join(' ')) });
+            quote = [];
+        }
+    };
+    const flushTable = () => {
+        if (table.length) {
+            const html = markdownTableToHtml(table);
+            if (html) blocks.push({ type: 'table', content: html });
+            table = [];
+        }
+    };
+    const flushCode = () => {
+        if (code !== null) {
+            blocks.push({ type: 'code', content: code.lines.join('\n') });
+            code = null;
+        }
+    };
 
     for (const raw of lines) {
         const line = raw.trim();
+
+        // Fenced code block ``` ... ```
+        if (/^```/.test(line)) {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            if (code === null) {
+                code = { lines: [] };
+            } else {
+                flushCode();
+            }
+            continue;
+        }
+        if (code !== null) {
+            code.lines.push(raw);
+            continue;
+        }
+
+        // Baris kosong
         if (!line) {
-            flushPara();
-            flushList();
+            flushPara(); flushList(); flushQuote(); flushTable();
             continue;
         }
 
-        const heading = line.match(/^(#{1,6})\s+(.*)$/);
+        // Markdown table (baris diawali `|`)
+        if (/^\|/.test(line)) {
+            flushPara(); flushList(); flushQuote();
+            table.push(line);
+            continue;
+        }
+
+        // Divider --- / *** / ___
+        if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            blocks.push({ type: 'divider', content: '' });
+            continue;
+        }
+
+        // Gambar ![caption](url)
+        const img = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (img) {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            blocks.push({ type: 'image', content: img[2].trim(), caption: img[1].trim() });
+            continue;
+        }
+
+        // Kutipan >
+        if (/^>\s?/.test(line)) {
+            flushPara(); flushList(); flushTable();
+            quote.push(line.replace(/^>\s?/, ''));
+            continue;
+        }
+
+        // Heading: `#` = chapter, `##`..`###########` = h1..h10
+        const heading = line.match(/^(#{1,11})\s+(.*)$/);
         if (heading) {
-            flushPara();
-            flushList();
-            blocks.push({ type: `h${heading[1].length}`, content: stripInlineMarkdown(heading[2].trim()) });
+            flushPara(); flushList(); flushQuote(); flushTable();
+            const level = heading[1].length;
+            let content = stripInlineMarkdown(heading[2].trim());
+            if (level === 1) {
+                // Nomor bab sudah otomatis; buang awalan "BAB ..." dari AI agar tidak dobel.
+                content = content.replace(/^BAB\s+[IVXLCDM0-9]+\s*[:.·\-–—]?\s*/i, '');
+                blocks.push({ type: 'chapter', content });
+            } else {
+                blocks.push({ type: `h${level - 1}`, content });
+            }
             continue;
         }
 
+        // Bullet list
         const bullet = line.match(/^[-*]\s+(.*)$/);
         if (bullet) {
-            flushPara();
+            flushPara(); flushQuote(); flushTable();
             if (!list || list.type !== 'bullet') {
                 flushList();
                 list = { type: 'bullet', items: [] };
@@ -1550,9 +1675,10 @@ function parseAgentToBlocks(text) {
             continue;
         }
 
+        // Number list
         const number = line.match(/^\d+[.)]\s+(.*)$/);
         if (number) {
-            flushPara();
+            flushPara(); flushQuote(); flushTable();
             if (!list || list.type !== 'number') {
                 flushList();
                 list = { type: 'number', items: [] };
@@ -1561,21 +1687,47 @@ function parseAgentToBlocks(text) {
             continue;
         }
 
-        flushList();
+        // Paragraf biasa — jika masih dalam list aktif (belum ada baris kosong),
+        // jadikan lanjutan item list terakhir agar penomoran tidak pecah jadi 1..1..1.
+        if (list && list.items.length) {
+            list.items[list.items.length - 1] += ' ' + line;
+            continue;
+        }
+        flushList(); flushQuote(); flushTable();
         para.push(line);
     }
+
     flushPara();
     flushList();
+    flushQuote();
+    flushTable();
+    flushCode();
 
     return blocks;
 }
 
-function applyAgentToCanvas(text) {
+function applyAgentToCanvas(payload) {
+    const isObj = typeof payload === 'object' && payload !== null;
+    const text = isObj ? (payload.text || '') : String(payload || '');
+    const mode = isObj && payload.mode ? payload.mode : 'after';
+
     const specs = parseAgentToBlocks(text);
     if (!specs.length) return;
     const blocks = buildTemplateBlocks({ blocks: specs });
+
+    // Paragraf hasil AI otomatis memakai indentasi baris pertama (format dokumen).
+    blocks.forEach((b) => {
+        if (b.type === 'paragraph') b.firstLineIndent = true;
+    });
+
     let index;
-    if (selectedUid.value) {
+    let replace = false;
+
+    if (mode === 'replace' && selectedUid.value) {
+        index = canvasBlocks.value.findIndex((b) => b.uid === selectedUid.value);
+        replace = index !== -1;
+        if (!replace) index = canvasBlocks.value.length;
+    } else if (selectedUid.value) {
         index = canvasBlocks.value.findIndex((b) => b.uid === selectedUid.value) + 1;
     } else if (pages.value.length) {
         const pIndex = Math.min(pages.value.length - 1, Math.max(0, currentPage.value - 1));
@@ -1585,10 +1737,15 @@ function applyAgentToCanvas(text) {
     } else {
         index = canvasBlocks.value.length;
     }
+
     pushHistory();
-    canvasBlocks.value.splice(index, 0, ...blocks);
+    if (replace) {
+        canvasBlocks.value.splice(index, 1, ...blocks);
+    } else {
+        canvasBlocks.value.splice(index, 0, ...blocks);
+    }
     selectedUid.value = blocks[0].uid;
-    showToast('Konten agent ditambahkan ke canvas.');
+    showToast(replace ? 'Blok terpilih diganti dengan konten agent.' : 'Konten agent ditambahkan ke canvas.');
     agentModalOpen.value = false;
 }
 
@@ -1887,7 +2044,7 @@ async function generateBlockContent() {
             body: JSON.stringify({
                 agent: 'copilot',
                 message: prompt,
-                context: canvasSummary.value,
+                context: activeBlockContext.value,
                 uuid: projectId.value,
             }),
         });
@@ -1953,6 +2110,9 @@ async function openPlagiarismCheck(blockUid = null) {
         showToast('Tidak ada teks untuk diperiksa.');
         return;
     }
+
+    // Semua fitur AI memakai kredit, termasuk scan plagiarism.
+    if (!(await spendCredits(creditPricing.value.ai_plagiarism, 'plagiarism_check'))) return;
 
     plagiarismOpen.value = true;
     plagiarismLoading.value = true;
@@ -2182,9 +2342,7 @@ async function saveAiResult(type, score, matches) {
     }
 }
 
-async function openAiHistory() {
-    closePageMenu();
-    aiHistoryOpen.value = true;
+async function loadAiResults() {
     aiHistoryLoading.value = true;
     try {
         const res = await request(`/api/projects/${encodeURIComponent(projectId.value)}/ai-results`, {
@@ -2196,6 +2354,12 @@ async function openAiHistory() {
     } finally {
         aiHistoryLoading.value = false;
     }
+}
+
+async function openAiHistory() {
+    closePageMenu();
+    aiHistoryOpen.value = true;
+    await loadAiResults();
 }
 
 // Kembalikan teks blok ke versi sebelum saran AI diterapkan.
@@ -3066,7 +3230,9 @@ const horizontalMarks = computed(() => {
                 :citation-style-options="citationStyleOptions"
                 :align-options="alignOptions"
                 :current-chapter="currentChapter"
-                :canvas-summary="canvasSummary"
+                :page-context="currentPageContext"
+                :ai-history-list="aiHistoryList"
+                :ai-history-loading="aiHistoryLoading"
                 :references="allReferences"
                 :block-ai-prompts="blockAiPrompts"
                 :ai-gen-loading="aiGenLoading"
@@ -3123,6 +3289,9 @@ const horizontalMarks = computed(() => {
                 @remove-block="removeBlock"
                 @generate-block-content="generateBlockContent"
                 @insert-generated-content="insertGeneratedContent"
+                @run-plagiarism="openPlagiarismCheck"
+                @run-turnitin="openTurnitinOptimizer"
+                @load-ai-history="loadAiResults"
             />
 
         </div>
@@ -3265,6 +3434,8 @@ const horizontalMarks = computed(() => {
         :page-count="pages.length"
         :project-uuid="projectId"
         :block-types="agentBlockTypes"
+        :has-selection="!!selectedUid"
+        :spend-credits="spendCredits"
         v-model:open="agentModalOpen"
         @close="agentModalOpen = false"
         @apply="applyAgentToCanvas"
