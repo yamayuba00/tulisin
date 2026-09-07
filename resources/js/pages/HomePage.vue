@@ -5,7 +5,7 @@ import {
     PenLine, Sparkles, LayoutTemplate, FolderOpen, Type, BookOpen,
     Check, ArrowRight, Menu, X, Image, ShieldCheck,
     Zap, ChevronDown, GripVertical, GraduationCap, Users, Building2,
-    ScanSearch, ClipboardCheck, Star,
+    ScanSearch, ClipboardCheck, Star, Send,
 } from 'lucide-vue-next';
 import FloatingChat from '../components/FloatingChat.vue';
 import { useAuth } from '../utils/auth';
@@ -156,6 +156,7 @@ const features = [
     { icon: FolderOpen, title: 'File Manager', desc: 'Kelola gambar dan file dalam satu tempat, lalu pakai langsung saat sedang menulis.' },
     { icon: BookOpen, title: 'Sitasi & Daftar Pustaka', desc: 'Daftar pustaka dan rujukan akademik tertata otomatis sesuai gaya sitasi.' },
     { icon: ShieldCheck, title: 'Siap Cetak & Ekspor', desc: 'Atur margin, orientasi, dan ukuran halaman lalu ekspor ke format siap cetak.' },
+    { icon: Send, title: 'Publish Jurnal', desc: 'Publikasikan karya ilmiahmu langsung ke jurnal dan kelola prosesnya dalam satu tempat.', comingSoon: true },
 ];
 
 const steps = [
@@ -214,9 +215,9 @@ onBeforeUnmount(() => {
 // Segmen pengguna "Untuk Siapa".
 const audiences = [
     { icon: GraduationCap, title: 'Mahasiswa', desc: 'Selesaikan skripsi, tesis, hingga disertasi dengan format kampus yang rapi dan bantuan AI.' },
-    { icon: BookOpen, title: 'Dosen & Peneliti', desc: 'Susun jurnal, makalah, dan laporan penelitian dengan sitasi serta gaya penulisan yang konsisten.' },
-    { icon: Users, title: 'Agency Penulisan', desc: 'Kelola banyak proyek klien, template, dan tim penulis dalam satu alur kerja yang teratur.' },
-    { icon: Building2, title: 'Kampus & Institusi', desc: 'Standarisasi format dokumen, kelola seat anggota, hingga integrasi sistem (B2B).' },
+    { icon: BookOpen, title: 'Dosen & Peneliti', desc: 'Susun jurnal, makalah, dan laporan penelitian dengan sitasi serta gaya penulisan yang konsisten.', comingSoon: true },
+    { icon: Users, title: 'Agency Penulisan', desc: 'Kelola banyak proyek klien, template, dan tim penulis dalam satu alur kerja yang teratur.', comingSoon: true },
+    { icon: Building2, title: 'Kampus & Institusi', desc: 'Standarisasi format dokumen, kelola seat anggota, hingga integrasi sistem (B2B).', comingSoon: true },
 ];
 
 // Nama kampus (placeholder) untuk section "Mahasiswa universitas".
@@ -566,8 +567,17 @@ onBeforeUnmount(() => {
                 <div
                     v-for="f in features"
                     :key="f.title"
-                    class="rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700"
+                    class="relative rounded-xl border p-6 transition-all duration-200"
+                    :class="f.comingSoon
+                        ? 'border-dashed border-neutral-200 opacity-70 hover:opacity-90 dark:border-neutral-700'
+                        : 'border-neutral-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700'"
                 >
+                    <span
+                        v-if="f.comingSoon"
+                        class="absolute right-4 top-4 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                    >
+                        Segera Hadir
+                    </span>
                     <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
                         <component :is="f.icon" class="h-5 w-5" />
                     </div>
@@ -701,7 +711,20 @@ onBeforeUnmount(() => {
                 <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga institusi — Tulisin menyesuaikan kebutuhan setiap jenis pengguna.</p>
             </div>
             <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div v-for="a in audiences" :key="a.title" class="rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700">
+                <div
+                    v-for="a in audiences"
+                    :key="a.title"
+                    class="relative rounded-xl border p-6 transition-all duration-200"
+                    :class="a.comingSoon
+                        ? 'border-dashed border-neutral-200 opacity-70 hover:opacity-90 dark:border-neutral-700'
+                        : 'border-neutral-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700'"
+                >
+                    <span
+                        v-if="a.comingSoon"
+                        class="absolute right-4 top-4 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                    >
+                        Segera Hadir
+                    </span>
                     <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
                         <component :is="a.icon" class="h-5 w-5" />
                     </div>

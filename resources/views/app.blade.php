@@ -71,8 +71,93 @@
             })();
         </script>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        {{-- Splash loader statis: tampil segera sebelum bundle Vue dimuat & di-mount --}}
+        <style>
+            .app-splash {
+                position: fixed;
+                inset: 0;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: #ffffff;
+                transition: opacity 0.3s ease;
+            }
+            html.dark .app-splash { background: #0a0a0a; }
+
+            .app-splash__inner {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 16px;
+            }
+
+            .app-splash__logo {
+                width: 56px;
+                height: 56px;
+                border-radius: 16px;
+                background: #0a0a0a;
+                color: #ffffff;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: app-splash-pop 1.4s ease-in-out infinite;
+            }
+            html.dark .app-splash__logo { background: #ffffff; color: #0a0a0a; }
+            .app-splash__logo svg { width: 28px; height: 28px; }
+
+            .app-splash__brand {
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                color: #0a0a0a;
+                font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            }
+            html.dark .app-splash__brand { color: #ffffff; }
+
+            .app-splash__bar {
+                width: 160px;
+                height: 4px;
+                border-radius: 999px;
+                background: #e5e5e5;
+                overflow: hidden;
+            }
+            html.dark .app-splash__bar { background: #27272a; }
+            .app-splash__bar span {
+                display: block;
+                height: 100%;
+                width: 40%;
+                border-radius: 999px;
+                background: #0a0a0a;
+                animation: app-splash-slide 1.1s ease-in-out infinite;
+            }
+            html.dark .app-splash__bar span { background: #ffffff; }
+
+            @keyframes app-splash-slide {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(360%); }
+            }
+            @keyframes app-splash-pop {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(0.9); }
+            }
+        </style>
     </head>
     <body>
-        <div id="app"></div>
+        <div id="app">
+            <div class="app-splash">
+                <div class="app-splash__inner">
+                    <div class="app-splash__logo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"></path>
+                            <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
+                        </svg>
+                    </div>
+                    <div class="app-splash__brand">Tulisin</div>
+                    <div class="app-splash__bar"><span></span></div>
+                </div>
+            </div>
+        </div>
     </body>
 </html>

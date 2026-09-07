@@ -117,6 +117,12 @@ const routes = [
                 meta: { title: 'Paper / Journal' },
             },
             {
+                path: 'publish-journal',
+                name: 'publish-journal',
+                component: () => import('../apps/publish-journal/index.vue'),
+                meta: { title: 'Publish Jurnal' },
+            },
+            {
                 path: 'workspace',
                 name: 'workspace',
                 component: () => import('../apps/workspace/index.vue'),

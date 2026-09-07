@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import { useAuth } from '../utils/auth';
@@ -26,6 +26,7 @@ const pageTitle = computed(() => {
         affiliate: 'Affiliate',
         earn: 'Dapatkan Koin',
         'my-reviews': 'Rating & Review',
+        'publish-journal': 'Publish Jurnal',
         templates: 'Template',
         journals: 'Paper / Journal',
         workspace: 'Tulisin Workspace',
@@ -72,6 +73,7 @@ const userNavGroups = [
         items: [
             { label: 'Template', to: '/apps/u/templates', icon: LayoutTemplate },
             { label: 'Paper / Journal', to: '/apps/u/journals', icon: FileText },
+            { label: 'Publish Jurnal', to: '/apps/u/publish-journal', icon: Send },
             { label: 'Tulisin Workspace', to: '/apps/u/workspace', icon: Library },
             { label: 'File Manager', to: '/apps/u/files', icon: FolderOpen },
             { label: 'File Font', to: '/apps/u/fonts', icon: Type },
