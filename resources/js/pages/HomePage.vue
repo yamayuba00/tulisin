@@ -23,7 +23,7 @@ const openFaq = ref(0);
 
 // ---- Scroll-spy: sorot menu navbar sesuai section yang sedang terlihat ----
 const activeSection = ref('');
-const spySectionIds = ['fitur', 'untuk-siapa', 'testimoni', 'paket'];
+const spySectionIds = ['fitur', 'untuk-siapa', 'paket', 'testimoni'];
 
 function updateActiveSection() {
     const offset = 120;
