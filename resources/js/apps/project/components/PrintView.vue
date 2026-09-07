@@ -3,8 +3,9 @@ import CanvasBlock from '../../../components/CanvasBlock.vue';
 import TableBlock from '../../../components/TableBlock.vue';
 import ImageBlock from '../../../components/ImageBlock.vue';
 import FormulaBlock from '../../../components/FormulaBlock.vue';
+import WatermarkOverlay from '../../../components/WatermarkOverlay.vue';
 
-defineProps({
+const props = defineProps({
     printPages: { type: Array, default: () => [] },
     pageBoxStyle: { type: Object, default: () => ({}) },
     captionNumbers: { type: Object, default: () => ({}) },
@@ -15,11 +16,15 @@ defineProps({
     figureEntries: { type: Array, default: () => [] },
     referenceEntries: { type: Array, default: () => [] },
     citationStyle: { type: String, default: '' },
-    pageNumberPosition: { type: String, default: 'bottom-center' },
-    pageNumberClass: { type: String, default: '' },
+    pageNumberClassFor: { type: Function, default: null },
+    watermark: { type: Object, default: () => ({}) },
     isCoverPage: { type: Function, default: null },
     pageNumberLabel: { type: Function, default: null },
 });
+
+function pageNumberClassForPage(pIndex) {
+    return typeof props.pageNumberClassFor === 'function' ? props.pageNumberClassFor(pIndex) : '';
+}
 </script>
 
 <template>
@@ -60,10 +65,12 @@ defineProps({
                     :entry-slice="block.sliceStart == null ? null : [block.sliceStart, block.sliceEnd]"
                 />
             </template>
+            <WatermarkOverlay :watermark="watermark" />
+
             <span
-                v-if="pageNumberPosition !== 'none' && isCoverPage && !isCoverPage(pIndex)"
+                v-if="pageNumberClassForPage(pIndex) && isCoverPage && !isCoverPage(pIndex)"
                 class="absolute text-xs text-neutral-900"
-                :class="pageNumberClass"
+                :class="pageNumberClassForPage(pIndex)"
             >{{ pageNumberLabel ? pageNumberLabel(pIndex) : '' }}</span>
         </div>
     </div>

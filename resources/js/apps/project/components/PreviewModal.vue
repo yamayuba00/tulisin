@@ -5,6 +5,7 @@ import CanvasBlock from '../../../components/CanvasBlock.vue';
 import TableBlock from '../../../components/TableBlock.vue';
 import ImageBlock from '../../../components/ImageBlock.vue';
 import FormulaBlock from '../../../components/FormulaBlock.vue';
+import WatermarkOverlay from '../../../components/WatermarkOverlay.vue';
 
 const props = defineProps({
     pages: { type: Array, default: () => [] },
@@ -18,8 +19,8 @@ const props = defineProps({
     figureEntries: { type: Array, default: () => [] },
     referenceEntries: { type: Array, default: () => [] },
     citationStyle: { type: String, default: '' },
-    pageNumberPosition: { type: String, default: 'bottom-center' },
-    pageNumberClass: { type: String, default: '' },
+    pageNumberClassFor: { type: Function, default: null },
+    watermark: { type: Object, default: () => ({}) },
     isCoverPage: { type: Function, default: null },
     pageNumberLabel: { type: Function, default: null },
 });
@@ -55,6 +56,10 @@ function fitPreviewZoom() {
     const availWidth = Math.max(240, window.innerWidth - 48);
     const widthZoom = availWidth / pageWidthPxFromStyle();
     previewZoom.value = Math.min(1.5, Math.max(0.25, +Math.min(heightZoom, widthZoom).toFixed(2)));
+}
+
+function pageNumberClassForPage(pIndex) {
+    return typeof props.pageNumberClassFor === 'function' ? props.pageNumberClassFor(pIndex) : '';
 }
 
 // Sesuaikan zoom setiap kali pratinjau dibuka agar satu halaman muat di layar.
@@ -163,10 +168,12 @@ watch(
                         />
                     </template>
 
+                    <WatermarkOverlay :watermark="watermark" />
+
                     <span
-                        v-if="pageNumberPosition !== 'none' && isCoverPage && !isCoverPage(pIndex)"
+                        v-if="pageNumberClassForPage(pIndex) && isCoverPage && !isCoverPage(pIndex)"
                         class="pointer-events-none absolute text-xs text-neutral-500 dark:text-neutral-400"
-                        :class="pageNumberClass"
+                        :class="pageNumberClassForPage(pIndex)"
                     >{{ pageNumberLabel ? pageNumberLabel(pIndex) : '' }}</span>
                 </div>
             </div>

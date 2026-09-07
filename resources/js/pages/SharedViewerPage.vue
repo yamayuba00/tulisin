@@ -8,6 +8,7 @@ import CanvasBlock from '../components/CanvasBlock.vue';
 import TableBlock from '../components/TableBlock.vue';
 import ImageBlock from '../components/ImageBlock.vue';
 import FormulaBlock from '../components/FormulaBlock.vue';
+import WatermarkOverlay from '../components/WatermarkOverlay.vue';
 
 const route = useRoute();
 
@@ -24,10 +25,23 @@ const viewOnly = computed(() => (Array.isArray(route.query.view) ? route.query.v
 const blocks = computed(() => (payload.value && Array.isArray(payload.value.blocks)) ? payload.value.blocks : []);
 const docName = computed(() => title.value || payload.value?.name || 'Dokumen Tanpa Judul');
 const citationStyle = computed(() => payload.value?.citationStyle || 'APA');
-const pageNumberPosition = computed(() => payload.value?.pageNumberPosition || 'bottom-center');
+const frontMatterPosition = computed(() => payload.value?.frontMatterPosition || payload.value?.pageNumberPosition || 'bottom-center');
+const bodyPosition = computed(() => payload.value?.bodyPosition || payload.value?.pageNumberPosition || 'bottom-center');
 const frontMatterStyle = computed(() => payload.value?.frontMatterStyle || 'roman');
 const bodyStyle = computed(() => payload.value?.bodyStyle || 'decimal');
 const bodyStart = computed(() => Number(payload.value?.bodyStart) || 1);
+
+const watermark = computed(() => ({
+    enabled: !!payload.value?.watermarkEnabled,
+    type: payload.value?.watermarkType || 'text',
+    text: payload.value?.watermarkText || 'RAHASIA',
+    fontSize: Number(payload.value?.watermarkFontSize) || 48,
+    color: payload.value?.watermarkColor || '#b0b0b0',
+    opacity: Number(payload.value?.watermarkOpacity) || 0.15,
+    rotation: Number(payload.value?.watermarkRotation) || -30,
+    image: resolveImage(payload.value?.watermarkImage || ''),
+    imageWidth: Number(payload.value?.watermarkImageWidth) || 300,
+}));
 
 // Daftarkan font kustom (data URL) dari payload agar halaman publik menampilkan
 // jenis huruf yang sama dengan builder.
@@ -241,7 +255,21 @@ function pageStyleScaled() {
     };
 }
 
-const pageNumberClass = computed(() => payload.value?.pageNumberClass || 'bottom-3 left-0 right-0 text-center');
+function pageNumberPositionClass(position) {
+    switch (position) {
+        case 'bottom-left': return 'bottom-3 left-10';
+        case 'bottom-right': return 'bottom-3 right-10';
+        case 'top-center': return 'top-3 left-0 right-0 text-center';
+        case 'top-left': return 'top-3 left-10';
+        case 'top-right': return 'top-3 right-10';
+        default: return 'bottom-3 left-0 right-0 text-center';
+    }
+}
+
+function pageNumberClassFor(pIndex) {
+    const pos = pIndex < firstBodyPageIndex.value ? frontMatterPosition.value : bodyPosition.value;
+    return pos === 'none' ? '' : pageNumberPositionClass(pos);
+}
 
 // Style kontainer pengukur (sama dengan area konten satu halaman) untuk pagination.
 const measureStyle = computed(() => {
@@ -270,7 +298,7 @@ function setMeasureRef(uid, el) {
 }
 
 function isPageBreakType(type) {
-    return ['cover', 'abstract', 'toc', 'listTables', 'listFigures', 'references', 'chapter', 'pageBreak'].includes(type);
+    return ['cover', 'abstract', 'toc', 'listTables', 'listFigures', 'references', 'blankPage', 'chapter', 'pageBreak'].includes(type);
 }
 
 const splittableListTypes = ['toc', 'listTables', 'listFigures', 'references', 'bullet', 'number'];
@@ -578,6 +606,7 @@ onBeforeUnmount(() => {
                         <p class="mt-0.5 text-center text-xs text-neutral-500">
                             {{ viewOnly ? 'Mode baca' : 'Pratinjau' }}
                             <span v-if="notCopy"> · salin dinonaktifkan</span>
+                            <span> · {{ computedPages.length }} halaman</span>
                         </p>
                     </div>
 
@@ -630,10 +659,12 @@ onBeforeUnmount(() => {
                             />
                         </template>
 
+                        <WatermarkOverlay :watermark="watermark" />
+
                         <span
-                            v-if="pageNumberPosition !== 'none' && !(pageLabels[i] && pageLabels[i].isCover)"
+                            v-if="pageNumberClassFor(i) && !(pageLabels[i] && pageLabels[i].isCover)"
                             class="pointer-events-none absolute text-xs text-neutral-500"
-                            :class="pageNumberClass"
+                            :class="pageNumberClassFor(i)"
                         >{{ pageLabels[i] ? pageLabels[i].label : '' }}</span>
                         </div>
                     </div>

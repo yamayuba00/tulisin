@@ -6,6 +6,7 @@ import CanvasBlock from '../../../components/CanvasBlock.vue';
 import TableBlock from '../../../components/TableBlock.vue';
 import ImageBlock from '../../../components/ImageBlock.vue';
 import FormulaBlock from '../../../components/FormulaBlock.vue';
+import WatermarkOverlay from '../../../components/WatermarkOverlay.vue';
 
 const props = defineProps({
     canvasBlocks: { type: Array, default: () => [] },
@@ -31,8 +32,8 @@ const props = defineProps({
     referenceEntries: { type: Array, default: () => [] },
     citationStyle: { type: String, default: '' },
     captionNumbers: { type: Object, default: () => ({}) },
-    pageNumberPosition: { type: String, default: 'bottom-center' },
-    pageNumberClass: { type: String, default: '' },
+    pageNumberClassFor: { type: Function, default: null },
+    watermark: { type: Object, default: () => ({}) },
     fontOptions: { type: Array, default: () => [] },
     selectedBlock: { type: Object, default: null },
     setCanvasEl: { type: Function, default: null },
@@ -222,6 +223,10 @@ function pageNumberText(pIndex) {
     return typeof props.pageNumberLabel === 'function' ? props.pageNumberLabel(pIndex) : '';
 }
 
+function pageNumberClassForPage(pIndex) {
+    return typeof props.pageNumberClassFor === 'function' ? props.pageNumberClassFor(pIndex) : '';
+}
+
 function onWindowResize() {
     updateViewport();
 }
@@ -396,10 +401,12 @@ defineExpose({ scrollToPage });
                                 />
                             </template>
 
+                            <WatermarkOverlay :watermark="watermark" />
+
                             <span
-                                v-if="pageNumberPosition !== 'none' && !coverPage(item.pIndex)"
+                                v-if="pageNumberClassForPage(item.pIndex) && !coverPage(item.pIndex)"
                                 class="pointer-events-none absolute text-xs text-neutral-500 dark:text-neutral-400"
-                                :class="pageNumberClass"
+                                :class="pageNumberClassForPage(item.pIndex)"
                             >{{ pageNumberText(item.pIndex) }}</span>
                         </div>
 

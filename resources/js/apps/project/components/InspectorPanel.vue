@@ -56,6 +56,16 @@ const citationStyle = defineModel('citationStyle', { type: String, default: 'APA
 const aiGenInput = defineModel('aiGenInput', { type: String, default: '' });
 const aiGenOutput = defineModel('aiGenOutput', { type: String, default: '' });
 
+const watermarkEnabled = defineModel('watermarkEnabled', { type: Boolean, default: false });
+const watermarkType = defineModel('watermarkType', { type: String, default: 'text' });
+const watermarkText = defineModel('watermarkText', { type: String, default: 'RAHASIA' });
+const watermarkFontSize = defineModel('watermarkFontSize', { type: Number, default: 48 });
+const watermarkColor = defineModel('watermarkColor', { type: String, default: '#b0b0b0' });
+const watermarkOpacity = defineModel('watermarkOpacity', { type: Number, default: 0.15 });
+const watermarkRotation = defineModel('watermarkRotation', { type: Number, default: -30 });
+const watermarkImage = defineModel('watermarkImage', { type: String, default: '' });
+const watermarkImageWidth = defineModel('watermarkImageWidth', { type: Number, default: 300 });
+
 const emit = defineEmits([
     'toggle-toc',
     'scroll-to-block',
@@ -70,6 +80,7 @@ const emit = defineEmits([
     'set-caption-position',
     'trigger-image-upload',
     'trigger-font-upload',
+    'trigger-watermark-image-upload',
     'set-width',
     'set-align',
     'set-columns',
@@ -291,6 +302,134 @@ function blockPreviewOf(b) {
                                     />
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Watermark -->
+                        <div class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Watermark</p>
+                                    <p class="mt-0.5 text-[11px] text-neutral-400 dark:text-neutral-500">Teks/gambar tembus pandang di tengah halaman.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="inline-flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors"
+                                    :class="watermarkEnabled ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400'"
+                                    @click="watermarkEnabled = !watermarkEnabled"
+                                >
+                                    {{ watermarkEnabled ? 'Aktif' : 'Nonaktif' }}
+                                </button>
+                            </div>
+
+                            <template v-if="watermarkEnabled">
+                                <div class="mt-3 grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        class="cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                                        :class="watermarkType === 'text' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400'"
+                                        @click="watermarkType = 'text'"
+                                    >Teks</button>
+                                    <button
+                                        type="button"
+                                        class="cursor-pointer rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                                        :class="watermarkType === 'image' ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white' : 'border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400'"
+                                        @click="watermarkType = 'image'"
+                                    >Gambar</button>
+                                </div>
+
+                                <template v-if="watermarkType === 'text'">
+                                    <div class="mt-3">
+                                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Teks</label>
+                                        <input
+                                            v-model="watermarkText"
+                                            type="text"
+                                            placeholder="Mis. RAHASIA"
+                                            class="mt-1 w-full rounded-lg border border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
+                                        />
+                                    </div>
+                                    <div class="mt-3 grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Ukuran (pt)</label>
+                                            <input
+                                                v-model.number="watermarkFontSize"
+                                                type="number"
+                                                min="8"
+                                                max="200"
+                                                class="mt-1 w-full rounded-lg border border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Warna</label>
+                                            <div class="mt-1 flex items-center gap-2">
+                                                <input
+                                                    v-model="watermarkColor"
+                                                    type="color"
+                                                    class="h-9 w-12 cursor-pointer rounded-lg border border-neutral-200 bg-transparent p-0.5 dark:border-neutral-800"
+                                                />
+                                                <span class="text-xs text-neutral-500 dark:text-neutral-400">{{ watermarkColor }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template v-else>
+                                    <div
+                                        v-if="watermarkImage"
+                                        class="mt-3 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800"
+                                    >
+                                        <img :src="watermarkImage" alt="Watermark" class="max-h-36 w-full object-contain" />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        class="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                        @click="emit('trigger-watermark-image-upload')"
+                                    >
+                                        <Upload class="h-4 w-4" />
+                                        {{ watermarkImage ? 'Ganti Gambar' : 'Pilih Gambar' }}
+                                    </button>
+                                    <div class="mt-3">
+                                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Lebar Gambar (px)</label>
+                                        <input
+                                            v-model.number="watermarkImageWidth"
+                                            type="number"
+                                            min="40"
+                                            max="1200"
+                                            class="mt-1 w-full rounded-lg border border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
+                                        />
+                                    </div>
+                                </template>
+
+                                <div class="mt-3">
+                                    <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Kepekatan (Opacity)</label>
+                                    <div class="mt-1 flex items-center gap-2">
+                                        <input
+                                            v-model.number="watermarkOpacity"
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.05"
+                                            class="w-full"
+                                        />
+                                        <span class="w-10 text-right text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{{ Math.round(watermarkOpacity * 100) }}%</span>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Kemiringan (Rotasi)</label>
+                                    <div class="mt-1 flex items-center gap-2">
+                                        <input
+                                            v-model.number="watermarkRotation"
+                                            type="range"
+                                            min="-90"
+                                            max="90"
+                                            step="1"
+                                            class="w-full"
+                                        />
+                                        <span class="w-10 text-right text-xs tabular-nums text-neutral-500 dark:text-neutral-400">{{ watermarkRotation }}°</span>
+                                    </div>
+                                    <p class="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500">Negatif miring ke kiri, positif miring ke kanan.</p>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </div>

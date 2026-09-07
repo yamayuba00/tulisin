@@ -328,6 +328,7 @@ const codeEditingUid = ref(null);
 
 // ---- Image File Manager ----
 const imageManagerOpen = ref(false);
+const imageSelectTarget = ref('block'); // 'block' | 'watermark'
 
 // ---- Bagikan dokumen (public view) ----
 const shareOpen = ref(false);
@@ -584,16 +585,41 @@ const numberingMap = computed(() => {
 });
 
 // ---- Nomor halaman ----
-const pageNumberPosition = ref('bottom-center');
+const frontMatterPosition = ref('bottom-center');
+const bodyPosition = ref('bottom-center');
 const frontMatterStyle = ref('roman');
 const bodyStyle = ref('decimal');
 const bodyStart = ref(1);
 const pageSettingsOpen = ref(false);
 const pageSettingsPos = ref({ x: 0, y: 0 });
 
+// ---- Watermark ----
+const watermarkEnabled = ref(false);
+const watermarkType = ref('text'); // 'text' | 'image'
+const watermarkText = ref('RAHASIA');
+const watermarkFontSize = ref(48); // pt
+const watermarkColor = ref('#b0b0b0');
+const watermarkOpacity = ref(0.15); // 0..1
+const watermarkRotation = ref(-30); // derajat (negatif = miring kiri)
+const watermarkImage = ref(''); // URL gambar
+const watermarkImageWidth = ref(300); // px (lebar gambar watermark)
+
+// Objek watermark yang diteruskan ke komponen render (canvas, preview, print, share).
+const watermarkSettings = computed(() => ({
+    enabled: watermarkEnabled.value,
+    type: watermarkType.value,
+    text: watermarkText.value,
+    fontSize: watermarkFontSize.value,
+    color: watermarkColor.value,
+    opacity: watermarkOpacity.value,
+    rotation: watermarkRotation.value,
+    image: watermarkImage.value,
+    imageWidth: watermarkImageWidth.value,
+}));
+
 // Simpan otomatis saat pengaturan dokumen berubah.
 watch(
-    [fontChoice, customFont, pageFontSize, pageLineHeight, pageFormat, pageOrientation, pageMargins, pageNumberPosition, frontMatterStyle, bodyStyle, bodyStart, citationStyle, citedReferences],
+    [fontChoice, customFont, pageFontSize, pageLineHeight, pageFormat, pageOrientation, pageMargins, frontMatterPosition, bodyPosition, frontMatterStyle, bodyStyle, bodyStart, citationStyle, citedReferences, watermarkEnabled, watermarkType, watermarkText, watermarkFontSize, watermarkColor, watermarkOpacity, watermarkRotation, watermarkImage, watermarkImageWidth],
     () => {
         if (isLoading) return;
         scheduleSave();
@@ -603,8 +629,9 @@ watch(
 const pageMenu = ref({ open: false, x: 0, y: 0, pIndex: 0 });
 const blockMenu = ref({ open: false, x: 0, y: 0, uid: null });
 
-const pageNumberClass = computed(() => {
-    switch (pageNumberPosition.value) {
+// Kelas posisi untuk sebuah pilihan posisi nomor halaman.
+function pageNumberPositionClass(position) {
+    switch (position) {
         case 'bottom-left': return 'bottom-3 left-10';
         case 'bottom-right': return 'bottom-3 right-10';
         case 'top-center': return 'top-3 left-0 right-0 text-center';
@@ -612,7 +639,13 @@ const pageNumberClass = computed(() => {
         case 'top-right': return 'top-3 right-10';
         default: return 'bottom-3 left-0 right-0 text-center';
     }
-});
+}
+
+// Kelas nomor halaman per halaman (front matter vs isi bisa beda posisi).
+function pageNumberClassFor(pIndex) {
+    const pos = pIndex < firstBodyPageIndex.value ? frontMatterPosition.value : bodyPosition.value;
+    return pos === 'none' ? '' : pageNumberPositionClass(pos);
+}
 
 const firstBodyPageIndex = computed(() => {
     for (let i = 0; i < pages.value.length; i++) {
@@ -2299,11 +2332,19 @@ function movePage(pIndex, dir) {
 // ---- Image File Manager ----
 function triggerImageUpload() {
     if (!selectedBlock.value || selectedBlock.value.type !== 'image') return;
+    imageSelectTarget.value = 'block';
+    imageManagerOpen.value = true;
+}
+
+function triggerWatermarkImageUpload() {
+    imageSelectTarget.value = 'watermark';
     imageManagerOpen.value = true;
 }
 
 function onImageSelect(item) {
-    if (selectedBlock.value && item?.url) {
+    if (imageSelectTarget.value === 'watermark') {
+        if (item?.url) watermarkImage.value = item.url;
+    } else if (selectedBlock.value && item?.url) {
         selectedBlock.value.content = item.url;
     }
     imageManagerOpen.value = false;
@@ -2410,10 +2451,21 @@ function projectPayload() {
         customFontData: customFonts.value.find((f) => f.family === effectiveFontFamily.value) || null,
         fontSize: pageFontSize.value,
         lineHeight: pageLineHeight.value,
-        pageNumberPosition: pageNumberPosition.value,
+        pageNumberPosition: bodyPosition.value,
+        frontMatterPosition: frontMatterPosition.value,
+        bodyPosition: bodyPosition.value,
         frontMatterStyle: frontMatterStyle.value,
         bodyStyle: bodyStyle.value,
         bodyStart: bodyStart.value,
+        watermarkEnabled: watermarkEnabled.value,
+        watermarkType: watermarkType.value,
+        watermarkText: watermarkText.value,
+        watermarkFontSize: watermarkFontSize.value,
+        watermarkColor: watermarkColor.value,
+        watermarkOpacity: watermarkOpacity.value,
+        watermarkRotation: watermarkRotation.value,
+        watermarkImage: watermarkImage.value,
+        watermarkImageWidth: watermarkImageWidth.value,
         citationStyle: citationStyle.value,
         citedReferences: citedReferences.value,
         hiddenTocUids: hiddenTocUids.value,
@@ -2430,7 +2482,6 @@ function projectPayload() {
         referenceEntries: referenceEntries.value,
         pageBoxStyle: pageBoxStyle.value,
         contentHeightPx: contentHeightPx.value,
-        pageNumberClass: pageNumberClass.value,
         pageNumberLabels: pages.value.map((_, i) => ({ isCover: isCoverPage(i), label: pageNumberLabel(i) })),
     };
 }
@@ -2454,10 +2505,22 @@ function applyProjectData(data) {
     if (typeof data.customFont === 'string') customFont.value = data.customFont;
     if (typeof data.fontSize === 'number') pageFontSize.value = data.fontSize;
     if (typeof data.lineHeight === 'number') pageLineHeight.value = data.lineHeight;
-    if (typeof data.pageNumberPosition === 'string') pageNumberPosition.value = data.pageNumberPosition;
+    if (typeof data.frontMatterPosition === 'string') frontMatterPosition.value = data.frontMatterPosition;
+    else if (typeof data.pageNumberPosition === 'string') frontMatterPosition.value = data.pageNumberPosition;
+    if (typeof data.bodyPosition === 'string') bodyPosition.value = data.bodyPosition;
+    else if (typeof data.pageNumberPosition === 'string') bodyPosition.value = data.pageNumberPosition;
     if (typeof data.frontMatterStyle === 'string') frontMatterStyle.value = data.frontMatterStyle;
     if (typeof data.bodyStyle === 'string') bodyStyle.value = data.bodyStyle;
     if (typeof data.bodyStart === 'number') bodyStart.value = data.bodyStart;
+    if (typeof data.watermarkEnabled === 'boolean') watermarkEnabled.value = data.watermarkEnabled;
+    if (typeof data.watermarkType === 'string') watermarkType.value = data.watermarkType;
+    if (typeof data.watermarkText === 'string') watermarkText.value = data.watermarkText;
+    if (typeof data.watermarkFontSize === 'number') watermarkFontSize.value = data.watermarkFontSize;
+    if (typeof data.watermarkColor === 'string') watermarkColor.value = data.watermarkColor;
+    if (typeof data.watermarkOpacity === 'number') watermarkOpacity.value = data.watermarkOpacity;
+    if (typeof data.watermarkRotation === 'number') watermarkRotation.value = data.watermarkRotation;
+    if (typeof data.watermarkImage === 'string') watermarkImage.value = data.watermarkImage;
+    if (typeof data.watermarkImageWidth === 'number') watermarkImageWidth.value = data.watermarkImageWidth;
     if (typeof data.citationStyle === 'string') citationStyle.value = data.citationStyle;
     if (Array.isArray(data.citedReferences)) citedReferences.value = data.citedReferences;
     if (Array.isArray(data.hiddenTocUids)) hiddenTocUids.value = data.hiddenTocUids.filter((x) => typeof x === 'string');
@@ -2956,8 +3019,8 @@ const horizontalMarks = computed(() => {
                 :reference-entries="referenceEntries"
                 :citation-style="citationStyle"
                 :caption-numbers="captionNumbers"
-                :page-number-position="pageNumberPosition"
-                :page-number-class="pageNumberClass"
+                :page-number-class-for="pageNumberClassFor"
+                :watermark="watermarkSettings"
                 :font-options="fontOptions"
                 :selected-block="selectedBlock"
                 :set-canvas-el="setCanvasEl"
@@ -3026,6 +3089,15 @@ const horizontalMarks = computed(() => {
                 v-model:citation-style="citationStyle"
                 v-model:ai-gen-input="aiGenInput"
                 v-model:ai-gen-output="aiGenOutput"
+                v-model:watermark-enabled="watermarkEnabled"
+                v-model:watermark-type="watermarkType"
+                v-model:watermark-text="watermarkText"
+                v-model:watermark-font-size="watermarkFontSize"
+                v-model:watermark-color="watermarkColor"
+                v-model:watermark-opacity="watermarkOpacity"
+                v-model:watermark-rotation="watermarkRotation"
+                v-model:watermark-image="watermarkImage"
+                v-model:watermark-image-width="watermarkImageWidth"
                 @toggle-toc="toggleTocEntry"
                 @scroll-to-block="scrollToBlock"
                 @deselect-block="deselectBlock"
@@ -3039,6 +3111,7 @@ const horizontalMarks = computed(() => {
                 @set-caption-position="setCaptionPosition"
                 @trigger-image-upload="triggerImageUpload"
                 @trigger-font-upload="triggerFontUpload"
+                @trigger-watermark-image-upload="triggerWatermarkImageUpload"
                 @set-width="setWidth"
                 @set-align="setAlign"
                 @set-columns="setColumns"
@@ -3069,7 +3142,8 @@ const horizontalMarks = computed(() => {
         v-model:page-settings-open="pageSettingsOpen"
         v-model:page-menu="pageMenu"
         v-model:block-menu="blockMenu"
-        v-model:page-number-position="pageNumberPosition"
+        v-model:front-matter-position="frontMatterPosition"
+        v-model:body-position="bodyPosition"
         v-model:front-matter-style="frontMatterStyle"
         v-model:body-style="bodyStyle"
         v-model:body-start="bodyStart"
@@ -3123,8 +3197,8 @@ const horizontalMarks = computed(() => {
         :figure-entries="figureEntries"
         :reference-entries="referenceEntries"
         :citation-style="citationStyle"
-        :page-number-position="pageNumberPosition"
-        :page-number-class="pageNumberClass"
+        :page-number-class-for="pageNumberClassFor"
+        :watermark="watermarkSettings"
         :is-cover-page="isCoverPage"
         :page-number-label="pageNumberLabel"
         v-model:open="previewOpen"
@@ -3232,8 +3306,8 @@ const horizontalMarks = computed(() => {
         :figure-entries="figureEntries"
         :reference-entries="referenceEntries"
         :citation-style="citationStyle"
-        :page-number-position="pageNumberPosition"
-        :page-number-class="pageNumberClass"
+        :page-number-class-for="pageNumberClassFor"
+        :watermark="watermarkSettings"
         :is-cover-page="isCoverPage"
         :page-number-label="pageNumberLabel"
     />

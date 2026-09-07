@@ -212,7 +212,9 @@ class NotificationController extends Controller
             'path' => $path,
         ]);
 
-        return response()->json(['url' => url('/api/blast-images/'.$uuid)], 201);
+        // URL relatif: di SPA (preview/editor) akan di-resolve terhadap origin yang
+        // sedang dipakai pengguna. URL absolut untuk email dibangun di Notification.
+        return response()->json(['url' => '/api/blast-images/'.$uuid], 201);
     }
 
     /**

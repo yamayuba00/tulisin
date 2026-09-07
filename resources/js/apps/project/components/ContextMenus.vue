@@ -15,7 +15,8 @@ defineProps({
 const pageSettingsOpen = defineModel('pageSettingsOpen', { type: Boolean, default: false });
 const pageMenu = defineModel('pageMenu', { type: Object, default: () => ({ open: false, x: 0, y: 0, pIndex: 0 }) });
 const blockMenu = defineModel('blockMenu', { type: Object, default: () => ({ open: false, x: 0, y: 0, uid: null }) });
-const pageNumberPosition = defineModel('pageNumberPosition', { type: String, default: 'bottom-center' });
+const frontMatterPosition = defineModel('frontMatterPosition', { type: String, default: 'bottom-center' });
+const bodyPosition = defineModel('bodyPosition', { type: String, default: 'bottom-center' });
 const frontMatterStyle = defineModel('frontMatterStyle', { type: String, default: 'roman' });
 const bodyStyle = defineModel('bodyStyle', { type: String, default: 'decimal' });
 const bodyStart = defineModel('bodyStart', { type: Number, default: 1 });
@@ -87,20 +88,32 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick));
             </div>
 
             <div class="mt-4 space-y-4">
-                <div>
-                    <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Posisi Nomor</label>
-                    <div class="mt-1">
-                        <FilterSelect
-                            v-model="pageNumberPosition"
-                            :options="pageNumberPositionOptions"
-                            placeholder="Pilih posisi"
-                        />
+                <div class="space-y-3">
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Posisi Nomor Halaman Depan (Romawi)</label>
+                        <div class="mt-1">
+                            <FilterSelect
+                                v-model="frontMatterPosition"
+                                :options="pageNumberPositionOptions"
+                                placeholder="Pilih posisi"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Posisi Nomor Halaman Isi (Angka)</label>
+                        <div class="mt-1">
+                            <FilterSelect
+                                v-model="bodyPosition"
+                                :options="pageNumberPositionOptions"
+                                placeholder="Pilih posisi"
+                            />
+                        </div>
                     </div>
                 </div>
 
                 <div class="space-y-3">
                     <div>
-                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Halaman Depan (Abstrak)</label>
+                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Format Halaman Depan (Abstrak)</label>
                         <div class="mt-1">
                             <FilterSelect
                                 v-model="frontMatterStyle"
@@ -110,7 +123,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick));
                         </div>
                     </div>
                     <div>
-                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Halaman Isi (Bab)</label>
+                        <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Format Halaman Isi (Bab)</label>
                         <div class="mt-1">
                             <FilterSelect
                                 v-model="bodyStyle"

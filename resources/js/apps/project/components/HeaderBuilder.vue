@@ -30,7 +30,6 @@ const emit = defineEmits([
     'open-blocks',
     'open-setup',
     'open-preview',
-    'print',
     'toggle-download',
     'open-inspector',
     'open-agent',
@@ -125,15 +124,6 @@ const emit = defineEmits([
             >
                 <Eye class="h-4 w-4" />
                 <span class="hidden sm:inline">Preview</span>
-            </button>
-
-            <button
-                type="button"
-                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white sm:inline-flex"
-                @click="emit('print')"
-            >
-                <Printer class="h-4 w-4" />
-                <span class="hidden sm:inline">Print</span>
             </button>
 
             <button

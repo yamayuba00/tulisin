@@ -649,6 +649,7 @@ onMounted(() => {
 .toc-level-10 { padding-left: 10rem; }
 .toc-label { white-space: nowrap; margin-right: 0.5rem; }
 .toc-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toc-chapter .toc-text { text-transform: uppercase; }
 .toc-dots { flex: 1; border-bottom: 1px dotted #a3a3a3; margin: 0 0.5rem; }
 .toc-page { white-space: nowrap; }
 
