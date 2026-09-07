@@ -1,26 +1,40 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { Upload, Trash2, Type, Coins } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import { Upload, Trash2, Type, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import AppButton from '../../components/AppButton.vue';
 import { listCustomFonts, addCustomFont, removeCustomFont, registerFontFace, unregisterFontFace } from '../../utils/fontManager';
-import { request } from '../../utils/http';
+import { request, getJson } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
+
+const router = useRouter();
 
 const fonts = ref([]);
 const uploading = ref(false);
 const fileInput = ref(null);
+const subscribed = ref(false);
 
 async function refresh() {
     fonts.value = await listCustomFonts();
     fonts.value.forEach(registerFontFace);
 }
 
+async function loadSubscription() {
+    try {
+        const data = await getJson('/api/subscription');
+        subscribed.value = !!data.active;
+    } catch {
+        subscribed.value = false;
+    }
+}
+
 onMounted(async () => {
     loadCreditPricing();
     await refresh();
+    loadSubscription();
 });
 
 function openUpload() {
@@ -31,6 +45,12 @@ async function onFileChange(e) {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
     if (!files.length) return;
+
+    if (!subscribed.value) {
+        toast('Font kustom memerlukan langganan aktif.', 'warning');
+        router.push('/apps/u/topup');
+        return;
+    }
 
     const credits = files.length * creditPricing.value.font;
     uploading.value = true;
@@ -76,6 +96,12 @@ async function remove(id) {
                 </AppButton>
             </template>
         </PageHeader>
+
+        <div v-if="!subscribed" class="mb-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+            <Lock class="h-4 w-4 shrink-0" />
+            <span>Font kustom memerlukan langganan aktif.</span>
+            <button type="button" class="cursor-pointer font-semibold underline underline-offset-2" @click="router.push('/apps/u/topup')">Berlangganan</button>
+        </div>
 
         <div class="mb-4 flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
             <span class="inline-flex items-center gap-1.5">

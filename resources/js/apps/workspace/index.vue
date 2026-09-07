@@ -1,12 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Upload, FileText, Loader2, Trash2, BookMarked, FileSearch, Quote, Library, Eye, Coins } from 'lucide-vue-next';
+import { Upload, FileText, Loader2, Trash2, BookMarked, FileSearch, Quote, Library, Eye, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import { pdfToCSL, listReferences, addReferences, removeReference } from '../../utils/workspaceLibrary';
 import { parseCSLItem, formatBibliography, authorYearLabel } from '../../utils/csl-formatter';
-import { request } from '../../utils/http';
+import { request, getJson } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 
@@ -36,11 +36,22 @@ const library = ref([]);
 // Konfirmasi sebelum unggah + generate (memotong koin + kuota storage).
 const confirmGenerateOpen = ref(false);
 const pendingFile = ref(null);
+const subscribed = ref(false);
 
 onMounted(() => {
     library.value = listReferences();
     loadCreditPricing();
+    loadSubscription();
 });
+
+async function loadSubscription() {
+    try {
+        const data = await getJson('/api/subscription');
+        subscribed.value = !!data.active;
+    } catch {
+        subscribed.value = false;
+    }
+}
 
 function openPicker() {
     fileInput.value?.click();
@@ -62,6 +73,11 @@ async function handleFile(file) {
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.pdf')) {
         toast('Hanya file PDF yang didukung saat ini.', 'warning');
+        return;
+    }
+    if (!subscribed.value) {
+        toast('Fitur Workspace memerlukan langganan aktif.', 'warning');
+        router.push('/apps/u/topup');
         return;
     }
     // Tahan dulu; minta konfirmasi sebelum unggah & generate
@@ -216,6 +232,12 @@ function typeLabel(value) {
             title="Tulisin Workspace"
             description="Unggah PDF dan baca strukturnya (judul, penulis, tahun, DOI) untuk dijadikan sitasi di builder."
         />
+
+        <div v-if="!subscribed" class="mb-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+            <Lock class="h-4 w-4 shrink-0" />
+            <span>Fitur Workspace memerlukan langganan aktif.</span>
+            <button type="button" class="cursor-pointer font-semibold underline underline-offset-2" @click="router.push('/apps/u/topup')">Berlangganan</button>
+        </div>
 
         <div class="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
             <FileSearch class="h-4 w-4 shrink-0" />

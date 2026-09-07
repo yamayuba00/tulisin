@@ -39,6 +39,10 @@ class WorkspaceController extends Controller
      */
     public function upload(Request $request): JsonResponse
     {
+        if (! $request->user()->hasActiveSubscription()) {
+            return response()->json(['error' => 'Fitur Workspace memerlukan langganan aktif.'], 402);
+        }
+
         $file = $request->file('file');
         if (! $file || ! $file->isValid()) {
             return response()->json(['error' => 'File PDF wajib diunggah.'], 422);

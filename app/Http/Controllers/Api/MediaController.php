@@ -32,6 +32,10 @@ class MediaController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->user()->hasActiveSubscription()) {
+            return response()->json(['error' => 'Upload gambar memerlukan langganan aktif.'], 402);
+        }
+
         $data = $request->validate([
             'file' => ['required', 'file', 'image', 'max:'.self::MAX_IMAGE_KB],
         ]);

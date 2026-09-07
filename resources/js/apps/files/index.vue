@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
-import { Upload, Trash2, Image as ImageIcon, Coins } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import { Upload, Trash2, Image as ImageIcon, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import EmptyState from '../../components/EmptyState.vue';
 import AppButton from '../../components/AppButton.vue';
@@ -11,9 +12,11 @@ import {
     getImageUsage,
     recordImageUse,
 } from '../../utils/imageLibrary';
-import { request } from '../../utils/http';
+import { request, getJson } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, imageCostPerItem, loadCreditPricing } from '../../utils/creditPricing';
+
+const router = useRouter();
 
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB
 
@@ -22,15 +25,26 @@ const usage = ref({ used: 0, creditsSpent: 0 });
 const uploading = ref(false);
 const fileInput = ref(null);
 const deleteTarget = ref(null);
+const subscribed = ref(false);
 
 async function refresh() {
     images.value = await listImages();
     usage.value = getImageUsage();
 }
 
+async function loadSubscription() {
+    try {
+        const data = await getJson('/api/subscription');
+        subscribed.value = !!data.active;
+    } catch {
+        subscribed.value = false;
+    }
+}
+
 onMounted(() => {
     loadCreditPricing();
     refresh();
+    loadSubscription();
 });
 
 function openUpload() {
@@ -41,6 +55,12 @@ async function onFileChange(e) {
     const files = Array.from(e.target.files || []).filter((f) => f.type.startsWith('image/'));
     e.target.value = '';
     if (!files.length) return;
+
+    if (!subscribed.value) {
+        toast('Upload gambar memerlukan langganan aktif.', 'warning');
+        router.push('/apps/u/topup');
+        return;
+    }
 
     const oversized = files.filter((f) => f.size > MAX_IMAGE_SIZE);
     if (oversized.length) {
@@ -109,6 +129,12 @@ function formatSize(bytes) {
                 </AppButton>
             </template>
         </PageHeader>
+
+        <div v-if="!subscribed" class="mb-4 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-200">
+            <Lock class="h-4 w-4 shrink-0" />
+            <span>Upload gambar memerlukan langganan aktif.</span>
+            <button type="button" class="cursor-pointer font-semibold underline underline-offset-2" @click="router.push('/apps/u/topup')">Berlangganan</button>
+        </div>
 
         <div class="mb-4 flex items-center gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
             <span class="inline-flex items-center gap-1.5">

@@ -38,6 +38,10 @@ class FontController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        if (! $request->user()->hasActiveSubscription()) {
+            return response()->json(['error' => 'Font kustom memerlukan langganan aktif.'], 402);
+        }
+
         $file = $request->file('file');
 
         if (! $file) {
