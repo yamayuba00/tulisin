@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
-import { FileQuestion, Loader2, Link2, ListTree } from 'lucide-vue-next';
+import { FileQuestion, Loader2, Link2, ListTree, X } from 'lucide-vue-next';
 import { getJson } from '../utils/http';
 import { cslFormatter } from '../utils/csl-formatter';
 import CanvasBlock from '../components/CanvasBlock.vue';
@@ -16,6 +16,7 @@ const loading = ref(true);
 const error = ref('');
 const title = ref('');
 const payload = ref(null);
+const docListOpen = ref(false);
 
 const shareId = computed(() => (Array.isArray(route.query.shared) ? route.query.shared[0] : route.query.shared) || '');
 const projectId = computed(() => (Array.isArray(route.query.project) ? route.query.project[0] : route.query.project) || '');
@@ -242,8 +243,9 @@ const viewportW = ref(0);
 function updatePageScale() {
     viewportW.value = window.innerWidth || 0;
     const w = pageWidthPx.value || 1;
-    // Sisa 24px untuk padding kanan-kiri di layar kecil.
-    const avail = Math.max(200, viewportW.value - 24);
+    // Kontainer memakai px-4 (16px kiri + kanan), jadi sisakan 32px agar
+    // halaman tidak meluber dan memunculkan scroll horizontal di mobile.
+    const avail = Math.max(200, viewportW.value - 32);
     pageScale.value = Math.min(1, avail / w);
 }
 
@@ -497,6 +499,7 @@ function setPageRef(i, el) {
 }
 
 function scrollToBlock(uid) {
+    docListOpen.value = false;
     const pIndex = computedPages.value.findIndex((p) => p.some((x) => x.uid === uid));
     if (pIndex < 0) return;
     const el = pageEls[pIndex];
@@ -706,6 +709,57 @@ onBeforeUnmount(() => {
                     </nav>
                 </div>
             </aside>
+
+            <!-- Toggle Doc Lists (mobile) -->
+            <button
+                v-if="!loading && !error && docList.length"
+                type="button"
+                class="fixed bottom-5 right-5 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition-colors hover:bg-indigo-700 lg:hidden"
+                aria-label="Buka daftar dokumen"
+                @click="docListOpen = true"
+            >
+                <ListTree class="h-5 w-5" />
+            </button>
+
+            <!-- Drawer Doc Lists (mobile) -->
+            <Teleport to="body">
+                <div v-if="docListOpen" class="fixed inset-0 z-50 bg-black/40 lg:hidden" @click="docListOpen = false"></div>
+                <div
+                    v-if="docListOpen"
+                    class="fixed bottom-0 left-0 right-0 z-50 max-h-[80vh] overflow-hidden rounded-t-2xl border-t border-neutral-200 bg-white shadow-2xl lg:hidden"
+                >
+                    <div class="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <ListTree class="h-4 w-4 text-neutral-500" />
+                            <span class="text-sm font-semibold">Doc Lists</span>
+                        </div>
+                        <button
+                            type="button"
+                            class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100"
+                            aria-label="Tutup daftar dokumen"
+                            @click="docListOpen = false"
+                        >
+                            <X class="h-4 w-4" />
+                        </button>
+                    </div>
+                    <nav class="max-h-[calc(80vh-3.5rem)] overflow-y-auto p-2">
+                        <button
+                            v-for="e in docList"
+                            :key="e.uid"
+                            type="button"
+                            class="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-neutral-100"
+                            :style="{ paddingLeft: `${(e.level || 0) * 0.75 + 0.75}rem` }"
+                            @click="scrollToBlock(e.uid)"
+                        >
+                            <span class="min-w-0 flex-1 truncate">
+                                <span v-if="e.number" class="mr-1 font-medium">{{ e.number }}</span>
+                                <span class="text-neutral-600">{{ e.text }}</span>
+                            </span>
+                            <span v-if="e.pageLabel" class="shrink-0 text-xs tabular-nums text-neutral-400">{{ e.pageLabel }}</span>
+                        </button>
+                    </nav>
+                </div>
+            </Teleport>
         </div>
     </div>
 </template>

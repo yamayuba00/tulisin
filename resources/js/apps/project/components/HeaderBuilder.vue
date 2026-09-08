@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
     Menu,
@@ -15,6 +16,7 @@ import {
     Sparkles,
     Share2,
     Rocket,
+    MoreHorizontal,
 } from 'lucide-vue-next';
 import ThemeToggle from '../../../components/ThemeToggle.vue';
 
@@ -26,6 +28,7 @@ defineProps({
 });
 
 const showGuides = defineModel('showGuides', { type: Boolean, default: false });
+const moreOpen = ref(false);
 
 const emit = defineEmits([
     'open-blocks',
@@ -110,7 +113,7 @@ const emit = defineEmits([
 
             <button
                 type="button"
-                class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
+                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white md:inline-flex"
                 title="Bagikan dokumen sebagai link publik"
                 @click="emit('open-share')"
             >
@@ -120,7 +123,7 @@ const emit = defineEmits([
 
             <button
                 type="button"
-                class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950 md:inline-flex"
                 title="Publikasikan project ke Lists Project"
                 @click="emit('open-publish')"
             >
@@ -130,7 +133,7 @@ const emit = defineEmits([
 
             <button
                 type="button"
-                class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
+                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white md:inline-flex"
                 @click="emit('open-preview')"
             >
                 <Eye class="h-4 w-4" />
@@ -149,7 +152,7 @@ const emit = defineEmits([
 
             <button
                 type="button"
-                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white sm:inline-flex"
+                class="hidden h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white md:inline-flex"
                 @click="emit('toggle-download')"
             >
                 <Download class="h-4 w-4" />
@@ -158,12 +161,74 @@ const emit = defineEmits([
 
             <button
                 type="button"
-                class="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white xl:hidden"
+                class="hidden h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white md:inline-flex xl:hidden"
                 aria-label="Buka pengaturan"
                 @click="emit('open-inspector')"
             >
                 <Settings2 class="h-5 w-5" />
             </button>
+
+            <!-- Menu "lebih" untuk layar kecil -->
+            <div class="relative md:hidden">
+                <button
+                    type="button"
+                    class="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-white"
+                    aria-label="Menu lainnya"
+                    @click="moreOpen = !moreOpen"
+                >
+                    <MoreHorizontal class="h-5 w-5" />
+                </button>
+
+                <div v-if="moreOpen" class="fixed inset-0 z-40" @click="moreOpen = false"></div>
+                <div
+                    v-if="moreOpen"
+                    class="absolute right-0 top-11 z-50 w-52 overflow-hidden rounded-xl border border-neutral-200 bg-white p-1 shadow-lg dark:border-neutral-800 dark:bg-neutral-900"
+                >
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        @click="moreOpen = false; emit('open-share')"
+                    >
+                        <Share2 class="h-4 w-4 shrink-0" /> Bagikan
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                        @click="moreOpen = false; emit('open-publish')"
+                    >
+                        <Rocket class="h-4 w-4 shrink-0" /> Publish
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        @click="moreOpen = false; emit('open-preview')"
+                    >
+                        <Eye class="h-4 w-4 shrink-0" /> Preview
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        @click="moreOpen = false; emit('toggle-download')"
+                    >
+                        <Download class="h-4 w-4 shrink-0" /> Download
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        @click="moreOpen = false; showGuides = !showGuides"
+                    >
+                        <Ruler class="h-4 w-4 shrink-0" /> {{ showGuides ? 'Sembunyikan Ruler' : 'Tampilkan Ruler' }}
+                    </button>
+                    <button
+                        type="button"
+                        class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                        @click="moreOpen = false; emit('open-inspector')"
+                    >
+                        <Settings2 class="h-4 w-4 shrink-0" /> Pengaturan
+                    </button>
+                </div>
+            </div>
+
             <ThemeToggle />
         </div>
     </header>

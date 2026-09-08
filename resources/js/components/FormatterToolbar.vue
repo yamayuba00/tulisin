@@ -12,10 +12,10 @@ const emit = defineEmits(['update:font-family', 'update:font-size']);
 
 const active = ref({});
 
-const idleBtn = 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white';
-const activeBtn = 'flex h-8 w-8 cursor-pointer items-center justify-center rounded-md bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white';
+const idleBtn = 'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white';
+const activeBtn = 'flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-white';
 
-const fieldCls = 'h-8 cursor-pointer rounded-md border border-neutral-200 bg-transparent px-2 text-xs text-neutral-700 outline-none transition-colors focus:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:focus:border-neutral-400';
+const fieldCls = 'h-8 shrink-0 cursor-pointer rounded-md border border-neutral-200 bg-transparent px-2 text-xs text-neutral-700 outline-none transition-colors focus:border-neutral-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:focus:border-neutral-400';
 
 const toolbarFontOptions = computed(() => [
     { value: '', label: 'Font (Ikuti dokumen)' },
@@ -115,16 +115,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="flex flex-wrap items-center gap-1 border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
+    <div class="flex items-center gap-1 overflow-x-auto border-b border-neutral-200 px-3 py-2 dark:border-neutral-800">
         <template v-if="block">
-            <FilterSelect
-                :model-value="block.fontFamily || ''"
-                :options="toolbarFontOptions"
-                placeholder="Font"
-                size="sm"
-                :block="false"
-                @update:model-value="emit('update:font-family', $event)"
-            />
+            <div class="shrink-0 max-w-[170px]">
+                <FilterSelect
+                    :model-value="block.fontFamily || ''"
+                    :options="toolbarFontOptions"
+                    placeholder="Font"
+                    size="sm"
+                    :block="false"
+                    @update:model-value="emit('update:font-family', $event)"
+                />
+            </div>
 
             <input
                 :value="block.fontSize || ''"
@@ -139,7 +141,7 @@ onBeforeUnmount(() => {
                 @input="onSizeChange"
             />
 
-            <span class="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-800"></span>
+            <span class="mx-1 h-5 w-px shrink-0 bg-neutral-200 dark:bg-neutral-800"></span>
         </template>
 
         <span v-else class="inline-flex items-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500">
@@ -160,7 +162,7 @@ onBeforeUnmount(() => {
             <Strikethrough class="h-4 w-4" />
         </button>
 
-        <span class="mx-1 h-5 w-px bg-neutral-200 dark:bg-neutral-800"></span>
+        <span class="mx-1 h-5 w-px shrink-0 bg-neutral-200 dark:bg-neutral-800"></span>
 
         <button type="button" title="List Poin" :class="active.listBullet ? activeBtn : idleBtn" @mousedown.prevent="exec('insertUnorderedList', false)">
             <List class="h-4 w-4" />

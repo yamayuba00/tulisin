@@ -79,7 +79,30 @@ const PAD = 32;     // padding kontainer (p-8 = 2rem)
 const GAP = 24;     // jarak antar halaman (mb-6)
 const BUFFER = 3;   // halaman yang dirender di luar viewport
 
-const slot = computed(() => (props.pageHeightPx || 0) + GAP);
+// Lebar halaman dalam px — dipakai untuk menskalakan halaman agar tetap
+// mempertahankan rasio A4/A5/... saat viewport (mobile) lebih sempit dari halaman.
+const pageWidthPx = computed(() => {
+    const m = String(props.pageDimensions?.width || '210mm').match(/[\d.]+/);
+    return m ? (parseFloat(m[0]) * 96) / 25.4 : 794;
+});
+
+const scale = ref(1);
+
+function updateScale() {
+    const el = scrollEl.value;
+    if (!el || !pageWidthPx.value) return;
+    const isSm = typeof window !== 'undefined' && window.innerWidth >= 640;
+    const ruler = isSm ? 24 : 0; // ruler vertikal (w-6), hanya tampil di sm+
+    const pad = isSm ? 64 : 16;  // px-8 (2×32) vs px-2 (2×8)
+    const available = el.clientWidth - ruler - pad;
+    if (available <= 0) {
+        scale.value = 1;
+        return;
+    }
+    scale.value = available < pageWidthPx.value ? Math.max(0.2, available / pageWidthPx.value) : 1;
+}
+
+const slot = computed(() => (props.pageHeightPx || 0) * scale.value + GAP);
 
 const viewTop = ref(0);
 const viewHeight = ref(0);
@@ -275,10 +298,12 @@ function pageNumberClassForPage(pIndex) {
 
 function onWindowResize() {
     updateViewport();
+    updateScale();
 }
 
 onMounted(() => {
     updateViewport();
+    updateScale();
     window.addEventListener('resize', onWindowResize);
     document.addEventListener('dragover', onDocumentDragOver);
     document.addEventListener('dragend', onDocumentDragEnd);
@@ -388,11 +413,15 @@ defineExpose({ scrollToPage });
                         class="mb-6 flex items-start justify-center px-2 sm:px-8"
                     >
                         <div
-                            class="relative max-w-full shrink-0 rounded-sm border border-neutral-200 bg-white shadow-md print:border-0 print:bg-white print:shadow-none dark:border-neutral-800 dark:bg-neutral-900"
-                            :style="pageBoxStyle"
-                            @dragend="emit('dragend')"
-                            @contextmenu.prevent.stop="emit('open-page-menu', $event, item.pIndex)"
+                            class="relative shrink-0 overflow-hidden"
+                            :style="{ width: `${pageWidthPx * scale}px`, height: `${pageHeightPx * scale}px` }"
                         >
+                            <div
+                                class="relative rounded-sm border border-neutral-200 bg-white shadow-md print:border-0 print:bg-white print:shadow-none dark:border-neutral-800 dark:bg-neutral-900"
+                                :style="{ ...pageBoxStyle, transform: `scale(${scale})`, transformOrigin: 'top left' }"
+                                @dragend="emit('dragend')"
+                                @contextmenu.prevent.stop="emit('open-page-menu', $event, item.pIndex)"
+                            >
                             <div
                                 v-if="showGuides"
                                 class="pointer-events-none absolute inset-0 overflow-hidden"
@@ -483,6 +512,7 @@ defineExpose({ scrollToPage });
                                 class="pointer-events-none absolute text-xs text-neutral-500 dark:text-neutral-400"
                                 :class="pageNumberClassForPage(item.pIndex)"
                             >{{ pageNumberText(item.pIndex) }}</span>
+                            </div>
                         </div>
 
                         <div class="ml-3 hidden w-9 shrink-0 flex-col gap-1 pt-2 print:hidden sm:flex">
