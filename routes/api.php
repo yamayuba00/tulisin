@@ -56,6 +56,7 @@ Route::prefix('auth')->group(function () {
 // ---- Panel Admin (super-admin) ----
 Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->middleware('permission:analytics.view');
+    Route::get('/monitoring', [AdminController::class, 'monitoring'])->middleware('permission:analytics.view');
 
     Route::get('/users', [AdminController::class, 'users'])->middleware('permission:users.view');
     Route::patch('/users/{id}', [AdminController::class, 'updateUser'])->middleware('permission:users.manage');

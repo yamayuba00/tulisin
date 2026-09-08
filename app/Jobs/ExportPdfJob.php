@@ -18,9 +18,6 @@ class ExportPdfJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /** Antrian khusus agar render PDF (lama) tidak memblokir notifikasi cepat. */
-    public $queue = 'exports';
-
     /** Batas waktu render agar tidak menggantung selamanya. */
     public int $timeout = 600;
 
@@ -35,6 +32,10 @@ class ExportPdfJob implements ShouldQueue
         public ?string $projectId,
         public string $format,
     ) {
+        // Antrian khusus agar render PDF (lama) tidak memblokir notifikasi cepat.
+        // Diset di constructor (bukan deklarasi properti) karena `$queue` sudah
+        // dideklarasikan oleh trait `Illuminate\Bus\Queueable`.
+        $this->queue = 'exports';
     }
 
     public function handle(PdfRenderer $renderer): void

@@ -260,6 +260,12 @@ const routes = [
                 component: () => import('../apps/admin/audit/index.vue'),
                 meta: { title: 'Audit Log' },
             },
+            {
+                path: 'admin/monitoring',
+                name: 'admin-monitoring',
+                component: () => import('../apps/admin/monitoring/index.vue'),
+                meta: { title: 'Monitoring' },
+            },
         ],
     },
     {

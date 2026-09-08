@@ -93,6 +93,91 @@ class AdminController extends Controller
     }
 
     /**
+     * Monitoring ringan: backlog antrian, kegagalan job, status PHP-FPM, dan
+     * kondisi sistem. Ditampilkan di halaman Monitoring panel admin.
+     */
+    public function monitoring(Request $request): JsonResponse
+    {
+        // Backlog antrian per nama queue.
+        $queueCounts = DB::table('jobs')
+            ->select('queue', DB::raw('count(*) as total'))
+            ->groupBy('queue')
+            ->pluck('total', 'queue');
+
+        $pending = [
+            'default' => (int) ($queueCounts['default'] ?? 0),
+            'exports' => (int) ($queueCounts['exports'] ?? 0),
+        ];
+
+        $failedByQueue = DB::table('failed_jobs')
+            ->select('queue', DB::raw('count(*) as total'))
+            ->groupBy('queue')
+            ->pluck('total', 'queue');
+
+        $recentFailed = DB::table('failed_jobs')
+            ->select('uuid', 'queue', 'exception', 'failed_at')
+            ->latest('failed_at')
+            ->limit(5)
+            ->get()
+            ->map(fn ($f) => [
+                'uuid' => $f->uuid,
+                'queue' => $f->queue,
+                'error' => $this->firstLine($f->exception),
+                'failed_at' => $f->failed_at,
+            ]);
+
+        // Status PHP-FPM (hanya tersedia saat berjalan di bawah php-fpm, PHP 8.1+).
+        $fpm = null;
+        if (function_exists('fpm_get_status')) {
+            try {
+                $fpm = fpm_get_status();
+            } catch (\Throwable $e) {
+                $fpm = null;
+            }
+        }
+
+        $load = function_exists('sys_getloadavg') ? sys_getloadavg() : null;
+        $diskFree = @disk_free_space(storage_path());
+        $diskTotal = @disk_total_space(storage_path());
+
+        return response()->json([
+            'queue' => [
+                'pending' => $pending,
+                'failed' => (int) DB::table('failed_jobs')->count(),
+                'failed_by_queue' => $failedByQueue->toArray(),
+                'recent_failed' => $recentFailed,
+            ],
+            'fpm' => $fpm,
+            'php' => [
+                'version' => PHP_VERSION,
+                'sapi' => PHP_SAPI,
+                'memory_limit' => ini_get('memory_limit'),
+                'max_execution_time' => ini_get('max_execution_time'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+            ],
+            'system' => [
+                'load_avg' => $load,
+                'disk_free' => $diskFree === false ? null : $diskFree,
+                'disk_total' => $diskTotal === false ? null : $diskTotal,
+                'time' => now()->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * Ambil baris pertama dari pesan exception untuk ringkasan.
+     */
+    private function firstLine(?string $text): string
+    {
+        if (! $text) {
+            return '';
+        }
+        $lines = explode("\n", $text, 2);
+
+        return $lines[0];
+    }
+
+    /**
      * Daftar semua pengguna beserta role-nya.
      */
     public function users(Request $request): JsonResponse
