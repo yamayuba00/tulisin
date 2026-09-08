@@ -1,0 +1,30 @@
+# ============================================================================
+# Systemd service (alternatif Supervisor) untuk queue worker Tulisin (Laravel)
+# ============================================================================
+# Template: jalankan per-antrian dengan nama instance = nama antrian.
+#
+#   default : sudo systemctl enable --now tulisin-queue@default
+#   exports : sudo systemctl enable --now tulisin-queue@exports
+#
+# PENTING: sesuaikan:
+#   - WorkingDirectory : path project di VPS
+#   - User             : user web/php-fpm (biasanya www-data)
+#   - ExecStart        : nama binary PHP (php, php8.2, php8.3, dst.)
+# ============================================================================
+
+[Unit]
+Description=Tulisin queue worker (%i)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/tulisin
+ExecStart=php artisan queue:work --queue=%i --sleep=3 --tries=3 --timeout=600 --max-time=3600
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/www/tulisin/storage/logs/worker-%i.log
+StandardError=append:/var/www/tulisin/storage/logs/worker-%i.log
+
+[Install]
+WantedBy=multi-user.target

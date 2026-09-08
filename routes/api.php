@@ -231,3 +231,5 @@ Route::middleware('auth:sanctum')->prefix('fonts')->group(function () {
 // Render HTML (dari preview) menjadi PDF via Chrome/Edge/Chromium headless.
 // Dokumen di-chunk per halaman lalu digabung kembali (lihat PdfExportController).
 Route::middleware('auth:sanctum')->post('/export/pdf', [PdfExportController::class, 'store']);
+Route::middleware('auth:sanctum')->get('/export/pdf/{token}', [PdfExportController::class, 'status']);
+Route::middleware('auth:sanctum')->get('/export/pdf/{token}/download', [PdfExportController::class, 'download']);

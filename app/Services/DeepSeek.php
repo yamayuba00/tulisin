@@ -16,22 +16,9 @@ class DeepSeek
      */
     public function chat(string $system, string $user, bool $json = false, float $temperature = 0.7, array $history = []): ?string
     {
-        $messages = [['role' => 'system', 'content' => $system]];
-
-        foreach ($history as $turn) {
-            $role = (string) ($turn['role'] ?? '');
-            $content = (string) ($turn['content'] ?? '');
-            if (! in_array($role, ['user', 'assistant'], true) || $content === '') {
-                continue;
-            }
-            $messages[] = ['role' => $role, 'content' => $content];
-        }
-
-        $messages[] = ['role' => 'user', 'content' => $user];
-
         $payload = [
             'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
-            'messages' => $messages,
+            'messages' => $this->messages($system, $user, $history),
             'temperature' => $json ? 0 : $temperature,
         ];
 
@@ -48,5 +35,92 @@ class DeepSeek
         }
 
         return (string) $response->json('choices.0.message.content', '');
+    }
+
+    /**
+     * Stream percakapan ke DeepSeek (SSE) dan panggil $onDelta untuk tiap potongan
+     * teks yang diterima. Mengembalikan teks lengkap, atau null bila gagal.
+     *
+     * @param  callable(string):void  $onDelta
+     */
+    public function stream(string $system, string $user, bool $json, float $temperature, array $history, callable $onDelta): ?string
+    {
+        $payload = [
+            'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
+            'messages' => $this->messages($system, $user, $history),
+            'temperature' => $json ? 0 : $temperature,
+            'stream' => true,
+        ];
+
+        if ($json) {
+            $payload['response_format'] = ['type' => 'json_object'];
+        }
+
+        $response = Http::withToken((string) config('services.deepseek.api_key'))
+            ->send(
+                'POST',
+                rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions',
+                ['json' => $payload, 'stream' => true, 'timeout' => 0, 'connect_timeout' => 30],
+            );
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $body = $response->toPsrResponse()->getBody();
+        $buffer = '';
+        $full = '';
+
+        while (! $body->eof()) {
+            $chunk = $body->read(4096);
+            if ($chunk === '') {
+                continue;
+            }
+            $buffer .= $chunk;
+
+            while (($pos = strpos($buffer, "\n")) !== false) {
+                $line = trim(substr($buffer, 0, $pos));
+                $buffer = substr($buffer, $pos + 1);
+
+                if ($line === '' || ! str_starts_with($line, 'data:')) {
+                    continue;
+                }
+
+                $data = trim(substr($line, 5));
+                if ($data === '[DONE]') {
+                    return $full;
+                }
+
+                $decoded = json_decode($data, true);
+                $delta = is_array($decoded) ? (string) ($decoded['choices'][0]['delta']['content'] ?? '') : '';
+                if ($delta !== '') {
+                    $full .= $delta;
+                    $onDelta($delta);
+                }
+            }
+        }
+
+        return $full;
+    }
+
+    /**
+     * Susun daftar pesan (system + history + user) untuk dikirim ke DeepSeek.
+     */
+    private function messages(string $system, string $user, array $history): array
+    {
+        $messages = [['role' => 'system', 'content' => $system]];
+
+        foreach ($history as $turn) {
+            $role = (string) ($turn['role'] ?? '');
+            $content = (string) ($turn['content'] ?? '');
+            if (! in_array($role, ['user', 'assistant'], true) || $content === '') {
+                continue;
+            }
+            $messages[] = ['role' => $role, 'content' => $content];
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $user];
+
+        return $messages;
     }
 }

@@ -3628,19 +3628,39 @@ async function exportPdf(scope, sectionName) {
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
         if (csrfToken) headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
 
+        // Antrikan render PDF (async) — server tidak memblokir & tidak menahan worker.
         const res = await fetch('/api/export/pdf', {
             method: 'POST',
             credentials: 'include',
             headers,
             body: JSON.stringify({ head, pages, project: projectId.value || null, format: 'pdf' }),
         });
+        const queued = await res.json().catch(() => null);
         if (!res.ok) {
-            const data = await res.json().catch(() => null);
-            throw new Error(data?.error || 'Gagal membuat PDF.');
+            throw new Error(queued?.error || 'Gagal membuat PDF.');
         }
-        const blob = await res.blob();
-        triggerDownload(blob, downloadFileName(sectionName, 'pdf'));
-        return true;
+
+        // Polling status sampai selesai / gagal.
+        const token = queued.token;
+        for (let i = 0; i < 200; i++) {
+            await new Promise((r) => setTimeout(r, 1500));
+            const stRes = await fetch(`/api/export/pdf/${encodeURIComponent(token)}`, {
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+            });
+            const st = await stRes.json().catch(() => null);
+            if (!stRes.ok || !st) throw new Error(st?.error || 'Gagal memeriksa status PDF.');
+
+            if (st.status === 'done') {
+                const fileRes = await fetch(st.downloadUrl, { credentials: 'include' });
+                if (!fileRes.ok) throw new Error('Gagal mengunduh PDF.');
+                const blob = await fileRes.blob();
+                triggerDownload(blob, downloadFileName(sectionName, 'pdf'));
+                return true;
+            }
+            if (st.status === 'failed') throw new Error(st.error || 'Gagal membuat PDF.');
+        }
+        throw new Error('Waktu membuat PDF habis. Silakan coba lagi.');
     } catch (err) {
         showToast(err.message || 'Gagal membuat PDF.');
         return false;

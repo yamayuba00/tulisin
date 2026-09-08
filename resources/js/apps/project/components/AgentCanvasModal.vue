@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue';
 import { Sparkles, X, Send, Loader2, LayoutGrid, Plus, Info, Trash2, MessageSquarePlus, Menu } from 'lucide-vue-next';
-import { request } from '../../../utils/http';
+import { request, streamJson } from '../../../utils/http';
 import { renderMarkdown } from '../../../utils/markdown';
 import { creditPricing } from '../../../utils/creditPricing';
 
@@ -201,24 +201,40 @@ async function send(text) {
 
     if (activeSessionId.value) persistMessage(activeSessionId.value, 'user', t);
 
+    // Tempatkan pesan asisten kosong yang akan diisi bertahap (streaming).
+    const assistantIndex = messages.value.length;
+    messages.value.push({ role: 'assistant', text: '' });
+    scrollBottom();
+
     try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'canvas',
-                message: t,
-                context: props.summary,
-                uuid: props.projectUuid,
-                format: format.value,
-                blockTypes: props.blockTypes.map((b) => b.id),
-                history,
-            }),
-        });
-        const reply = res.ok ? (res.data?.reply || '') : (res.data?.error || 'Gagal menghubungi AI.');
-        messages.value.push({ role: 'assistant', text: reply });
+        await streamJson(
+            '/api/ai/generate',
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    agent: 'canvas',
+                    message: t,
+                    context: props.summary,
+                    uuid: props.projectUuid,
+                    format: format.value,
+                    blockTypes: props.blockTypes.map((b) => b.id),
+                    history,
+                    stream: true,
+                }),
+            },
+            (ev) => {
+                if (ev.delta != null) {
+                    messages.value[assistantIndex].text += ev.delta;
+                } else if (ev.error != null) {
+                    messages.value[assistantIndex].text = ev.error;
+                }
+                scrollBottom();
+            },
+        );
+        const reply = messages.value[assistantIndex].text;
         if (activeSessionId.value) persistMessage(activeSessionId.value, 'assistant', reply);
     } catch {
-        messages.value.push({ role: 'assistant', text: 'Gagal menghubungi AI. Coba lagi.' });
+        messages.value[assistantIndex].text = 'Gagal menghubungi AI. Coba lagi.';
     } finally {
         sending.value = false;
         scrollBottom();

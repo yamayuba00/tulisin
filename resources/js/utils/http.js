@@ -54,3 +54,64 @@ export async function getJson(url) {
     }
     return data;
 }
+
+// Request streaming (Server-Sent Events). Memanggil onEvent(parsedJson) untuk
+// tiap event `data:` yang diterima. Dipakai untuk menampilkan balasan AI bertahap.
+export async function streamJson(url, options = {}, onEvent) {
+    const method = (options.method || 'POST').toUpperCase();
+    const headers = new Headers(options.headers || {});
+    headers.set('Accept', 'text/event-stream');
+    headers.set('X-Requested-With', 'XMLHttpRequest');
+
+    if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+
+    const token = getCookie('XSRF-TOKEN');
+    if (token) headers.set('X-XSRF-TOKEN', token);
+
+    const res = await fetch(url, { ...options, method, headers, credentials: 'include' });
+
+    if (!res.ok) {
+        const text = await res.text();
+        let data = null;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            data = text;
+        }
+        throw new Error(data?.error || data?.message || `Request gagal (${res.status})`);
+    }
+
+    if (!res.body) {
+        throw new Error('Browser tidak mendukung streaming.');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx;
+        while ((idx = buffer.indexOf('\n')) !== -1) {
+            const line = buffer.slice(0, idx).trim();
+            buffer = buffer.slice(idx + 1);
+
+            if (!line.startsWith('data:')) continue;
+            const raw = line.slice(5).trim();
+            if (raw === '[DONE]') return;
+
+            let parsed = null;
+            try {
+                parsed = JSON.parse(raw);
+            } catch {
+                continue;
+            }
+            if (parsed) onEvent(parsed);
+        }
+    }
+}

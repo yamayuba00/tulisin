@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Services\DeepSeek;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class AiController extends Controller
 {
     /**
      * Proxy percakapan AI ke DeepSeek memakai system prompt sesuai agent.
      */
-    public function generate(Request $request): JsonResponse
+    public function generate(Request $request): Response
     {
         if (! $request->user()->hasActiveSubscription()) {
             return response()->json(['error' => 'Fitur AI memerlukan langganan aktif.'], 402);
@@ -67,6 +68,12 @@ class AiController extends Controller
             default => 0.4,
         };
 
+        // Streaming hanya untuk agent teks bebas (canvas/copilot). Agent JSON
+        // (plagiarism/turnitin) tetap dibuffer agar hasilnya bisa di-parse utuh.
+        if ($request->boolean('stream') && ! $json) {
+            return $this->streamReply($system, $user, $temperature, $history);
+        }
+
         $reply = app(DeepSeek::class)->chat($system, $user, $json, $temperature, $history);
 
         if ($reply === null) {
@@ -74,6 +81,33 @@ class AiController extends Controller
         }
 
         return response()->json(['reply' => $reply]);
+    }
+
+    /**
+     * Kirim balasan AI sebagai Server-Sent Events (SSE) agar teks tampil bertahap.
+     */
+    private function streamReply(string $system, string $user, float $temperature, array $history): Response
+    {
+        return response()->stream(function () use ($system, $user, $temperature, $history) {
+            $full = app(DeepSeek::class)->stream($system, $user, false, $temperature, $history, function (string $delta): void {
+                echo 'data: '.json_encode(['delta' => $delta])."\n\n";
+                @ob_flush();
+                @flush();
+            });
+
+            if ($full === null) {
+                echo 'data: '.json_encode(['error' => 'Gagal menghubungi AI. Coba lagi.'])."\n\n";
+            } else {
+                echo 'data: '.json_encode(['done' => true])."\n\n";
+            }
+            @ob_flush();
+            @flush();
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 
     /**

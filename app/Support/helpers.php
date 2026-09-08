@@ -85,11 +85,16 @@ if (! function_exists('resolve_command')) {
 if (! function_exists('record_audit')) {
     function record_audit(Request $request, string $action, array $after): void
     {
-        $user = $request->user();
+        record_audit_user($request->user()?->id, $action, $after);
+    }
+}
 
+if (! function_exists('record_audit_user')) {
+    function record_audit_user(?int $userId, string $action, array $after): void
+    {
         DB::table('audit_logs')->insert([
             'uuid' => (string) Str::uuid(),
-            'user_id' => $user?->id,
+            'user_id' => $userId,
             'action' => $action,
             'model_type' => 'export',
             'model_id' => null,
