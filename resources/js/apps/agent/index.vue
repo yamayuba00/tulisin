@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { Sparkles, FileText, ListOrdered, CornerDownRight, Loader2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
-import { AGENT_DOCUMENT_TYPES, DEFAULT_CHAPTERS, buildAgentProject } from '../../utils/agentProject';
+import { AGENT_DOCUMENT_TYPES, DEFAULT_CHAPTERS, DOCUMENT_STRUCTURE, buildAgentProject } from '../../utils/agentProject';
 import { touchProject } from '../../utils/projectIndex';
 import { request } from '../../utils/http';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
@@ -26,6 +26,21 @@ const previewChapters = computed(() => {
             .filter(Boolean);
     }
     return DEFAULT_CHAPTERS[documentType.value] || DEFAULT_CHAPTERS.Lainnya;
+});
+
+// Urutan bagian pratinjau mengikuti jenis dokumen (cover/abstrak/daftar isi/daftar
+// tabel/daftar gambar/bab/daftar pustaka), agar konsisten dengan blok yang dibuat.
+const previewSections = computed(() => {
+    const sections = DOCUMENT_STRUCTURE[documentType.value] || DOCUMENT_STRUCTURE.Lainnya;
+    const items = [];
+    if (sections.cover) items.push({ label: 'Cover', kind: 'front' });
+    if (sections.abstract) items.push({ label: 'Abstrak', kind: 'front' });
+    if (sections.toc) items.push({ label: 'Daftar Isi', kind: 'front' });
+    if (sections.listTables) items.push({ label: 'Daftar Tabel', kind: 'front' });
+    if (sections.listFigures) items.push({ label: 'Daftar Gambar', kind: 'front' });
+    previewChapters.value.forEach((label) => items.push({ label, kind: 'chapter' }));
+    if (sections.references) items.push({ label: 'Daftar Pustaka', kind: 'back' });
+    return items;
 });
 
 onMounted(() => {
@@ -156,30 +171,17 @@ async function createProject() {
                         </div>
 
                         <ul class="mt-4 space-y-2">
-                            <li class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">1</span>
-                                Cover
-                            </li>
-                            <li class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">2</span>
-                                Abstrak
-                            </li>
-                            <li class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">3</span>
-                                Daftar Isi
-                            </li>
                             <li
-                                v-for="(c, i) in previewChapters"
+                                v-for="(item, i) in previewSections"
                                 :key="i"
                                 class="flex items-center gap-2 text-sm"
+                                :class="item.kind === 'chapter'
+                                    ? 'text-neutral-800 dark:text-neutral-200'
+                                    : 'text-neutral-500 dark:text-neutral-400'"
                             >
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">{{ i + 4 }}</span>
-                                <CornerDownRight class="h-3.5 w-3.5 text-neutral-300 dark:text-neutral-600" />
-                                <span>{{ c }}</span>
-                            </li>
-                            <li class="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">{{ previewChapters.length + 4 }}</span>
-                                Daftar Pustaka
+                                <span class="inline-flex h-5 w-5 items-center justify-center rounded bg-neutral-100 text-[10px] font-semibold dark:bg-neutral-800">{{ i + 1 }}</span>
+                                <CornerDownRight v-if="item.kind === 'chapter'" class="h-3.5 w-3.5 text-neutral-300 dark:text-neutral-600" />
+                                <span>{{ item.label }}</span>
                             </li>
                         </ul>
                     </div>

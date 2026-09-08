@@ -38,7 +38,7 @@ class AffiliateController extends Controller
         return response()->json([
             'code' => $code->code,
             'is_active' => $code->is_active,
-            'credit_per_referral' => Referral::CREDIT_PER_REFERRAL,
+            'credit_per_referral' => Referral::creditPerReferral(),
             'total_referred' => $referrals->count(),
             'earned_credits' => $earned,
             'referrals' => $referrals->map(fn (Referral $r) => [

@@ -73,6 +73,12 @@ const fields = [
         hint: 'Koin tambahan setiap kelipatan 10 halaman.',
         min: 0,
     },
+    {
+        key: 'affiliate_referral',
+        label: 'Bonus Referral (Affiliate)',
+        hint: 'Koin yang diterima per teman yang terverifikasi.',
+        min: 0,
+    },
 ];
 
 onMounted(async () => {

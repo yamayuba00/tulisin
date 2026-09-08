@@ -51,4 +51,9 @@ class Project extends Model
     {
         return $this->hasMany(ProjectAiResult::class);
     }
+
+    public function aiChatSessions(): HasMany
+    {
+        return $this->hasMany(AiChatSession::class);
+    }
 }

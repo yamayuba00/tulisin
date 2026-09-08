@@ -19,12 +19,16 @@ class Template extends Model
         'format',
         'font',
         'blocks',
+        'price',
+        'creator_share',
     ];
 
     protected function casts(): array
     {
         return [
             'blocks' => 'array',
+            'price' => 'integer',
+            'creator_share' => 'integer',
         ];
     }
 

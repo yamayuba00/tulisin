@@ -50,7 +50,7 @@ onMounted(async () => {
         code.value = data.code || '';
         draftCode.value = code.value;
         isActive.value = data.is_active !== false;
-        creditPerReferral.value = data.credit_per_referral || 20;
+        creditPerReferral.value = data.credit_per_referral || 10;
         totalReferred.value = data.total_referred || 0;
         earnedCredits.value = data.earned_credits || 0;
         referrals.value = data.referrals || [];

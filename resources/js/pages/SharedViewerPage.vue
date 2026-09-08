@@ -18,6 +18,7 @@ const title = ref('');
 const payload = ref(null);
 
 const shareId = computed(() => (Array.isArray(route.query.shared) ? route.query.shared[0] : route.query.shared) || '');
+const projectId = computed(() => (Array.isArray(route.query.project) ? route.query.project[0] : route.query.project) || '');
 const stateParam = computed(() => (Array.isArray(route.query.state) ? route.query.state[0] : route.query.state) || '');
 const notCopy = computed(() => (Array.isArray(route.query.notcopy) ? route.query.notcopy[0] : route.query.notcopy) !== 'false');
 const viewOnly = computed(() => (Array.isArray(route.query.view) ? route.query.view[0] : route.query.view) !== 'false');
@@ -59,14 +60,15 @@ function registerCustomFont(data) {
 }
 
 onMounted(async () => {
-    if (!shareId.value) {
+    if (!shareId.value && !projectId.value) {
         error.value = 'Link tidak valid.';
         loading.value = false;
         return;
     }
     try {
-        const qs = stateParam.value ? `?state=${encodeURIComponent(stateParam.value)}` : '';
-        const url = `/api/shared/${encodeURIComponent(shareId.value)}${qs}`;
+        const url = projectId.value
+            ? `/api/projects/public/${encodeURIComponent(projectId.value)}`
+            : `/api/shared/${encodeURIComponent(shareId.value)}${stateParam.value ? `?state=${encodeURIComponent(stateParam.value)}` : ''}`;
         const data = await withTimeout(getJson(url), 20000);
         title.value = data.name || '';
         payload.value = data.payload || null;

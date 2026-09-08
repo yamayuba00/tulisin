@@ -160,6 +160,18 @@ const hasCode = computed(() => String(props.block.content || '').trim().length >
 const highlightedCode = computed(() => highlightCode(props.block.content || ''));
 
 function onInput() {
+    // Judul bab selalu UPPERCASE (autoformat), jaga posisi caret saat mengetik.
+    if (props.block.type === 'chapter') {
+        const sel = window.getSelection();
+        const range = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+        const html = uppercaseTextNodes(contentEl.value);
+        if (range) {
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+        emit('update:content', html);
+        return;
+    }
     // List poin/nomor yang dipecah antar halaman: gabungkan kembali potongan yang
     // diedit ke konten penuh agar blok sumber tidak rusak (terpotong).
     if ((props.block.type === 'bullet' || props.block.type === 'number') && entrySlice.value) {
@@ -170,6 +182,20 @@ function onInput() {
         return;
     }
     emit('update:content', contentEl.value.innerHTML);
+}
+
+// Ubah seluruh teks di dalam elemen menjadi huruf besar (tetap menjaga struktur
+// tag HTML) dan kembalikan innerHTML-nya.
+function uppercaseTextNodes(root) {
+    if (!root) return '';
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+        const upper = (n.nodeValue || '').toUpperCase();
+        if (n.nodeValue !== upper) n.nodeValue = upper;
+    }
+    return root.innerHTML;
 }
 
 function onTitleInput() {

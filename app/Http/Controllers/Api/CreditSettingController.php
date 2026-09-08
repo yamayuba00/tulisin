@@ -63,6 +63,7 @@ class CreditSettingController extends Controller
             'image_package_credits' => ['required', 'integer', 'min:0'],
             'download_base' => ['required', 'integer', 'min:0'],
             'download_per_10_pages' => ['required', 'integer', 'min:0'],
+            'affiliate_referral' => ['required', 'integer', 'min:0'],
         ];
     }
 

@@ -2,7 +2,7 @@
 // Pipeline sitasi bergaya CSL (disederhanakan):
 //   Data Mentah (JSON) ➔ [1. Parser/Formatter] ➔ [2. Sorter] ➔ [3. Compiler] ➔ Output Teks.
 //
-// Gaya yang didukung: IEEE, APA, MLA, Harvard, Chicago.
+// Gaya yang didukung: 35 gaya sitasi (numerik, author-date, dan catatan kaki).
 // Input mengikuti struktur CSL-JSON:
 //   {
 //     id, type, title,
@@ -14,7 +14,68 @@
 // Teks miring (mis. nama jurnal) direpresentasikan sebagai <i>...</i> agar
 // langsung ter-render miring di canvas (contenteditable HTML).
 
-export const CSL_STYLES = ['IEEE', 'APA', 'MLA', 'Harvard', 'Chicago'];
+export const CSL_STYLES = [
+    'IEEE',
+    'APA',
+    'MLA',
+    'Harvard',
+    'Chicago',
+    'Vancouver',
+    'AMA',
+    'ACS',
+    'CSE',
+    'Turabian',
+    'OSCOLA',
+    'Bluebook',
+    'NLM',
+    'ACM',
+    'Springer Basic',
+    'Elsevier Harvard',
+    'Nature',
+    'Science',
+    'Cell',
+    'SAGE Harvard',
+    'Wiley',
+    'APSA',
+    'ASA',
+    'AAA',
+    'AIP',
+    'APS',
+    'AGU',
+    'MHRA',
+    'ISO 690',
+    'DIN 1505',
+    'ABNT',
+    'IEEE Computer Society',
+    'ACS-NLM',
+    'AMA Manual of Style',
+    'Vancouver Superscript',
+];
+
+// ============================================================================
+// KLASIFIKASI GAYA
+// ============================================================================
+// Gaya dikelompokkan ke dalam 3 keluarga utama: numerik (nomor urut),
+// author-date (penulis-tahun), dan catatan kaki. Setiap gaya dipetakan ke
+// salah satu dari 5 format dasar untuk penamaan penulis & daftar pustaka.
+
+const NUMERIC_BRACKET = new Set(['IEEE', 'ACM', 'IEEE Computer Society', 'ACS', 'ACS-NLM', 'AIP', 'APS', 'ISO 690', 'DIN 1505']);
+const NUMERIC_PAREN = new Set(['Vancouver', 'AMA', 'AMA Manual of Style', 'NLM', 'CSE', 'Science', 'Bluebook']);
+const NUMERIC_SUPERSCRIPT = new Set(['Nature', 'Vancouver Superscript']);
+const FOOTNOTE_STYLES = new Set(['Chicago', 'Turabian', 'OSCOLA', 'MHRA']);
+const HARVARD_STYLES = new Set(['Harvard', 'Elsevier Harvard', 'SAGE Harvard', 'Wiley']);
+
+function isNumeric(style) {
+    return NUMERIC_BRACKET.has(style) || NUMERIC_PAREN.has(style) || NUMERIC_SUPERSCRIPT.has(style);
+}
+
+function baseStyle(style) {
+    if (isNumeric(style)) return 'IEEE';
+    if (FOOTNOTE_STYLES.has(style)) return 'Chicago';
+    if (style === 'MLA') return 'MLA';
+    if (HARVARD_STYLES.has(style)) return 'Harvard';
+    return 'APA';
+}
 
 // ============================================================================
 // [1] PARSER / FORMATTER
@@ -87,7 +148,7 @@ function authorName(author, style, inverted = true) {
     const family = author.family || '';
     const given = author.given || '';
     const initials = initialsOf(given);
-    switch (style) {
+    switch (baseStyle(style)) {
         case 'IEEE':
             return [initials, family].filter(Boolean).join(' ');
         case 'MLA':
@@ -100,22 +161,24 @@ function authorName(author, style, inverted = true) {
 }
 
 function joinNames(names, style) {
+    const base = baseStyle(style);
     if (names.length === 0) return '';
     if (names.length === 1) return names[0];
     if (names.length === 2) {
-        return style === 'APA' ? `${names[0]}, & ${names[1]}` : `${names[0]} and ${names[1]}`;
+        return base === 'APA' ? `${names[0]}, & ${names[1]}` : `${names[0]} and ${names[1]}`;
     }
     const rest = names.slice(0, -1);
     const last = names[names.length - 1];
-    if (style === 'APA') return `${rest.join(', ')}, & ${last}`;
-    if (style === 'MLA' || style === 'Chicago' || style === 'IEEE') return `${rest.join(', ')}, and ${last}`;
+    if (base === 'APA') return `${rest.join(', ')}, & ${last}`;
+    if (base === 'MLA' || base === 'Chicago' || base === 'IEEE') return `${rest.join(', ')}, and ${last}`;
     return `${rest.join(', ')} and ${last}`; // Harvard
 }
 
 function bibliographyAuthors(item, style) {
     if (!item.authors.length) return 'Anonim';
+    const base = baseStyle(style);
     // MLA & Chicago: penulis pertama dibalik, penulis berikutnya "Nama Depan Nama Belakang".
-    if (style === 'MLA' || style === 'Chicago') {
+    if (base === 'MLA' || base === 'Chicago') {
         const names = item.authors.map((a, i) => authorName(a, style, i === 0));
         if (names.length === 1) return names[0];
         if (names.length === 2) return `${names[0]}, and ${names[1]}`;
@@ -130,7 +193,7 @@ function citationAuthors(item, style) {
     if (item.authors.length === 1) return first;
     if (item.authors.length === 2) {
         const second = item.authors[1].family || '';
-        return style === 'APA' ? `${first} & ${second}` : `${first} and ${second}`;
+        return baseStyle(style) === 'APA' ? `${first} & ${second}` : `${first} and ${second}`;
     }
     return `${first} et al.`;
 }
@@ -162,7 +225,7 @@ function esc(value) {
 
 export function sortCSLItems(items, style) {
     const sorted = items.slice();
-    if (style === 'IEEE') return sorted; // nomor urut (1, 2, 3)
+    if (isNumeric(style)) return sorted; // nomor urut (1, 2, 3)
     sorted.sort((a, b) => {
         const fa = (a.authors[0]?.family || '').toLowerCase();
         const fb = (b.authors[0]?.family || '').toLowerCase();
@@ -177,15 +240,16 @@ export function sortCSLItems(items, style) {
 // ============================================================================
 
 export function formatCitation(item, style, index = 1) {
-    switch (style) {
-        case 'IEEE':
-            return `[${index}]`;
+    if (NUMERIC_SUPERSCRIPT.has(style)) return `<sup>${index}</sup>`;
+    if (NUMERIC_PAREN.has(style)) return `(${index})`;
+    if (NUMERIC_BRACKET.has(style)) return `[${index}]`;
+
+    switch (baseStyle(style)) {
         case 'MLA':
             return `(${citationAuthors(item, style)}${item.page ? ` ${firstPage(item.page)}` : ''})`;
         case 'Chicago':
             return chicagoFootnote(item);
         case 'Harvard':
-            return `(${citationAuthors(item, style)}, ${item.year})`;
         case 'APA':
         default:
             return `(${citationAuthors(item, style)}, ${item.year})`;
@@ -205,7 +269,7 @@ function chicagoFootnote(item) {
 }
 
 export function formatBibliography(item, style, index = 1) {
-    switch (style) {
+    switch (baseStyle(style)) {
         case 'IEEE':
             return ieeeBibliography(item, index);
         case 'MLA':

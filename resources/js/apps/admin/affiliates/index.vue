@@ -13,6 +13,7 @@ const codes = ref([]);
 const commissions = ref([]);
 const referrals = ref([]);
 const processing = ref(null);
+const creditPerReferral = ref(10);
 
 const codeColumns = [
     { key: 'user_name', label: 'Affiliate' },
@@ -127,10 +128,10 @@ onMounted(load);
         <PageHeader title="Affiliate" description="Verifikasi referral, komisi, dan kode afiliasi." />
 
         <h2 class="mt-6 mb-2 flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
-            <UserPlus class="h-4 w-4" /> Verifikasi Referral (+20 koin)
+            <UserPlus class="h-4 w-4" /> Verifikasi Referral (+{{ creditPerReferral }} koin)
         </h2>
         <p class="mb-3 text-xs text-neutral-400 dark:text-neutral-500">
-            Setiap pendaftar lewat kode afiliasi. Setujui untuk menambahkan +20 koin ke afiliasi.
+            Setiap pendaftar lewat kode afiliasi. Setujui untuk menambahkan +{{ creditPerReferral }} koin ke afiliasi.
         </p>
         <DataTable :columns="referralColumns" :rows="referrals" :loading="loading" empty-text="Belum ada referral.">
             <template #cell-referrer_name="{ value }">

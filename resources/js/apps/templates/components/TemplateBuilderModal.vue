@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue';
 import { X, Plus, Trash2, GripVertical } from 'lucide-vue-next';
 import { TEMPLATE_BLOCK_TYPES } from '../../../utils/templates';
+import { toast } from '../../../utils/toast';
 
 const open = defineModel('open', { type: Boolean, default: false });
 const emit = defineEmits(['save']);

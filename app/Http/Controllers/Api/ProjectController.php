@@ -55,6 +55,31 @@ class ProjectController extends Controller
     }
 
     /**
+     * Ambil payload project publik (read-only) milik pengguna lain, untuk
+     * ditampilkan di viewer tanpa bisa diedit. Hanya project yang sudah
+     * dipublikasikan yang bisa dibaca.
+     */
+    public function publicShow(Request $request, string $uuid): JsonResponse
+    {
+        $project = Project::query()
+            ->where('uuid', $uuid)
+            ->where('is_public', true)
+            ->where('status', 'published')
+            ->where('user_id', '!=', $request->user()->id)
+            ->first();
+
+        if (! $project) {
+            return response()->json(['error' => 'Project tidak ditemukan atau belum dipublikasikan.'], 404);
+        }
+
+        return response()->json([
+            'name' => $project->title,
+            'payload' => $project->payload ?? [],
+            'author' => $project->user?->name ?? 'Anonim',
+        ]);
+    }
+
+    /**
      * Ambil dokumen milik pengguna yang sedang login.
      */
     public function show(Request $request, string $uuid): JsonResponse
@@ -171,5 +196,36 @@ class ProjectController extends Controller
         $project->delete();
 
         return response()->json(['message' => 'Dokumen dihapus.']);
+    }
+
+    /**
+     * Publikasikan project milik pengguna agar muncul di Lists Project (public).
+     * Bisa disertai deskripsi singkat yang ditampilkan di kartu Lists.
+     */
+    public function publish(Request $request, string $uuid): JsonResponse
+    {
+        $project = Project::where('uuid', $uuid)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (! $project) {
+            return response()->json(['error' => 'Dokumen tidak ditemukan.'], 404);
+        }
+
+        $data = $request->validate([
+            'description' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $project->update([
+            'description' => isset($data['description']) ? $data['description'] : $project->description,
+            'is_public' => true,
+            'status' => 'published',
+            'published_at' => $project->published_at ?? now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Project berhasil dipublikasikan.',
+            'published_at' => $project->published_at?->toISOString(),
+        ]);
     }
 }

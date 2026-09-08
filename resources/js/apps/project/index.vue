@@ -29,6 +29,13 @@ import {
     MoveVertical,
     FilePlus2,
     Code2,
+    Rocket,
+    X,
+    Search,
+    ChevronUp,
+    ChevronDown,
+    Replace,
+    GripHorizontal,
 } from 'lucide-vue-next';
 import HeaderBuilder from './components/HeaderBuilder.vue';
 import DownloadModal from './components/DownloadModal.vue';
@@ -50,7 +57,7 @@ import WorkspaceViewer from './components/WorkspaceViewer.vue';
 import AgentCanvasModal from './components/AgentCanvasModal.vue';
 import ShareModal from './components/ShareModal.vue';
 import { listCustomFonts, addCustomFont, registerFontFace } from '../../utils/fontManager';
-import { formatCitation, authorYearLabel, parseCSLItem, cslFormatter } from '../../utils/csl-formatter';
+import { CSL_STYLES, formatCitation, authorYearLabel, parseCSLItem, cslFormatter } from '../../utils/csl-formatter';
 import { listReferences as listWorkspaceReferences } from '../../utils/workspaceLibrary';
 import { PROJECT_CATEGORY_OPTIONS, DEFAULT_PROJECT_CATEGORY } from '../../utils/projectCategories';
 import { touchProject } from '../../utils/projectIndex';
@@ -340,11 +347,377 @@ function openShare() {
     shareOpen.value = true;
 }
 
+// ---- Publikasikan project ke Lists Project ----
+const publishOpen = ref(false);
+const publishDescription = ref('');
+const publishing = ref(false);
+
+function openPublish() {
+    publishDescription.value = '';
+    publishOpen.value = true;
+}
+
+function closePublish() {
+    if (publishing.value) return;
+    publishOpen.value = false;
+}
+
+async function confirmPublish() {
+    if (!projectId.value) {
+        showToast('Simpan project dulu sebelum dipublikasikan.');
+        return;
+    }
+    publishing.value = true;
+    try {
+        const res = await request(`/api/projects/${encodeURIComponent(projectId.value)}/publish`, {
+            method: 'POST',
+            body: JSON.stringify({ description: publishDescription.value.trim() }),
+        });
+        if (res.ok) {
+            publishOpen.value = false;
+            showToast('Project berhasil dipublikasikan ke Lists Project.');
+        } else {
+            showToast(res.data?.error || 'Gagal mempublikasikan project.');
+        }
+    } catch (e) {
+        showToast(e.message || 'Gagal mempublikasikan project.');
+    } finally {
+        publishing.value = false;
+    }
+}
+
+// ---- Pencarian & penggantian teks di dalam canvas (Ctrl/Cmd + F) ----
+const findOpen = ref(false);
+const findQuery = ref('');
+const replaceQuery = ref('');
+const findIndex = ref(0);
+const findInputEl = ref(null);
+const replaceInputEl = ref(null);
+let findHighlightTimer = null;
+const findMarkEls = [];
+const findPanelEl = ref(null);
+const findPanelPos = ref(null); // {x, y} px; null = posisi default (tengah atas)
+let findDrag = null;
+
+const findPanelStyle = computed(() => {
+    if (!findPanelPos.value) {
+        return { left: '50%', top: '20px', transform: 'translateX(-50%)' };
+    }
+    return { left: `${findPanelPos.value.x}px`, top: `${findPanelPos.value.y}px` };
+});
+
+function onFindDragStart(e) {
+    if (e.button !== 0) return;
+    const el = findPanelEl.value;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    findDrag = { startX: e.clientX, startY: e.clientY, left: rect.left, top: rect.top };
+    document.addEventListener('mousemove', onFindDragMove);
+    document.addEventListener('mouseup', onFindDragEnd);
+    e.preventDefault();
+}
+
+function onFindDragMove(e) {
+    if (!findDrag) return;
+    const width = findPanelEl.value?.offsetWidth || 0;
+    const height = findPanelEl.value?.offsetHeight || 0;
+    const left = Math.min(Math.max(0, findDrag.left + (e.clientX - findDrag.startX)), Math.max(0, window.innerWidth - width));
+    const top = Math.min(Math.max(0, findDrag.top + (e.clientY - findDrag.startY)), Math.max(0, window.innerHeight - height));
+    findPanelPos.value = { x: left, y: top };
+}
+
+function onFindDragEnd() {
+    findDrag = null;
+    document.removeEventListener('mousemove', onFindDragMove);
+    document.removeEventListener('mouseup', onFindDragEnd);
+}
+
+// Ambil teks polos dari HTML konten blok (gabungan persis text-node, tanpa tag).
+// Pakai DOM agar entitas HTML (mis. &nbsp;) ikut ter-decode sehingga offset
+// teks polos selalu cocok dengan text-node DOM saat menyorot/mengganti.
+function parseBlockContent(html) {
+    const container = document.createElement('div');
+    container.innerHTML = html || '';
+    const nodes = [];
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    return { container, nodes, plain: nodes.map((x) => x.nodeValue).join('') };
+}
+
+// Pecah teks menjadi kalimat (dengan offset asli di teks polos).
+function splitSentences(text) {
+    const out = [];
+    if (!text || !text.trim()) return out;
+    const re = /[^.!?\n]+[.!?\n]*/g;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+        const raw = m[0];
+        const trimmed = raw.trim();
+        if (trimmed) out.push({ text: trimmed, start: m.index, end: m.index + raw.length });
+    }
+    if (!out.length) out.push({ text: text.trim(), start: 0, end: text.length });
+    return out;
+}
+
+// Daftar kecocokan berbasis KALIMAT (bukan blok). Setiap kalimat yang memuat
+// kata kunci dihitung satu kecocokan sehingga jumlahnya presisi & tidak bikin bingung.
+const findMatches = computed(() => {
+    const q = findQuery.value.trim();
+    if (!q) return [];
+    const ql = q.toLowerCase();
+    const results = [];
+    for (const b of canvasBlocks.value) {
+        if (NON_TEXT_BLOCK_TYPES.has(b.type)) continue;
+        const { plain } = parseBlockContent(b.content);
+        if (!plain) continue;
+        for (const s of splitSentences(plain)) {
+            if (s.text.toLowerCase().includes(ql)) {
+                results.push({ uid: b.uid, sentence: s.text, start: s.start, end: s.end });
+            }
+        }
+    }
+    return results;
+});
+
+const currentFindMatch = computed(() => findMatches.value[findIndex.value] || null);
+
+function clearFindHighlight() {
+    if (findHighlightTimer) {
+        clearTimeout(findHighlightTimer);
+        findHighlightTimer = null;
+    }
+    if (findMarkEls.length) {
+        for (const mark of findMarkEls) {
+            const parent = mark.parentNode;
+            if (parent) {
+                while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+                parent.removeChild(mark);
+            }
+        }
+        findMarkEls.length = 0;
+    }
+}
+
+function blockEditorEl(uid) {
+    const nodes = canvasEl.value ? Array.from(canvasEl.value.querySelectorAll(`[data-block-uid="${uid}"]`)) : [];
+    const el = nodes[nodes.length - 1];
+    return el ? el.querySelector('.editor') : null;
+}
+
+function rangeForOffsets(root, start, end) {
+    const nodes = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    let pos = 0;
+    let startNode = null;
+    let startOffset = 0;
+    let endNode = null;
+    let endOffset = 0;
+    for (const node of nodes) {
+        const len = node.nodeValue.length;
+        if (startNode === null && pos + len >= start) {
+            startNode = node;
+            startOffset = start - pos;
+        }
+        if (pos + len >= end) {
+            endNode = node;
+            endOffset = end - pos;
+            break;
+        }
+        pos += len;
+    }
+    if (!startNode || !endNode) return null;
+    const range = document.createRange();
+    range.setStart(startNode, Math.max(0, Math.min(startOffset, startNode.nodeValue.length)));
+    range.setEnd(endNode, Math.max(0, Math.min(endOffset, endNode.nodeValue.length)));
+    return range;
+}
+
+function wrapRangeInMark(root, start, end) {
+    const range = rangeForOffsets(root, start, end);
+    if (!range) return;
+    const mark = document.createElement('mark');
+    mark.className = 'find-match-mark';
+    try {
+        const frag = range.extractContents();
+        mark.appendChild(frag);
+        range.insertNode(mark);
+        findMarkEls.push(mark);
+    } catch {
+        // Range melintasi batas elemen yang rumit — lewati saja.
+    }
+}
+
+function highlightFindMatch(match) {
+    clearFindHighlight();
+    nextTick(() => {
+        // Tunggu sebentar agar blok benar-benar dirender oleh virtualisasi.
+        findHighlightTimer = setTimeout(() => {
+            const editor = blockEditorEl(match.uid);
+            if (!editor) return;
+            const q = findQuery.value.trim();
+            if (!q) return;
+            const b = canvasBlocks.value.find((x) => x.uid === match.uid);
+            if (!b) return;
+            // Sorot hanya kata/frasa yang persis dicari (bukan seluruh kalimat).
+            const { plain } = parseBlockContent(b.content);
+            const occurrences = findOccurrencesInPlain(plain, q).filter(
+                (o) => o.start >= match.start && o.end <= match.end,
+            );
+            // Bungkus dari belakang agar offset sebelumnya tidak berubah.
+            for (let i = occurrences.length - 1; i >= 0; i--) {
+                wrapRangeInMark(editor, occurrences[i].start, occurrences[i].end);
+            }
+        }, 120);
+    });
+}
+
+function gotoFindMatch(i) {
+    if (!findMatches.value.length) return;
+    findIndex.value = i;
+    const m = findMatches.value[i];
+    scrollToBlock(m.uid);
+    highlightFindMatch(m);
+}
+
+function findNext() {
+    if (!findMatches.value.length) return;
+    gotoFindMatch((findIndex.value + 1) % findMatches.value.length);
+}
+
+function findPrev() {
+    if (!findMatches.value.length) return;
+    gotoFindMatch((findIndex.value - 1 + findMatches.value.length) % findMatches.value.length);
+}
+
+function openFind() {
+    findOpen.value = true;
+    findIndex.value = 0;
+    nextTick(() => {
+        findInputEl.value?.focus();
+        findInputEl.value?.select();
+    });
+}
+
+function closeFind() {
+    findOpen.value = false;
+    findQuery.value = '';
+    replaceQuery.value = '';
+    findIndex.value = 0;
+    findPanelPos.value = null;
+    onFindDragEnd();
+    clearFindHighlight();
+}
+
+watch(findQuery, () => {
+    if (!findOpen.value) return;
+    findIndex.value = 0;
+    if (findMatches.value.length) {
+        gotoFindMatch(0);
+    } else {
+        clearFindHighlight();
+    }
+});
+
+// ---- Penggantian (replace) berbasis kalimat ----
+
+function findOccurrencesInPlain(plain, query) {
+    const ql = query.toLowerCase();
+    const lower = plain.toLowerCase();
+    const out = [];
+    let idx = lower.indexOf(ql);
+    while (idx !== -1) {
+        out.push({ start: idx, end: idx + query.length });
+        idx = lower.indexOf(ql, idx + query.length);
+    }
+    return out;
+}
+
+function replaceNodeRange(nodes, start, end, replacement) {
+    let pos = 0;
+    for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        const len = node.nodeValue.length;
+        const nStart = pos;
+        const nEnd = pos + len;
+        if (nEnd <= start || nStart >= end) {
+            pos = nEnd;
+            continue;
+        }
+        const ls = Math.max(0, start - nStart);
+        const le = Math.min(len, end - nStart);
+        node.nodeValue = node.nodeValue.slice(0, ls) + replacement + node.nodeValue.slice(le);
+        // Bila kata kunci melintasi beberapa text-node (ada tag di tengahnya).
+        if (end > nEnd) {
+            let remaining = end - nEnd;
+            for (let j = i + 1; j < nodes.length && remaining > 0; j++) {
+                const nn = nodes[j];
+                const take = Math.min(nn.nodeValue.length, remaining);
+                nn.nodeValue = nn.nodeValue.slice(take);
+                remaining -= take;
+            }
+        }
+        return;
+    }
+}
+
+function replaceBlockRanges(uid, ranges, replacement) {
+    const b = canvasBlocks.value.find((x) => x.uid === uid);
+    if (!b || !ranges.length) return;
+    const { container, nodes } = parseBlockContent(b.content);
+    // Ganti dari belakang agar offset sebelumnya tidak bergeser.
+    for (let i = ranges.length - 1; i >= 0; i--) {
+        replaceNodeRange(nodes, ranges[i].start, ranges[i].end, replacement);
+    }
+    b.content = container.innerHTML;
+}
+
+function replaceCurrent() {
+    const m = currentFindMatch.value;
+    if (!m) return;
+    const b = canvasBlocks.value.find((x) => x.uid === m.uid);
+    if (!b) return;
+    const { plain } = parseBlockContent(b.content);
+    const inSentence = findOccurrencesInPlain(plain, findQuery.value.trim()).filter(
+        (o) => o.start >= m.start && o.end <= m.end,
+    );
+    if (!inSentence.length) return;
+    pushHistory();
+    replaceBlockRanges(m.uid, inSentence, replaceQuery.value);
+    clearFindHighlight();
+    nextTick(() => {
+        if (findMatches.value.length) {
+            gotoFindMatch(Math.min(findIndex.value, findMatches.value.length - 1));
+        } else {
+            clearFindHighlight();
+        }
+    });
+}
+
+function replaceAll() {
+    if (!findMatches.value.length) return;
+    const q = findQuery.value.trim();
+    const replacement = replaceQuery.value;
+    pushHistory();
+    for (const b of canvasBlocks.value) {
+        if (NON_TEXT_BLOCK_TYPES.has(b.type)) continue;
+        const { plain } = parseBlockContent(b.content);
+        if (!plain) continue;
+        const ranges = findOccurrencesInPlain(plain, q);
+        if (ranges.length) replaceBlockRanges(b.uid, ranges, replacement);
+    }
+    clearFindHighlight();
+    nextTick(() => {
+        if (findMatches.value.length) gotoFindMatch(0);
+    });
+}
+
 // ---- Sitasi & Daftar Pustaka (dari Tulisin Workspace) ----
 const citationStyle = ref('APA');
 
-const citationStyleOptions = ['IEEE', 'APA', 'MLA', 'Harvard', 'Chicago']
-    .map((s) => ({ value: s, label: s }));
+const citationStyleOptions = CSL_STYLES.map((s) => ({ value: s, label: s }));
 
 // Referensi yang sudah disitasi (untuk Daftar Pustaka otomatis).
 const citedReferences = ref([]);
@@ -535,12 +908,13 @@ watch(selectedUid, (val) => {
     }
 });
 
-// Penanda saat memuat data dari localStorage agar tidak memicu simpan/timestamp ulang.
-let isLoading = false;
+// Penanda saat memuat data dari server/localStorage agar tidak memicu simpan/timestamp
+// ulang. Bersifat reaktif supaya bisa menampilkan skeleton "memuat" di canvas.
+const isLoading = ref(false);
 
 // Catat waktu edit terakhir & simpan otomatis saat isi canvas berubah.
 watch(canvasBlocks, () => {
-    if (isLoading) return;
+    if (isLoading.value) return;
     lastEdited.value = Date.now();
     scheduleSave();
 }, { deep: true });
@@ -621,7 +995,7 @@ const watermarkSettings = computed(() => ({
 watch(
     [fontChoice, customFont, pageFontSize, pageLineHeight, pageFormat, pageOrientation, pageMargins, frontMatterPosition, bodyPosition, frontMatterStyle, bodyStyle, bodyStart, citationStyle, citedReferences, watermarkEnabled, watermarkType, watermarkText, watermarkFontSize, watermarkColor, watermarkOpacity, watermarkRotation, watermarkImage, watermarkImageWidth],
     () => {
-        if (isLoading) return;
+        if (isLoading.value) return;
         scheduleSave();
     },
     { deep: true },
@@ -1107,6 +1481,19 @@ function onGlobalKeydown(e) {
         return;
     }
 
+    // Ctrl/Cmd + F → buka pencarian teks di dalam canvas (bukan find browser).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault();
+        openFind();
+        return;
+    }
+
+    // Escape → tutup pencarian canvas bila sedang terbuka.
+    if (e.key === 'Escape' && findOpen.value) {
+        closeFind();
+        return;
+    }
+
     // Ctrl/Cmd + Enter → buat halaman baru dan pindahkan blok yang sedang difokus ke sana.
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         const host = el && el.closest ? el.closest('[data-block-uid]') : null;
@@ -1212,6 +1599,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', onWindowResize);
     window.removeEventListener('beforeunload', flushSave);
     document.removeEventListener('keydown', onGlobalKeydown);
+    onFindDragEnd();
 });
 
 // Jumlah blok unik (flat) pada halaman-halaman sebelum pIndex.
@@ -2020,19 +2408,83 @@ const aiGenInput = ref('');
 const aiGenOutput = ref('');
 const aiGenLoading = ref(false);
 
+// Blok unik pada halaman aktif (currentPage bersifat 1-based).
+const currentPageBlocks = computed(() => {
+    const idx = currentPage.value - 1;
+    return idx >= 0 && idx < pages.value.length ? flatPageBlocks(idx) : [];
+});
+
+// Ringkasan struktur seluruh dokumen (hanya heading/bagian) agar AI memahami
+// posisi & alur dokumen tanpa mengirim seluruh isi (hemat token & fokus).
+const documentStructure = computed(() => {
+    const lines = contentBlocks.value
+        .filter((b) => isHeadingType(b.type) || ['abstract', 'toc', 'listTables', 'listFigures', 'references'].includes(b.type))
+        .map((b) => {
+            const num = numberingMap.value[b.uid] || '';
+            const text = blockPlainText(b) || blockPreview(b);
+            return `${num ? num + ' ' : ''}[${typeLabel(b.type)}] ${text || '(kosong)'}`;
+        });
+    return lines.length ? lines.join('\n') : 'Struktur dokumen masih kosong.';
+});
+
+// Konteks halaman aktif (blok apa saja yang ada di halaman yang sedang dilihat).
+const currentPageContext = computed(() => {
+    const blocks = currentPageBlocks.value;
+    if (!blocks.length) return 'Halaman ini masih kosong.';
+    return blocks.map((b, i) => {
+        const num = numberingMap.value[b.uid] || '';
+        const text = blockPlainText(b) || blockPreview(b);
+        return `${i + 1}. ${num ? num + ' ' : ''}[${typeLabel(b.type)}] ${text || '(kosong)'}`;
+    }).join('\n');
+});
+
+// Konteks blok yang sedang dipilih (bab terdekat + blok aktif + blok berikutnya).
+const activeBlockContext = computed(() => {
+    const b = selectedBlock.value;
+    if (!b) return currentPageContext.value;
+    const all = contentBlocks.value;
+    const idx = all.findIndex((x) => x.uid === b.uid);
+    const parts = [];
+    for (let i = idx - 1; i >= 0; i--) {
+        if (isHeadingType(all[i].type)) {
+            parts.push(`Bagian: ${numberingMap.value[all[i].uid] || ''} ${blockPlainText(all[i]) || typeLabel(all[i].type)}`);
+            break;
+        }
+    }
+    parts.push(`Blok aktif [${typeLabel(b.type)}]: ${blockPlainText(b) || '(kosong)'}`);
+    if (idx >= 0 && all[idx + 1]) {
+        parts.push(`Blok setelahnya [${typeLabel(all[idx + 1].type)}]: ${blockPlainText(all[idx + 1]) || '(kosong)'}`);
+    }
+    return parts.join('\n');
+});
+
 const blockAiPrompts = computed(() => {
     const t = selectedBlock.value?.type;
     if (isHeadingType(t)) {
         return ['Tuliskan poin penting untuk bagian ini', 'Kembangkan judul menjadi paragraf pengantar'];
     }
     if (t === 'paragraph') {
-        return ['Tambahkan paragraf di bab 2 di bagian ini', 'Perbaiki tata bahasa paragraf ini'];
+        return ['Perbaiki tata bahasa paragraf ini', 'Kembangkan paragraf ini menjadi lebih lengkap'];
     }
     if (t === 'abstract') return ['Tulis abstrak 200 kata'];
     if (t === 'quote') return ['Buatkan kutipan singkat terkait topik'];
-    return ['Tolong Tambahkan paragraf di bab 2 di bagian blablablaa'];
+    return ['Tuliskan isi untuk bagian ini'];
 });
 
+// Aksi cepat pada tab AI (level halaman) yang menyesuaikan isi halaman aktif.
+const pageAiPrompts = computed(() => {
+    const blocks = currentPageBlocks.value;
+    if (!blocks.length) {
+        return ['Tulis paragraf pembuka untuk halaman ini', 'Buatkan poin-poin utama untuk bagian ini'];
+    }
+    const lastParagraph = blocks.slice().reverse().find((b) => b.type === 'paragraph' && blockPlainText(b));
+    if (lastParagraph) {
+        return ['Lanjutkan paragraf terakhir di halaman ini', 'Tulis paragraf baru yang masih satu topik', 'Ringkas isi halaman ini'];
+    }
+    return ['Tulis paragraf untuk bagian ini', 'Kembangkan judul ini menjadi paragraf', 'Buat kalimat pembuka untuk bagian ini'];
+});
+
+// Kirim instruksi user + struktur dokumen + blok aktif ke AI copilot.
 async function generateBlockContent() {
     const prompt = aiGenInput.value.trim();
     if (!prompt) return;
@@ -2044,7 +2496,33 @@ async function generateBlockContent() {
             body: JSON.stringify({
                 agent: 'copilot',
                 message: prompt,
-                context: activeBlockContext.value,
+                context: [documentStructure.value, activeBlockContext.value].filter(Boolean).join('\n\n'),
+                uuid: projectId.value,
+            }),
+        });
+        aiGenOutput.value = res.ok
+            ? (res.data?.reply || '')
+            : (res.data?.error || 'Gagal menghubungi AI.');
+    } catch {
+        aiGenOutput.value = 'Gagal menghubungi AI. Coba lagi.';
+    } finally {
+        aiGenLoading.value = false;
+    }
+}
+
+// Generate paragraf untuk halaman aktif (dari tab AI, tanpa blok terpilih).
+async function generatePageContent() {
+    const prompt = aiGenInput.value.trim();
+    if (!prompt) return;
+    if (!(await spendCredits(creditPricing.value.ai_generate, 'ai_generate'))) return;
+    aiGenLoading.value = true;
+    try {
+        const res = await request('/api/ai/generate', {
+            method: 'POST',
+            body: JSON.stringify({
+                agent: 'copilot',
+                message: prompt,
+                context: [documentStructure.value, currentPageContext.value].filter(Boolean).join('\n\n'),
                 uuid: projectId.value,
             }),
         });
@@ -2061,6 +2539,14 @@ async function generateBlockContent() {
 function insertGeneratedContent() {
     if (!selectedBlock.value || !aiGenOutput.value) return;
     selectedBlock.value.content = ((selectedBlock.value.content || '') + aiGenOutput.value).trim();
+    aiGenOutput.value = '';
+    aiGenInput.value = '';
+}
+
+// Sisipkan hasil generate halaman (markdown) sebagai blok baru di halaman aktif.
+function insertPageContent() {
+    if (!aiGenOutput.value) return;
+    applyAgentToCanvas({ text: aiGenOutput.value, mode: 'after' });
     aiGenOutput.value = '';
     aiGenInput.value = '';
 }
@@ -2085,6 +2571,8 @@ function printDocument() {
 const plagiarismOpen = ref(false);
 const plagiarismLoading = ref(false);
 const plagiarismResult = ref(null);
+const plagiarismConfirmOpen = ref(false);
+const plagiarismPendingBlockUid = ref(null);
 
 // Tipe blok yang tidak punya teks tulis user (dilewati saat mengumpulkan teks).
 const NON_TEXT_BLOCK_TYPES = new Set([
@@ -2096,7 +2584,7 @@ function blockPlainText(b) {
     return (b?.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function openPlagiarismCheck(blockUid = null) {
+function openPlagiarismCheck(blockUid = null) {
     closePageMenu();
 
     const source = blockUid
@@ -2111,8 +2599,36 @@ async function openPlagiarismCheck(blockUid = null) {
         return;
     }
 
-    // Semua fitur AI memakai kredit, termasuk scan plagiarism.
+    // Konfirmasi dulu sebelum memotong koin (harga diatur admin).
+    plagiarismPendingBlockUid.value = blockUid;
+    plagiarismConfirmOpen.value = true;
+}
+
+function cancelPlagiarismCheck() {
+    plagiarismConfirmOpen.value = false;
+    plagiarismPendingBlockUid.value = null;
+}
+
+async function confirmPlagiarismCheck() {
+    const blockUid = plagiarismPendingBlockUid.value;
+    plagiarismConfirmOpen.value = false;
+    plagiarismPendingBlockUid.value = null;
     if (!(await spendCredits(creditPricing.value.ai_plagiarism, 'plagiarism_check'))) return;
+    await runPlagiarismCheck(blockUid);
+}
+
+async function runPlagiarismCheck(blockUid = null) {
+    const source = blockUid
+        ? canvasBlocks.value.filter((b) => b.uid === blockUid)
+        : canvasBlocks.value;
+    const textBlocks = source.filter(
+        (b) => !NON_TEXT_BLOCK_TYPES.has(b.type) && blockPlainText(b),
+    );
+
+    if (!textBlocks.length) {
+        showToast('Tidak ada teks untuk diperiksa.');
+        return;
+    }
 
     plagiarismOpen.value = true;
     plagiarismLoading.value = true;
@@ -2222,8 +2738,13 @@ function closePlagiarism() {
 const turnitinOpen = ref(false);
 const turnitinLoading = ref(false);
 const turnitinResult = ref(null);
+const turnitinConfirmOpen = ref(false);
+const turnitinScreeningOpen = ref(false);
+const turnitinScreeningProgress = ref(0);
+const turnitinScreeningStatus = ref('');
+const turnitinScreeningPages = ref(0);
 
-async function openTurnitinOptimizer() {
+function openTurnitinOptimizer() {
     closePageMenu();
 
     const textBlocks = canvasBlocks.value.filter(
@@ -2235,8 +2756,66 @@ async function openTurnitinOptimizer() {
         return;
     }
 
+    // Konfirmasi dulu sebelum memotong koin (harga diatur admin).
+    turnitinConfirmOpen.value = true;
+}
+
+function cancelTurnitinCheck() {
+    turnitinConfirmOpen.value = false;
+}
+
+async function confirmTurnitinCheck() {
+    turnitinConfirmOpen.value = false;
     if (!(await spendCredits(creditPricing.value.ai_turnitin, 'turnitin_optimize'))) return;
-    turnitinOpen.value = true;
+    await runTurnitinCheck();
+}
+
+// Durasi animasi pemindaian bergantung jumlah halaman & jumlah karakter.
+function estimateTurnitinDuration(totalChars, totalPages) {
+    const perChar = Math.min(3500, totalChars / 300);
+    const duration = 1500 + totalPages * 400 + perChar;
+    return Math.min(15000, Math.max(3000, duration));
+}
+
+// Animasi screening halaman: dari halaman pertama sampai terakhir, tanpa bisa
+// berpindah/dibatalkan oleh user selama proses berlangsung.
+function runTurnitinScreening(totalPages, totalChars) {
+    turnitinScreeningOpen.value = true;
+    turnitinScreeningProgress.value = 0;
+    turnitinScreeningPages.value = totalPages;
+    turnitinScreeningStatus.value = `Menyiapkan pemindaian ${totalPages} halaman…`;
+
+    const duration = estimateTurnitinDuration(totalChars, totalPages);
+    const started = Date.now();
+
+    return new Promise((resolve) => {
+        const tick = () => {
+            const elapsed = Date.now() - started;
+            const p = Math.min(100, Math.round((elapsed / duration) * 100));
+            turnitinScreeningProgress.value = p;
+            const current = Math.max(1, Math.min(totalPages, Math.ceil((p / 100) * totalPages)));
+            turnitinScreeningStatus.value = `Memindai halaman ${current} dari ${totalPages}…`;
+            if (p >= 100) {
+                turnitinScreeningStatus.value = 'Pemindaian selesai. Menyiapkan hasil…';
+                resolve();
+                return;
+            }
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
+}
+
+async function runTurnitinCheck() {
+    const textBlocks = canvasBlocks.value.filter(
+        (b) => !NON_TEXT_BLOCK_TYPES.has(b.type) && blockPlainText(b),
+    );
+
+    if (!textBlocks.length) {
+        showToast('Tidak ada teks untuk dioptimasi.');
+        return;
+    }
+
     turnitinLoading.value = true;
     turnitinResult.value = null;
 
@@ -2244,59 +2823,66 @@ async function openTurnitinOptimizer() {
         .map((b) => blockPlainText(b))
         .join('\n\n');
 
-    try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'turnitin',
-                message: 'Periksa kemiripan teks ini dengan sumber lain, lalu tulis ulang kalimat yang mirip agar skor kemiripan turun.',
-                context: text || 'Tidak ada teks.',
-                uuid: projectId.value,
-            }),
-        });
+    const totalPages = Math.max(1, pages.value.length);
+    const totalChars = text.length;
 
-        let parsed = null;
-        if (res.ok && typeof res.data?.reply === 'string') {
-            try { parsed = JSON.parse(res.data.reply); } catch { parsed = null; }
-        }
+    // Jalankan animasi pemindaian + request AI secara paralel; hasil baru
+    // ditampilkan setelah keduanya selesai (user tidak bisa berpindah selama ini).
+    const screening = runTurnitinScreening(totalPages, totalChars);
+    const aiRequest = request('/api/ai/generate', {
+        method: 'POST',
+        body: JSON.stringify({
+            agent: 'turnitin',
+            message: 'Periksa kemiripan teks ini dengan sumber lain, lalu tulis ulang kalimat yang mirip agar skor kemiripan turun.',
+            context: text || 'Tidak ada teks.',
+            uuid: projectId.value,
+        }),
+    }).catch(() => ({ ok: false, status: 0, data: { error: 'Gagal menghubungi AI. Coba lagi.' } }));
 
-        if (!res.ok) {
-            showToast(res.data?.error || 'Gagal menghubungi AI.');
-            turnitinResult.value = { similarity: 0, matches: [] };
-        } else if (parsed && Array.isArray(parsed.matches)) {
-            const matches = parsed.matches.map((m) => {
-                const original = (m.original || '').trim();
-                const block = original
-                    ? textBlocks.find((b) =>
-                        (b.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().includes(original),
-                    )
-                    : null;
-                return {
-                    blockUid: block ? block.uid : null,
-                    blockLabel: block ? typeLabel(block.type) : 'Teks terdeteksi',
-                    matched: original,
-                    similarity: Number(parsed.similarity) || 0,
-                    suggestion: m.suggestion || '',
-                    applied: false,
-                    rejected: false,
-                };
-            });
-            turnitinResult.value = {
-                similarity: Number(parsed.similarity) || 0,
-                _baseSimilarity: Number(parsed.similarity) || 0,
-                matches,
-            };
-            saveAiResult('turnitin', Number(parsed.similarity) || 0, matches);
-        } else {
-            turnitinResult.value = { similarity: 0, matches: [] };
-            showToast('AI belum mengembalikan hasil. Coba lagi.');
-        }
-    } catch {
-        showToast('Gagal menghubungi AI. Coba lagi.');
-        turnitinResult.value = { similarity: 0, matches: [] };
-    } finally {
-        turnitinLoading.value = false;
+    const [res] = await Promise.all([aiRequest, screening]);
+
+    turnitinScreeningOpen.value = false;
+    turnitinScreeningProgress.value = 100;
+
+    let parsed = null;
+    if (res.ok && typeof res.data?.reply === 'string') {
+        try { parsed = JSON.parse(res.data.reply); } catch { parsed = null; }
     }
+
+    if (!res.ok) {
+        showToast(res.data?.error || 'Gagal menghubungi AI.');
+        turnitinResult.value = { similarity: 0, matches: [] };
+    } else if (parsed && Array.isArray(parsed.matches)) {
+        const matches = parsed.matches.map((m) => {
+            const original = (m.original || '').trim();
+            const block = original
+                ? textBlocks.find((b) =>
+                    (b.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().includes(original),
+                )
+                : null;
+            return {
+                blockUid: block ? block.uid : null,
+                blockLabel: block ? typeLabel(block.type) : 'Teks terdeteksi',
+                matched: original,
+                similarity: Number(parsed.similarity) || 0,
+                suggestion: m.suggestion || '',
+                applied: false,
+                rejected: false,
+            };
+        });
+        turnitinResult.value = {
+            similarity: Number(parsed.similarity) || 0,
+            _baseSimilarity: Number(parsed.similarity) || 0,
+            matches,
+        };
+        saveAiResult('turnitin', Number(parsed.similarity) || 0, matches);
+    } else {
+        turnitinResult.value = { similarity: 0, matches: [] };
+        showToast('AI belum mengembalikan hasil. Coba lagi.');
+    }
+
+    turnitinLoading.value = false;
+    turnitinOpen.value = true;
 }
 
 function gotoTurnitinMatch(match) {
@@ -2322,6 +2908,8 @@ function closeTurnitin() {
     turnitinOpen.value = false;
     turnitinLoading.value = false;
     turnitinResult.value = null;
+    turnitinConfirmOpen.value = false;
+    turnitinScreeningOpen.value = false;
 }
 
 // ---- Riwayat hasil AI (turnitin/plagiarism) ----
@@ -2602,6 +3190,29 @@ function flushSave() {
 const docVersion = ref(0); // versi optimistik dari server; 0 = belum pernah tersimpan.
 let lastSentHash = ''; // dirty check: konten yang terakhir terkirim ke server.
 
+// Ubah teks judul bab menjadi UPPERCASE tanpa merusak struktur HTML di dalamnya.
+function uppercaseHtmlText(html) {
+    if (!html) return String(html || '');
+    const el = document.createElement('div');
+    el.innerHTML = String(html);
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+        const upper = (n.nodeValue || '').toUpperCase();
+        if (n.nodeValue !== upper) n.nodeValue = upper;
+    }
+    return el.innerHTML;
+}
+
+// Pastikan seluruh blok bab selalu tersimpan sebagai UPPERCASE.
+function normalizeChapterBlocks(blocks) {
+    if (!Array.isArray(blocks)) return blocks;
+    return blocks.map((b) =>
+        b && b.type === 'chapter' && b.content ? { ...b, content: uppercaseHtmlText(b.content) } : b,
+    );
+}
+
 function projectPayload() {
     return {
         name: projectName.value,
@@ -2688,7 +3299,7 @@ function applyProjectData(data) {
     if (typeof data.citationStyle === 'string') citationStyle.value = data.citationStyle;
     if (Array.isArray(data.citedReferences)) citedReferences.value = data.citedReferences;
     if (Array.isArray(data.hiddenTocUids)) hiddenTocUids.value = data.hiddenTocUids.filter((x) => typeof x === 'string');
-    if (Array.isArray(data.blocks)) canvasBlocks.value = data.blocks;
+    if (Array.isArray(data.blocks)) canvasBlocks.value = normalizeChapterBlocks(data.blocks);
     if (typeof data.version === 'number') docVersion.value = data.version;
 }
 
@@ -2783,7 +3394,7 @@ async function doPersist(payloadStr, data) {
 }
 
 function loadProjectSettings() {
-    isLoading = true;
+    isLoading.value = true;
     try {
         const raw = localStorage.getItem(storageKey.value);
         if (!raw) return false;
@@ -2795,7 +3406,7 @@ function loadProjectSettings() {
         return false;
     } finally {
         nextTick(() => {
-            isLoading = false;
+            isLoading.value = false;
         });
     }
 }
@@ -2815,7 +3426,7 @@ async function loadProjectFromServer() {
     const payload = data?.payload && typeof data.payload === 'object' ? data.payload : null;
     if (!payload) return false;
 
-    isLoading = true;
+    isLoading.value = true;
     applyProjectData(payload);
     if (typeof data.version === 'number') docVersion.value = data.version;
 
@@ -2827,7 +3438,7 @@ async function loadProjectFromServer() {
     }
 
     nextTick(() => {
-        isLoading = false;
+        isLoading.value = false;
     });
     return true;
 }
@@ -3135,6 +3746,7 @@ const horizontalMarks = computed(() => {
             @open-inspector="inspectorOpen = true"
             @open-agent="openAgent"
             @open-share="openShare"
+            @open-publish="openPublish"
         />
 
 
@@ -3146,7 +3758,7 @@ const horizontalMarks = computed(() => {
             <!-- Palet blok konten -->
             <BlockPalette
                 :groups="groupedBlockTypes"
-                :sections="DOCUMENT_SECTIONS"
+                :sections="paletteSections"
                 :workspace-count="workspaceReferenceCount"
                 v-model:open="blocksOpen"
                 v-model:search="blockSearch"
@@ -3187,6 +3799,7 @@ const horizontalMarks = computed(() => {
                 :watermark="watermarkSettings"
                 :font-options="fontOptions"
                 :selected-block="selectedBlock"
+                :loading="isLoading"
                 :set-canvas-el="setCanvasEl"
                 :set-measure-ref="setMeasureRef"
                 :is-drop-indicator-before="isDropIndicatorBefore"
@@ -3289,6 +3902,8 @@ const horizontalMarks = computed(() => {
                 @remove-block="removeBlock"
                 @generate-block-content="generateBlockContent"
                 @insert-generated-content="insertGeneratedContent"
+                @generate-page-content="generatePageContent"
+                @insert-page-content="insertPageContent"
                 @run-plagiarism="openPlagiarismCheck"
                 @run-turnitin="openTurnitinOptimizer"
                 @load-ai-history="loadAiResults"
@@ -3395,6 +4010,88 @@ const horizontalMarks = computed(() => {
         @keep="keepTurnitinMatch"
     />
 
+    <!-- Konfirmasi sebelum memotong koin plagiarism -->
+    <div v-if="plagiarismConfirmOpen" class="fixed inset-0 z-[95] flex items-center justify-center p-4 print:hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/50" @click="cancelPlagiarismCheck"></div>
+        <div class="relative z-10 w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Konfirmasi Pengecekan Plagiarisme</h2>
+            <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                Pemeriksaan ini akan memotong <span class="font-semibold text-neutral-900 dark:text-white">{{ creditPricing.ai_plagiarism }} koin</span> dari saldo kamu.
+            </p>
+            <div class="mt-5 flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                    @click="cancelPlagiarismCheck"
+                >Batal</button>
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                    @click="confirmPlagiarismCheck"
+                >Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Konfirmasi sebelum memotong koin Turnitin -->
+    <div v-if="turnitinConfirmOpen" class="fixed inset-0 z-[95] flex items-center justify-center p-4 print:hidden" role="dialog" aria-modal="true">
+        <div class="absolute inset-0 bg-black/50" @click="cancelTurnitinCheck"></div>
+        <div class="relative z-10 w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Konfirmasi Optimasi Turnitin</h2>
+            <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                Optimasi ini akan memotong <span class="font-semibold text-neutral-900 dark:text-white">{{ creditPricing.ai_turnitin }} koin</span> dari saldo kamu dan menjalankan pemindaian seluruh halaman dokumen.
+            </p>
+            <div class="mt-5 flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+                    @click="cancelTurnitinCheck"
+                >Batal</button>
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                    @click="confirmTurnitinCheck"
+                >Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay screening Turnitin (animasi dari halaman awal sampai akhir, tidak bisa dibatalkan) -->
+    <div v-if="turnitinScreeningOpen" class="fixed inset-0 z-[96] flex items-center justify-center bg-neutral-950/85 backdrop-blur-sm print:hidden">
+        <div class="flex w-full max-w-md flex-col items-center gap-6 px-6 py-8 text-center">
+            <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10">
+                <span class="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-white/25 border-t-white"></span>
+            </div>
+
+            <div>
+                <h2 class="text-lg font-semibold text-white">Memindai Turnitin…</h2>
+                <p class="mt-1 text-sm text-neutral-300">{{ turnitinScreeningStatus }}</p>
+            </div>
+
+            <div class="w-full">
+                <div class="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                    <div class="h-full rounded-full bg-emerald-400 transition-all duration-200" :style="{ width: turnitinScreeningProgress + '%' }"></div>
+                </div>
+                <div class="mt-2 flex justify-between text-xs text-neutral-400">
+                    <span>Halaman 1</span>
+                    <span class="font-medium text-white">{{ turnitinScreeningProgress }}%</span>
+                    <span>Halaman {{ turnitinScreeningPages }}</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <div
+                    v-for="i in 5"
+                    :key="i"
+                    class="h-16 w-12 rounded-md border border-white/15 bg-white/5 transition-colors duration-300"
+                    :class="{ 'bg-emerald-400/30 border-emerald-400/60': (turnitinScreeningProgress / 20) >= i }"
+                ></div>
+            </div>
+
+            <p class="text-xs text-neutral-500">Jangan tutup atau berpindah halaman selama proses pemindaian berlangsung.</p>
+        </div>
+    </div>
+
     <!-- Modal riwayat hasil AI (analisis & capture) -->
     <AiHistoryModal
         :loading="aiHistoryLoading"
@@ -3464,6 +4161,164 @@ const horizontalMarks = computed(() => {
         :project-id="projectId"
         @close="shareOpen = false"
     />
+
+    <!-- Modal konfirmasi publikasi project ke Lists Project -->
+    <div v-if="publishOpen" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50" @click="closePublish"></div>
+        <div class="relative z-10 w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400">
+                        <Rocket class="h-5 w-5" />
+                    </span>
+                    <div>
+                        <h2 class="text-lg font-semibold">Publikasikan Project</h2>
+                        <p class="text-sm text-neutral-500 dark:text-neutral-400">Project akan tampil di Lists Project.</p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                    aria-label="Tutup"
+                    @click="closePublish"
+                >
+                    <X class="h-4 w-4" />
+                </button>
+            </div>
+
+            <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
+                Project <span class="font-semibold">{{ projectName || 'Proyek Tanpa Judul' }}</span> akan dipublikasikan dan dapat dilihat (read-only) oleh pengguna lain. Lanjutkan?
+            </p>
+
+            <label class="mt-4 block">
+                <span class="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400">Deskripsi singkat (opsional)</span>
+                <textarea
+                    v-model="publishDescription"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="Tuliskan ringkasan singkat tentang project ini…"
+                    class="w-full resize-none rounded-lg border border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
+                ></textarea>
+            </label>
+
+            <div class="mt-5 flex justify-end gap-2">
+                <button
+                    type="button"
+                    class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    @click="closePublish"
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="publishing"
+                    @click="confirmPublish"
+                >
+                    {{ publishing ? 'Memublikasikan…' : 'Publish' }}
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pencarian & penggantian teks dalam canvas (muncul saat Ctrl/Cmd + F) -->
+    <div
+        v-if="findOpen"
+        ref="findPanelEl"
+        class="fixed z-[60] w-[min(640px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg print:hidden dark:border-neutral-800 dark:bg-neutral-900"
+        :style="findPanelStyle"
+    >
+        <!-- Baris pencarian -->
+        <div class="flex items-center gap-1.5 px-3 py-2">
+            <button
+                type="button"
+                class="flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 active:cursor-grabbing dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+                aria-label="Pindahkan panel pencarian"
+                @mousedown="onFindDragStart"
+            >
+                <GripHorizontal class="h-4 w-4" />
+            </button>
+            <Search class="h-4 w-4 shrink-0 text-neutral-400" />
+            <input
+                ref="findInputEl"
+                v-model="findQuery"
+                type="text"
+                placeholder="Cari di canvas…"
+                class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+                @keydown.enter.prevent="findNext"
+                @keydown.shift.enter.prevent="findPrev"
+                @keydown.esc="closeFind"
+            />
+            <span class="shrink-0 text-xs tabular-nums text-neutral-400">
+                {{ findMatches.length ? `${findIndex + 1}/${findMatches.length}` : '0/0' }}
+            </span>
+            <button
+                type="button"
+                class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                aria-label="Hasil sebelumnya"
+                :disabled="!findMatches.length"
+                @click="findPrev"
+            >
+                <ChevronUp class="h-4 w-4" />
+            </button>
+            <button
+                type="button"
+                class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-40 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                aria-label="Hasil berikutnya"
+                :disabled="!findMatches.length"
+                @click="findNext"
+            >
+                <ChevronDown class="h-4 w-4" />
+            </button>
+            <button
+                type="button"
+                class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                aria-label="Tutup pencarian"
+                @click="closeFind"
+            >
+                <X class="h-4 w-4" />
+            </button>
+        </div>
+
+        <!-- Baris penggantian -->
+        <div class="flex items-center gap-1.5 border-t border-neutral-100 px-3 py-2 dark:border-neutral-800">
+            <Replace class="h-4 w-4 shrink-0 text-neutral-400" />
+            <input
+                ref="replaceInputEl"
+                v-model="replaceQuery"
+                type="text"
+                placeholder="Ganti dengan…"
+                class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-400"
+                @keydown.enter.prevent="replaceCurrent"
+                @keydown.esc="closeFind"
+            />
+            <button
+                type="button"
+                class="shrink-0 rounded-md bg-neutral-100 px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                :disabled="!findMatches.length"
+                @click="replaceCurrent"
+            >
+                Ganti
+            </button>
+            <button
+                type="button"
+                class="shrink-0 rounded-md bg-indigo-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="!findMatches.length"
+                @click="replaceAll"
+            >
+                Ganti Semua
+            </button>
+        </div>
+
+        <!-- Konteks kalimat aktif -->
+        <div
+            v-if="currentFindMatch"
+            class="border-t border-neutral-100 px-3 py-2 text-xs text-neutral-500 dark:border-neutral-800"
+        >
+            <span class="font-medium text-neutral-600 dark:text-neutral-300">Kalimat:</span>
+            {{ currentFindMatch.sentence }}
+        </div>
+    </div>
 
     <!-- Print view: hanya halaman dokumen (bersih, tanpa UI builder) -->
     <PrintView
@@ -3536,6 +4391,34 @@ const horizontalMarks = computed(() => {
 
     .print-page:last-child {
         page-break-after: auto;
+    }
+}
+
+/* Sorotan saat menavigasi hasil pencarian teks di canvas (Ctrl+F). */
+.find-flash {
+    outline: 2px solid rgba(250, 204, 21, 0.95);
+    outline-offset: 2px;
+    animation: find-flash-pulse 1.8s ease-out;
+}
+
+/* Sorotan kalimat yang sedang aktif pada hasil pencarian. */
+.find-match-mark {
+    background-color: rgba(250, 204, 21, 0.45);
+    color: inherit;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.7);
+}
+
+@keyframes find-flash-pulse {
+    0%,
+    100% {
+        background-color: transparent;
+    }
+    20% {
+        background-color: rgba(250, 204, 21, 0.22);
+    }
+    60% {
+        background-color: rgba(250, 204, 21, 0.08);
     }
 }
 </style>

@@ -15,11 +15,13 @@ const router = useRouter();
 
 const busyId = ref(null);
 const customTemplates = ref([]);
+const publicTemplates = ref([]);
 const showBuilder = ref(false);
 
 onMounted(() => {
     loadCreditPricing();
     loadCustomTemplates();
+    loadPublicTemplates();
 });
 
 async function useTemplate(template) {
@@ -58,6 +60,40 @@ async function loadCustomTemplates() {
     } catch (e) {
         toast(e.message, 'error');
         customTemplates.value = [];
+    }
+}
+
+async function loadPublicTemplates() {
+    try {
+        const data = await getJson('/api/templates/public');
+        publicTemplates.value = data.templates || [];
+    } catch (e) {
+        publicTemplates.value = [];
+    }
+}
+
+// Beli template pengguna lain: potong harga koin pembeli, kredit pembuat, lalu
+// buka hasilnya di builder.
+async function usePublicTemplate(template) {
+    busyId.value = template.id;
+    try {
+        const res = await request(`/api/templates/${encodeURIComponent(template.id)}/use`, { method: 'POST' });
+        if (!res.ok) {
+            toast(res.data?.error || 'Saldo koin tidak mencukupi.', 'error');
+            return;
+        }
+
+        const purchased = res.data.template;
+        const builderId = crypto.randomUUID();
+        const payload = buildProjectPayload(purchased);
+        localStorage.setItem(`tulisin:project:${builderId}`, JSON.stringify(payload));
+        touchProject(builderId, { name: purchased.title, category: purchased.category, blocks: payload.blocks });
+        toast('Template berhasil dibeli.', 'success');
+        router.push({ path: '/apps/u/project', query: { builder: builderId } });
+    } catch (e) {
+        toast(e.message, 'error');
+    } finally {
+        busyId.value = null;
     }
 }
 
@@ -183,6 +219,49 @@ async function onDeleteCustom(id) {
                     <AppButton block class="mt-4" :disabled="busyId === t.id" @click="useTemplate(t)">
                         <FileText class="h-4 w-4" />
                         {{ busyId === t.id ? 'Memproses…' : 'Gunakan · Gratis' }}
+                    </AppButton>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template dari pengguna lain (marketplace) -->
+        <div class="mt-8">
+            <h2 class="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                Template dari Pengguna Lain <span class="ml-1 text-neutral-400">({{ publicTemplates.length }})</span>
+            </h2>
+
+            <p v-if="publicTemplates.length === 0" class="rounded-lg border border-dashed border-neutral-300 p-6 text-center text-sm text-neutral-400 dark:border-neutral-700 dark:text-neutral-500">
+                Belum ada template dari pengguna lain.
+            </p>
+
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div
+                    v-for="t in publicTemplates"
+                    :key="t.id"
+                    class="flex flex-col rounded-xl border border-neutral-200 p-5 dark:border-neutral-800"
+                >
+                    <div class="flex items-start justify-between">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                            <LayoutTemplate class="h-5 w-5" />
+                        </div>
+                        <span class="inline-flex items-center gap-1 rounded-full border border-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:border-neutral-800 dark:text-neutral-300">
+                            <Coins class="h-3.5 w-3.5" />
+                            {{ t.price }} Koin
+                        </span>
+                    </div>
+                    <h3 class="mt-3 font-semibold">{{ t.title }}</h3>
+                    <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">oleh {{ t.author }}</p>
+                    <p class="mt-1 flex-1 text-sm text-neutral-500 dark:text-neutral-400">{{ t.description }}</p>
+                    <div class="mt-3 flex items-center gap-2 text-xs text-neutral-400 dark:text-neutral-500">
+                        <span class="rounded-full border border-neutral-200 px-2 py-0.5 dark:border-neutral-800">{{ t.category }}</span>
+                        <span class="inline-flex items-center gap-1">
+                            <FileText class="h-3.5 w-3.5" />
+                            {{ t.blocks.length }} blok
+                        </span>
+                    </div>
+                    <AppButton block class="mt-4" :disabled="busyId === t.id" @click="usePublicTemplate(t)">
+                        <Coins class="h-4 w-4" />
+                        {{ busyId === t.id ? 'Memproses…' : `Gunakan · ${t.price} Koin` }}
                     </AppButton>
                 </div>
             </div>

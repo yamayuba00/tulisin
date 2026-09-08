@@ -14,6 +14,7 @@ import {
     Settings2,
     Sparkles,
     Share2,
+    Rocket,
 } from 'lucide-vue-next';
 import ThemeToggle from '../../../components/ThemeToggle.vue';
 
@@ -115,6 +116,16 @@ const emit = defineEmits([
             >
                 <Share2 class="h-4 w-4" />
                 <span class="hidden sm:inline">Bagikan</span>
+            </button>
+
+            <button
+                type="button"
+                class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                title="Publikasikan project ke Lists Project"
+                @click="emit('open-publish')"
+            >
+                <Rocket class="h-4 w-4" />
+                <span class="hidden sm:inline">Publish</span>
             </button>
 
             <button

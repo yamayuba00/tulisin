@@ -35,6 +35,8 @@ export const DOCUMENT_SECTIONS = [
                     { type: 'cover' },
                     { type: 'abstract', content: PH('Ringkasan latar belakang, tujuan, metode, hasil, dan kesimpulan dalam satu paragraf.') },
                     { type: 'toc' },
+                    { type: 'listTables' },
+                    { type: 'listFigures' },
                 ],
             },
             {
@@ -113,6 +115,8 @@ export const DOCUMENT_SECTIONS = [
                     { type: 'cover' },
                     { type: 'abstract', content: PH('Ringkasan penelitian tesis dalam satu paragraf.') },
                     { type: 'toc' },
+                    { type: 'listTables' },
+                    { type: 'listFigures' },
                 ],
             },
             {
@@ -180,6 +184,8 @@ export const DOCUMENT_SECTIONS = [
                     { type: 'cover' },
                     { type: 'abstract', content: PH('Ringkasan disertasi dalam satu paragraf.') },
                     { type: 'toc' },
+                    { type: 'listTables' },
+                    { type: 'listFigures' },
                 ],
             },
             {
@@ -354,6 +360,8 @@ export const DOCUMENT_SECTIONS = [
                     { type: 'cover' },
                     { type: 'abstract', content: PH('Ringkasan eksekutif laporan.') },
                     { type: 'toc' },
+                    { type: 'listTables' },
+                    { type: 'listFigures' },
                 ],
             },
             {

@@ -36,6 +36,7 @@ const props = defineProps({
     watermark: { type: Object, default: () => ({}) },
     fontOptions: { type: Array, default: () => [] },
     selectedBlock: { type: Object, default: null },
+    loading: { type: Boolean, default: false },
     setCanvasEl: { type: Function, default: null },
     setMeasureRef: { type: Function, default: null },
     isDropIndicatorBefore: { type: Function, default: null },
@@ -126,47 +127,97 @@ function onCanvasScroll() {
 // Dengan virtualisasi, blok di luar viewport tidak ada di DOM. Supaya bisa
 // menjatuhkan blok ke posisi yang jauh, container harus menggulir sendiri
 // ketika kursor drag berada di dekat tepi atas/bawah area scroll.
-const AUTO_SCROLL_EDGE = 90; // px dari tepi atas/bawah
-const AUTO_SCROLL_SPEED = 22; // px per frame
+// Memakai setInterval (bukan requestAnimationFrame) karena rAF sering
+// tertahan/berhenti selama drag HTML5 aktif di sebagian browser.
+const AUTO_SCROLL_EDGE = 120;      // zona tepi (px) tempat auto-scroll mulai aktif
+const AUTO_SCROLL_MAX_SPEED = 32;  // px per tick (maksimum di tepi)
+const AUTO_SCROLL_INTERVAL = 16;   // ms
 
-let autoScrollDir = 0; // -1 ke atas, 0 diam, 1 ke bawah
-let autoScrollRaf = null;
+let autoScrollDir = 0;      // -1 ke atas, 0 diam, 1 ke bawah
+let autoScrollSpeed = 0;    // px per tick saat ini (di-smoothed)
+let autoScrollTimer = null;
 let lastDragEvent = null;
 
 function stopAutoScroll() {
     autoScrollDir = 0;
-    if (autoScrollRaf != null) {
-        cancelAnimationFrame(autoScrollRaf);
-        autoScrollRaf = null;
+    autoScrollSpeed = 0;
+    if (autoScrollTimer != null) {
+        clearInterval(autoScrollTimer);
+        autoScrollTimer = null;
     }
 }
 
+function ensureAutoScroll() {
+    if (autoScrollTimer == null) autoScrollTimer = setInterval(tickAutoScroll, AUTO_SCROLL_INTERVAL);
+}
+
 function tickAutoScroll() {
-    autoScrollRaf = null;
     const el = scrollEl.value;
     if (!el || autoScrollDir === 0) return;
     const max = el.scrollHeight - el.clientHeight;
-    el.scrollTop = Math.max(0, Math.min(max, el.scrollTop + autoScrollDir * AUTO_SCROLL_SPEED));
+    if (max <= 0) return;
+    el.scrollTop = Math.max(0, Math.min(max, el.scrollTop + autoScrollDir * autoScrollSpeed));
     onCanvasScroll();
     // Konten bergeser di bawah kursor yang diam; kirim ulang dragover dengan
     // koordinat terakhir agar indikator drop mengikuti blok yang kini di bawahnya.
     if (lastDragEvent) emit('dragover', lastDragEvent);
-    if (autoScrollDir !== 0) autoScrollRaf = requestAnimationFrame(tickAutoScroll);
+}
+
+// Hitung arah & kecepatan berdasarkan posisi pointer terhadap area scroll.
+function updateAutoScroll(clientX, clientY) {
+    const el = scrollEl.value;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Pointer keluar dari area scroll (horizontal/vertikal) → berhenti.
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        stopAutoScroll();
+        return;
+    }
+    let dir = 0;
+    let targetSpeed = 0;
+    if (clientY < rect.top + AUTO_SCROLL_EDGE) {
+        dir = -1;
+        // Semakin dekat ke tepi, semakin cepat (0 di batas zona, maksimum di tepi).
+        targetSpeed = AUTO_SCROLL_MAX_SPEED * (1 - (clientY - rect.top) / AUTO_SCROLL_EDGE);
+    } else if (clientY > rect.bottom - AUTO_SCROLL_EDGE) {
+        dir = 1;
+        targetSpeed = AUTO_SCROLL_MAX_SPEED * (1 - (rect.bottom - clientY) / AUTO_SCROLL_EDGE);
+    }
+    if (dir === 0) {
+        stopAutoScroll();
+        return;
+    }
+    // Smoothing: naik/turun bertahap menuju target agar gerakan tidak tersendat.
+    autoScrollDir = dir;
+    const minSpeed = 2;
+    targetSpeed = Math.max(minSpeed, Math.min(AUTO_SCROLL_MAX_SPEED, targetSpeed));
+    autoScrollSpeed = autoScrollSpeed === 0 ? targetSpeed : autoScrollSpeed + (targetSpeed - autoScrollSpeed) * 0.4;
+    ensureAutoScroll();
 }
 
 function onScrollDragOver(e) {
-    // Ijinkan drop di seluruh area scroll (termasuk spacer) & update indikator.
+    e.preventDefault();
     lastDragEvent = e;
+    // Jalankan auto-scroll lebih dulu agar tidak terpengaruh error dari parent.
+    updateAutoScroll(e.clientX, e.clientY);
+    // Izinkan drop di seluruh area scroll (termasuk spacer) & update indikator.
     emit('dragover', e);
-    if (!scrollEl.value) return;
-    const rect = scrollEl.value.getBoundingClientRect();
-    const y = e.clientY;
-    let dir = 0;
-    if (y < rect.top + AUTO_SCROLL_EDGE) dir = -1;
-    else if (y > rect.bottom - AUTO_SCROLL_EDGE) dir = 1;
-    autoScrollDir = dir;
-    if (dir !== 0 && autoScrollRaf == null) autoScrollRaf = requestAnimationFrame(tickAutoScroll);
-    else if (dir === 0) stopAutoScroll();
+}
+
+// Dengarkan dragover di level dokumen supaya auto-scroll tetap berjalan meski
+// pointer diam di tepi. Event dragover pada child tidak selalu naik ke container
+// scroll ketika pointer tak bergerak, jadi kita baca posisi global di sini.
+function onDocumentDragOver(e) {
+    lastDragEvent = e;
+    updateAutoScroll(e.clientX, e.clientY);
+}
+
+function onDocumentDragEnd() {
+    stopAutoScroll();
+}
+
+function onDocumentDrop() {
+    stopAutoScroll();
 }
 
 function onScrollDrop(e) {
@@ -176,11 +227,6 @@ function onScrollDrop(e) {
 
 function onScrollDragEnd() {
     stopAutoScroll();
-}
-
-function onScrollDragLeave(e) {
-    // Berhenti hanya saat benar-benar keluar dari area scroll (bukan antar child).
-    if (scrollEl.value && !scrollEl.value.contains(e.relatedTarget)) stopAutoScroll();
 }
 
 function scrollToPage(n, smooth = true) {
@@ -234,10 +280,17 @@ function onWindowResize() {
 onMounted(() => {
     updateViewport();
     window.addEventListener('resize', onWindowResize);
+    document.addEventListener('dragover', onDocumentDragOver);
+    document.addEventListener('dragend', onDocumentDragEnd);
+    document.addEventListener('drop', onDocumentDrop);
 });
 
 onBeforeUnmount(() => {
+    stopAutoScroll();
     window.removeEventListener('resize', onWindowResize);
+    document.removeEventListener('dragover', onDocumentDragOver);
+    document.removeEventListener('dragend', onDocumentDragEnd);
+    document.removeEventListener('drop', onDocumentDrop);
 });
 
 defineExpose({ scrollToPage });
@@ -261,8 +314,30 @@ defineExpose({ scrollToPage });
             @dragover="onScrollDragOver"
             @drop="onScrollDrop"
             @dragend="onScrollDragEnd"
-            @dragleave="onScrollDragLeave"
         >
+            <!-- Skeleton "memuat" saat dokumen pertama kali dibaca dari server/localStorage -->
+            <div
+                v-if="loading"
+                class="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 overflow-hidden bg-neutral-200/70 p-8 dark:bg-neutral-950"
+                aria-hidden="true"
+            >
+                <div class="flex flex-col items-center gap-3">
+                    <span class="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
+                    <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Memuat dokumen…</p>
+                </div>
+                <div class="flex w-full max-w-xl flex-col gap-5">
+                    <div
+                        v-for="i in 3"
+                        :key="i"
+                        class="animate-pulse space-y-3 rounded-md border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+                    >
+                        <div class="h-3.5 w-1/3 rounded bg-neutral-200 dark:bg-neutral-800"></div>
+                        <div class="h-3 w-full rounded bg-neutral-100 dark:bg-neutral-800/60"></div>
+                        <div class="h-3 w-5/6 rounded bg-neutral-100 dark:bg-neutral-800/60"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Ruler horizontal -->
             <div
                 class="pointer-events-none sticky top-0 z-20 hidden h-6 border-b border-neutral-300 bg-white/85 print:hidden dark:border-neutral-800 dark:bg-neutral-950/85 sm:block"

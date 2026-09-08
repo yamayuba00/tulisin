@@ -506,7 +506,7 @@ class AdminController extends Controller
 
         if ($data['decision'] === 'approve') {
             $wallet = Wallet::firstOrCreate(['user_id' => $referral->referrer_id]);
-            $wallet->credit(Referral::CREDIT_PER_REFERRAL, 'affiliate_referral', 'referral', $referral->id);
+            $wallet->credit(Referral::creditPerReferral(), 'affiliate_referral', 'referral', $referral->id);
 
             DB::table('referrals')->where('id', $id)->update([
                 'status' => 'approved',

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AffiliateController;
+use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChatController;
@@ -42,9 +43,12 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
     Route::get('/verify-email/{id}/{hash}', [AuthController::class, 'verifyEmail'])->name('verification.verify');
 
+    // `/me` dibiarkan publik agar saat belum login tidak memicu 401 di console;
+    // endpoint mengembalikan `user: null` bila tidak ada sesi aktif.
+    Route::get('/me', [AuthController::class, 'me']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
-        Route::get('/me', [AuthController::class, 'me']);
         Route::post('/send-verification', [AuthController::class, 'sendVerificationNotification']);
     });
 });
@@ -152,7 +156,9 @@ Route::middleware('auth:sanctum')->prefix('coupons')->group(function () {
 // ---- Template kustom (buatan user) ----
 Route::middleware('auth:sanctum')->prefix('templates')->group(function () {
     Route::get('/', [TemplateController::class, 'index']);
+    Route::get('/public', [TemplateController::class, 'publicIndex']);
     Route::post('/', [TemplateController::class, 'store']);
+    Route::post('/{uuid}/use', [TemplateController::class, 'use']);
     Route::delete('/{uuid}', [TemplateController::class, 'destroy']);
 });
 
@@ -190,13 +196,21 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->prefix('projects')->group(function () {
     Route::get('/', [ProjectController::class, 'index']);
     Route::get('/public', [ProjectController::class, 'publicIndex']);
+    Route::get('/public/{uuid}', [ProjectController::class, 'publicShow']);
     Route::get('/{uuid}', [ProjectController::class, 'show']);
     Route::put('/{uuid}', [ProjectController::class, 'save']);
     Route::delete('/{uuid}', [ProjectController::class, 'destroy']);
+    Route::post('/{uuid}/publish', [ProjectController::class, 'publish']);
 
     Route::get('/{uuid}/ai-results', [ProjectAiResultController::class, 'index']);
     Route::post('/{uuid}/ai-results', [ProjectAiResultController::class, 'store']);
     Route::delete('/{uuid}/ai-results/{result}', [ProjectAiResultController::class, 'destroy']);
+
+    Route::get('/{uuid}/ai-chats', [AiChatController::class, 'index']);
+    Route::post('/{uuid}/ai-chats', [AiChatController::class, 'store']);
+    Route::get('/{uuid}/ai-chats/{session}', [AiChatController::class, 'show']);
+    Route::post('/{uuid}/ai-chats/{session}/messages', [AiChatController::class, 'storeMessage']);
+    Route::delete('/{uuid}/ai-chats/{session}', [AiChatController::class, 'destroy']);
 });
 
 // ---- Media (File Manager: gambar disimpan di disk publik) ----

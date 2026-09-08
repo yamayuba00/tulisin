@@ -1,12 +1,14 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { Eye, Search, X, Lock, Loader2 } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import { Eye, Search, Lock, Loader2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
-import AppButton from '../../components/AppButton.vue';
 import { PROJECT_CATEGORIES } from '../../utils/projectCategories';
 import { getJson } from '../../utils/http';
 import { formatDate } from '../../utils/format';
 import { toast } from '../../utils/toast';
+
+const router = useRouter();
 
 // Daftar project publik diambil dari database (bukan data contoh lokal).
 const projects = ref([]);
@@ -14,7 +16,6 @@ const loading = ref(true);
 
 const activeCategory = ref('Semua');
 const query = ref('');
-const selected = ref(null);
 
 const categories = ['Semua', ...PROJECT_CATEGORIES];
 
@@ -47,6 +48,11 @@ async function loadProjects() {
     } finally {
         loading.value = false;
     }
+}
+
+// Buka viewer read-only (canvas project orang lain) tanpa bisa diedit.
+function openViewer(p) {
+    router.push({ path: '/share', query: { project: p.id, view: 'true', notcopy: 'true' } });
 }
 
 onMounted(loadProjects);
@@ -103,7 +109,7 @@ onMounted(loadProjects);
                     <button
                         type="button"
                         class="inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-neutral-900 hover:underline dark:text-white"
-                        @click="selected = p"
+                        @click="openViewer(p)"
                     >
                         <Eye class="h-4 w-4" /> Lihat
                     </button>
@@ -113,41 +119,6 @@ onMounted(loadProjects);
 
         <div v-else class="mt-6 rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
             <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada project publik yang tersedia.</p>
-        </div>
-
-        <!-- Detail modal (read-only) -->
-        <div v-if="selected" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/50" @click="selected = null"></div>
-            <div class="relative z-10 w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <span class="inline-flex rounded-full border border-neutral-200 px-2 py-0.5 text-[11px] font-medium text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-                            {{ selected.category }}
-                        </span>
-                        <h2 class="mt-2 text-lg font-semibold">{{ selected.title }}</h2>
-                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">oleh {{ selected.author }} · {{ selected.updatedAt }}</p>
-                    </div>
-                    <button
-                        type="button"
-                        class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
-                        aria-label="Tutup"
-                        @click="selected = null"
-                    >
-                        <X class="h-4 w-4" />
-                    </button>
-                </div>
-
-                <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">{{ selected.description }}</p>
-
-                <div class="mt-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-                    <Lock class="h-4 w-4 shrink-0" />
-                    Mode lihat saja — kamu tidak bisa mengubah project orang lain.
-                </div>
-
-                <div class="mt-5 flex justify-end">
-                    <AppButton variant="outline" @click="selected = null">Tutup</AppButton>
-                </div>
-            </div>
         </div>
     </div>
 </template>
