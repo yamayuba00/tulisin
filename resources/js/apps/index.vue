@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3 } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import { useAuth } from '../utils/auth';
@@ -34,6 +34,7 @@ const pageTitle = computed(() => {
         fonts: 'File Font',
         'admin-dashboard': 'Dashboard Admin',
         'admin-monitoring': 'Monitoring',
+        'admin-analytics': 'Analytics Traffic',
         'admin-users': 'Users',
         'admin-roles': 'Roles & Permissions',
         'admin-projects': 'Projects',
@@ -97,6 +98,7 @@ const adminNavGroups = [
         items: [
             { label: 'Dashboard', to: '/apps/u/admin/dashboard', icon: Home },
             { label: 'Monitoring', to: '/apps/u/admin/monitoring', icon: Activity },
+            { label: 'Analytics', to: '/apps/u/admin/analytics', icon: BarChart3 },
             { label: 'Users', to: '/apps/u/admin/users', icon: Users },
             { label: 'Roles & Permissions', to: '/apps/u/admin/roles', icon: ShieldCheck },
         ],

@@ -15,10 +15,10 @@ const active = computed(() => route.path === props.to || route.path.startsWith(p
 
 const classes = computed(() =>
     cn(
-        'flex cursor-pointer items-center gap-3 border-r-2 px-4 py-2.5 text-sm font-medium transition-colors',
+        'mx-2 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
         active.value
-            ? 'border-neutral-900 text-neutral-900 dark:border-white dark:text-white'
-            : 'border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white',
+            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300'
+            : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-white',
     ),
 );
 </script>

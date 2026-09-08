@@ -3484,38 +3484,186 @@ function escHtml(s) {
     return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
-// Ubah satu blok menjadi HTML untuk dokumen Word (.doc).
+// Kutip nama font bila mengandung spasi (mis. "Times New Roman") agar valid di CSS/Word.
+function quoteFontFamily(name) {
+    const n = String(name || '').trim();
+    if (!n) return '';
+    return /\s/.test(n) ? `"${n.replace(/"/g, '')}"` : n;
+}
+
+// Gaya inline dari properti formatting blok — selaras dengan CanvasBlock.vue.
+function blockStyle(b) {
+    const parts = [];
+    const align = b.align || 'left';
+    if (align === 'center') parts.push('text-align:center');
+    else if (align === 'right') parts.push('text-align:right');
+    else if (align === 'justify') parts.push('text-align:justify');
+    else parts.push('text-align:left');
+    if (b.indent) parts.push(`margin-left:${(Number(b.indent) || 0) * 1.5}em`);
+    if (b.firstLineIndent) parts.push('text-indent:1.27cm');
+    if (b.lineHeight) parts.push(`line-height:${b.lineHeight}`);
+    if (b.fontFamily) parts.push(`font-family:${quoteFontFamily(b.fontFamily)}`);
+    if (b.fontSize) parts.push(`font-size:${Number(b.fontSize)}pt`);
+    if (b.color) parts.push(`color:${b.color}`);
+    const cols = Number(b.columns) || 1;
+    if (cols > 1) {
+        parts.push(`column-count:${cols}`);
+        parts.push('column-gap:1.5em');
+    }
+    return parts.join(';');
+}
+
+// Tag heading untuk tipe blok judul (chapter -> h1, h1..h10 -> h1..h6).
+function headingTagOf(type) {
+    if (type === 'chapter') return 'h1';
+    const lvl = headingLevelOf(type);
+    if (!lvl) return null;
+    return `h${Math.min(6, Math.max(1, lvl))}`;
+}
+
+// Teks caption blok (tanpa tag) — selaras dengan ImageBlock/TableBlock.
+function captionTextFor(b) {
+    return (b.caption || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+// Label caption "Tabel 1.1 Judul" / "Gambar 1.2 Keterangan".
+function captionLabelFor(b, kind) {
+    if (b.showCaption === false) return '';
+    const num = captionNumbers.value[b.uid] || '';
+    const text = captionTextFor(b);
+    const pieces = [kind];
+    if (num) pieces.push(num);
+    if (text) pieces.push(text);
+    return pieces.length > 1 ? pieces.map(escHtml).join(' ') : '';
+}
+
+// Daftar bagian (Daftar Isi / Tabel / Gambar) sebagai tabel tanpa border,
+// dengan nomor halaman rata kanan seperti layout cetak.
+function renderSectionList(title, entries, kind, style) {
+    const rows = entries
+        .map((e) => {
+            const label =
+                kind === 'toc'
+                    ? e.number ? `${escHtml(e.number)} ` : ''
+                    : kind === 'table'
+                        ? `Tabel ${escHtml(e.number || '')} `
+                        : `Gambar ${escHtml(e.number || '')} `;
+            const text = escHtml(e.text || '(Tanpa judul)');
+            const indent = kind === 'toc' ? (Number(e.level) || 0) * 1.5 : 0;
+            const page = escHtml(e.pageLabel || '');
+            return (
+                '<tr>' +
+                `<td style="border:none;padding:1pt 0 1pt ${indent}em;vertical-align:baseline;text-align:left">${label}${text}</td>` +
+                `<td style="border:none;text-align:right;vertical-align:baseline;white-space:nowrap">${page}</td>` +
+                '</tr>'
+            );
+        })
+        .join('');
+    const body = rows
+        ? `<table style="border-collapse:collapse;width:100%">${rows}</table>`
+        : '<p style="text-align:center;color:#999999">(Kosong)</p>';
+    return `<h2 style="text-align:center;${style}">${escHtml(title)}</h2>${body}`;
+}
+
+// Daftar Pustaka bernomor (1., 2., ...) dari entri referensi yang sudah disitasi.
+function renderReferences(style) {
+    const items = referenceEntries.value
+        .map((html, i) => `<li style="margin-bottom:0.25em;${style}"><span style="font-weight:600">${i + 1}.</span> ${html}</li>`)
+        .join('');
+    const body = items
+        ? `<ol style="margin-left:1.5em;padding-left:0;${style}">${items}</ol>`
+        : '<p style="text-align:center;color:#999999">(Kosong)</p>';
+    return `<h2 style="text-align:center;${style}">DAFTAR PUSTAKA</h2>${body}`;
+}
+
+// Render tabel asli (HTML) beserta caption-nya.
+function renderTable(b, style) {
+    let inner = b.content || '';
+    if (!/^\s*<table/i.test(inner)) {
+        inner = `<table style="border-collapse:collapse;width:100%">${inner}</table>`;
+    }
+    const caption = captionLabelFor(b, 'Tabel');
+    const above = b.captionPosition === 'above' && caption
+        ? `<p style="text-align:center;margin:0 0 4pt">${caption}</p>`
+        : '';
+    const below = b.captionPosition !== 'above' && caption
+        ? `<p style="text-align:center;margin:4pt 0 0">${caption}</p>`
+        : '';
+    return `<div style="${style}">${above}${inner}${below}</div>`;
+}
+
+// Render gambar beserta caption-nya (mengikuti align/width blok).
+function renderImage(b, style) {
+    const src = (b.content || '').trim();
+    const align = b.align || 'left';
+    const ta = align === 'center' ? 'center' : align === 'right' ? 'right' : 'left';
+    const widthPct = Number(b.width) || 60;
+    const margin = ta === 'center' ? '0 auto' : ta === 'right' ? '0 0 0 auto' : '0';
+    const img = src
+        ? `<img src="${escHtml(src)}" style="width:${widthPct}%;max-width:100%;height:auto;display:block;margin:${margin}" alt="">`
+        : '';
+    const caption = captionLabelFor(b, 'Gambar');
+    const above = b.captionPosition === 'above' && caption
+        ? `<p style="text-align:center;margin:0 0 4pt">${caption}</p>`
+        : '';
+    const below = b.captionPosition !== 'above' && caption
+        ? `<p style="text-align:center;margin:4pt 0 0">${caption}</p>`
+        : '';
+    return `<div style="text-align:${ta};${style}">${above}${img}${below}</div>`;
+}
+
+// Ubah satu blok menjadi HTML untuk dokumen Word, mempertahankan formatting canvas.
 function blockToWordHtml(b) {
-    if (b.type === 'pageBreak') return '<br style="page-break-before:always" />';
-    const text = (b.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const style = blockStyle(b);
     switch (b.type) {
-        case 'chapter':
-            return `<h1>${escHtml(numberingMap.value[b.uid] || '')} ${escHtml(text)}</h1>`;
+        case 'pageBreak':
+            return '<div style="page-break-before:always">&nbsp;</div>';
+        case 'divider':
+            return '<hr style="border:none;border-top:1px solid #d4d4d4;margin:0.5em 0">';
+        case 'spacer':
+            return `<div style="height:${Number(b.spacing) || 24}px"></div>`;
+        case 'chapter': {
+            const num = numberingMap.value[b.uid] || '';
+            const head = num ? `${escHtml(num)} ` : '';
+            return `<h1 style="${style}">${head}${b.content || ''}</h1>`;
+        }
+        case 'cover':
+            return `<div style="text-align:center;${style}">${b.content || ''}</div>`;
         case 'abstract':
-            return `<h2>${escHtml(b.pageTitle || 'ABSTRAK')}</h2>${b.content || ''}`;
+            return `<h2 style="text-align:center;${style}">${escHtml(b.pageTitle || 'ABSTRAK')}</h2>${b.content ? `<div style="${style}">${b.content}</div>` : ''}`;
         case 'blankPage':
-            return `<h2>${escHtml(b.pageTitle || 'HALAMAN')}</h2>${b.content || ''}`;
+            return `<h2 style="text-align:center;${style}">${escHtml(b.pageTitle || 'HALAMAN')}</h2>${b.content ? `<div style="${style}">${b.content}</div>` : ''}`;
         case 'toc':
-            return '<h2>DAFTAR ISI</h2>';
+            return renderSectionList('DAFTAR ISI', tocEntries.value, 'toc', style);
         case 'listTables':
-            return '<h2>DAFTAR TABEL</h2>';
+            return renderSectionList('DAFTAR TABEL', tableEntries.value, 'table', style);
         case 'listFigures':
-            return '<h2>DAFTAR GAMBAR</h2>';
+            return renderSectionList('DAFTAR GAMBAR', figureEntries.value, 'figure', style);
         case 'references':
-            return '<h2>DAFTAR PUSTAKA</h2>';
+            return renderReferences(style);
         case 'quote':
-            return `<blockquote>${b.content || ''}</blockquote>`;
+            return `<blockquote style="margin-left:1.5em;padding-left:1em;border-left:2px solid #d4d4d4;color:#525252;${style}">${b.content || ''}</blockquote>`;
+        case 'bullet':
+            return `<ul style="${style}">${b.content || ''}</ul>`;
+        case 'number':
+            return `<ol style="${style}">${b.content || ''}</ol>`;
         case 'table':
-            return '<p><em>[Tabel]</em></p>';
+            return renderTable(b, style);
         case 'image':
-            return '<p><em>[Gambar]</em></p>';
+            return renderImage(b, style);
         case 'formula':
-            return '<p><em>[Rumus]</em></p>';
+            return `<p style="text-align:center;font-family:Consolas,'Courier New',monospace;${style}">${escHtml((b.content || '').trim())}</p>`;
         case 'code':
-            return `<pre style="font-family:Consolas,'Courier New',monospace;font-size:10pt;background:#f5f5f5;padding:8pt;white-space:pre-wrap">${escHtml(b.content || '')}</pre>`;
-        default:
-            if (/^h\d+$/.test(b.type)) return `<h2>${escHtml(text)}</h2>`;
-            return `<p>${b.content || ''}</p>`;
+            return `<pre style="font-family:Consolas,'Courier New',monospace;font-size:10pt;background:#f5f5f5;padding:8pt;white-space:pre-wrap;${style}">${escHtml(b.content || '')}</pre>`;
+        default: {
+            const tag = headingTagOf(b.type);
+            if (tag) {
+                const num = numberingMap.value[b.uid] || '';
+                const head = num ? `${escHtml(num)} ` : '';
+                return `<${tag} style="${style}">${head}${b.content || ''}</${tag}>`;
+            }
+            return `<p style="${style}">${b.content || ''}</p>`;
+        }
     }
 }
 
@@ -3538,23 +3686,49 @@ function triggerDownload(blob, filename) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Bungkus isi blok menjadi dokumen Word (.doc HTML) dengan pengaturan halaman & font dokumen.
+function buildWordDocument(body) {
+    const size = currentPageSize.value;
+    const m = pageMargins.value;
+    const font = quoteFontFamily(effectiveFontFamily.value) || 'Times New Roman';
+    const fs = pageFontSize.value;
+    const lh = pageLineHeight.value;
+    const pageCss =
+        `@page WordSection1{size:${size.widthMm}mm ${size.heightMm}mm;margin:${m.top}cm ${m.right}cm ${m.bottom}cm ${m.left}cm;}` +
+        `@page WordSection2{size:${size.widthMm}mm ${size.heightMm}mm;margin:${m.top}cm ${m.right}cm ${m.bottom}cm ${m.left}cm;}`;
+    return [
+        '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">',
+        '<head>',
+        '<meta charset="utf-8">',
+        '<title>', escHtml(projectName.value || 'project'), '</title>',
+        '<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->',
+        '<style>',
+        pageCss,
+        'div.WordSection1{page:WordSection1;}',
+        `body{font-family:${font};font-size:${fs}pt;line-height:${lh};color:#000000;}`,
+        'p{margin:0 0 6pt;}',
+        'h1{font-size:16pt;font-weight:bold;text-align:center;margin:0 0 12pt;}',
+        'h2{font-size:14pt;font-weight:bold;margin:0 0 8pt;}',
+        'h3{font-size:13pt;font-weight:bold;margin:0 0 6pt;}',
+        'h4,h5,h6{font-size:12pt;font-weight:bold;margin:0 0 6pt;}',
+        'blockquote{margin:0 0 6pt;}',
+        'table{border-collapse:collapse;width:100%;}',
+        'td,th{border:1px solid #d4d4d4;padding:4pt 6pt;vertical-align:top;}',
+        'img{max-width:100%;}',
+        'ol,ul{margin:0.25rem 0;padding-left:1.5rem;}',
+        '</style>',
+        '</head>',
+        '<body><div class="WordSection1">',
+        body,
+        '</div></body></html>',
+    ].join('\n');
+}
+
 // Ekspor dokumen (sesuai scope) sebagai file Word (.doc) yang bisa dibuka di MS Word.
 function exportWord(scope, sectionName) {
     const list = blocksForScope(scope);
     const body = list.map((b) => blockToWordHtml(b)).join('\n');
-    const html = [
-        '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">',
-        '<head><meta charset="utf-8"><title>',
-        escHtml(projectName.value || 'project'),
-        '</title>',
-        '<style>body{font-family:Calibri,Arial,sans-serif;font-size:12pt;line-height:1.4}',
-        'h1{font-size:16pt;font-weight:bold;text-align:center;margin:0 0 12pt}',
-        'h2{font-size:14pt;font-weight:bold;margin:0 0 8pt}',
-        'p{margin:0 0 6pt}blockquote{margin:0 0 6pt 16pt}</style>',
-        '</head><body>',
-        body,
-        '</body></html>',
-    ].join('');
+    const html = buildWordDocument(body);
     const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
     triggerDownload(blob, downloadFileName(sectionName, 'doc'));
 }

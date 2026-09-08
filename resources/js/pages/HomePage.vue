@@ -193,6 +193,14 @@ const steps = [
     { no: '03', title: 'Ekspor & Selesai', desc: 'Unduh dokumen yang rapi dan sesuai standar kampusmu.' },
 ];
 
+// Statistik sosial proof (angka placeholder — sesuaikan dengan data riil).
+const stats = [
+    { value: '10.000+', label: 'Dokumen dibuat' },
+    { value: '5.000+', label: 'Penulis aktif' },
+    { value: '120+', label: 'Kampus & institusi' },
+    { value: '4.9/5', label: 'Rating pengguna' },
+];
+
 // Data publik homepage: harga langganan & daftar mesin AI (tenaga agent).
 const landing = ref({ monthly_price: 30000, ai_engines: ['DeepSeek'] });
 
@@ -380,7 +388,7 @@ onBeforeUnmount(() => {
         <header class="sticky top-0 z-30 px-4 pt-4 lg:px-6">
             <div class="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-neutral-200 bg-white/80 px-4 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 lg:px-5">
                 <RouterLink to="/" class="inline-flex items-center gap-2 text-lg font-bold tracking-tight">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-950">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white">
                         <PenLine class="h-4 w-4" />
                     </span>
                     Tulisin
@@ -395,14 +403,14 @@ onBeforeUnmount(() => {
 
                 <div class="hidden items-center gap-2 md:flex">
                     <template v-if="isAuthenticated">
-                        <RouterLink :to="dashboardPath" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                        <RouterLink :to="dashboardPath" class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
                             Dashboard
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
                     </template>
                     <template v-else>
                         <RouterLink to="/login" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">Masuk</RouterLink>
-                        <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                        <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
                             Mulai Menulis
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
@@ -428,11 +436,11 @@ onBeforeUnmount(() => {
                     <a href="#paket" :class="navLinkClass('paket')" @click="menuOpen = false">Paket</a>
                     <div class="mt-2 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
                         <template v-if="isAuthenticated">
-                            <RouterLink :to="dashboardPath" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Dashboard</RouterLink>
+                            <RouterLink :to="dashboardPath" class="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-center font-medium text-white dark:border-indigo-500 dark:bg-indigo-500 dark:text-white" @click="menuOpen = false">Dashboard</RouterLink>
                         </template>
                         <template v-else>
                             <RouterLink to="/login" class="rounded-lg border border-neutral-200 px-4 py-2 text-center font-medium dark:border-neutral-800" @click="menuOpen = false">Masuk</RouterLink>
-                            <RouterLink to="/register" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-950" @click="menuOpen = false">Mulai Menulis</RouterLink>
+                            <RouterLink to="/register" class="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-center font-medium text-white dark:border-indigo-500 dark:bg-indigo-500 dark:text-white" @click="menuOpen = false">Mulai Menulis</RouterLink>
                         </template>
                     </div>
                 </nav>
@@ -440,8 +448,12 @@ onBeforeUnmount(() => {
         </header>
 
         <!-- Hero -->
-        <section class="relative overflow-hidden">
-            <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 lg:grid-cols-2 lg:px-6 lg:py-24">
+        <section class="relative overflow-hidden bg-gradient-to-b from-indigo-50/60 via-transparent to-transparent dark:from-indigo-950/20">
+            <div class="pointer-events-none absolute inset-0" aria-hidden="true">
+                <div class="absolute -top-28 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-indigo-400/15 blur-3xl dark:bg-indigo-500/10"></div>
+                <div class="absolute right-0 top-24 h-72 w-72 rounded-full bg-indigo-300/20 blur-3xl dark:bg-indigo-500/10"></div>
+            </div>
+            <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 lg:grid-cols-2 lg:px-6 lg:py-24">
                 <div>
                     <span class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                         <Sparkles class="h-3.5 w-3.5" />
@@ -454,7 +466,7 @@ onBeforeUnmount(() => {
                         Tulisin menyatukan canvas dokumen, asisten AI, dan format akademik dalam satu tempat — dari judul sampai daftar pustaka.
                     </p>
                     <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                        <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                        <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-600 bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
                             Mulai Gratis
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
@@ -567,6 +579,16 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistik -->
+        <section class="mx-auto max-w-6xl px-4 pb-14 lg:px-6">
+            <div class="grid grid-cols-2 gap-x-6 gap-y-8 rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 md:grid-cols-4">
+                <div v-for="s in stats" :key="s.label" class="text-center">
+                    <p class="text-3xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">{{ s.value }}</p>
+                    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ s.label }}</p>
                 </div>
             </div>
         </section>
@@ -693,7 +715,7 @@ onBeforeUnmount(() => {
                             :key="t.id"
                             type="button"
                             class="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-                            :class="optimizerTab === t.id ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
+                            :class="optimizerTab === t.id ? 'bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
                             @click="optimizerTab = t.id"
                         >
                             {{ t.label }}
@@ -799,7 +821,7 @@ onBeforeUnmount(() => {
                         v-for="p in plans"
                         :key="p.name"
                         class="relative flex flex-col rounded-xl border p-6 transition-colors"
-                        :class="p.highlight ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800'"
+                        :class="p.highlight ? 'border-indigo-600 dark:border-indigo-400' : 'border-neutral-200 dark:border-neutral-800'"
                     >
                         <h3 class="font-semibold">{{ p.name }}</h3>
                         <p class="mt-2 text-2xl font-bold">
@@ -815,7 +837,7 @@ onBeforeUnmount(() => {
                         <RouterLink
                             to="/register"
                             class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors"
-                            :class="p.highlight ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
+                            :class="p.highlight ? 'border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
                         >
                             {{ p.cta }}
                         </RouterLink>
@@ -915,7 +937,7 @@ onBeforeUnmount(() => {
                 <h2 class="font-serif text-3xl font-bold tracking-tight">Siap menyusun karya terbaikmu?</h2>
                 <p class="mx-auto mt-3 max-w-md text-neutral-500 dark:text-neutral-400">Buat akun gratis dan mulai tulis dokumen pertamamu sekarang.</p>
                 <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                    <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200">
+                    <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-600 bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
                         Buat Akun Gratis
                         <ArrowRight class="h-4 w-4" />
                     </RouterLink>

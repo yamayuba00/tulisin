@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\AffiliateController;
+use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\AiController;
 use App\Http\Controllers\Api\AuthController;
@@ -27,6 +28,9 @@ use App\Http\Controllers\Api\WorkspaceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', fn () => response()->json(['message' => 'pong']));
+
+// ---- Beacon traffic (publik, dipanggil otomatis frontend saat navigasi) ----
+Route::get('/analytics/pageview', [AnalyticsController::class, 'pageview']);
 
 // ---- Asisten chat landing (publik, hanya tanya-jawab) ----
 Route::post('/chat', [ChatController::class, 'store']);
@@ -57,6 +61,9 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->middleware('permission:analytics.view');
     Route::get('/monitoring', [AdminController::class, 'monitoring'])->middleware('permission:analytics.view');
+    Route::get('/analytics', [AnalyticsController::class, 'index'])->middleware('permission:analytics.view');
+    Route::get('/analytics/activity', [AnalyticsController::class, 'activity'])->middleware('permission:analytics.view');
+    Route::get('/analytics/top-pages', [AnalyticsController::class, 'topPages'])->middleware('permission:analytics.view');
 
     Route::get('/users', [AdminController::class, 'users'])->middleware('permission:users.view');
     Route::patch('/users/{id}', [AdminController::class, 'updateUser'])->middleware('permission:users.manage');

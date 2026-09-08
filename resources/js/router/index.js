@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuth } from '../utils/auth';
+import { trackPageview } from '../utils/analytics';
 
 const routes = [
     {
@@ -266,6 +267,12 @@ const routes = [
                 component: () => import('../apps/admin/monitoring/index.vue'),
                 meta: { title: 'Monitoring' },
             },
+            {
+                path: 'admin/analytics',
+                name: 'admin-analytics',
+                component: () => import('../apps/admin/analytics/index.vue'),
+                meta: { title: 'Analytics Traffic' },
+            },
         ],
     },
     {
@@ -348,10 +355,13 @@ function upsertMeta(attr, key, content) {
 }
 
 // Perbarui judul, deskripsi, canonical, serta Open Graph / Twitter per halaman.
-router.afterEach((to) => {
+router.afterEach((to, from) => {
     const title = to.meta.title ? `${to.meta.title} — ${APP_NAME}` : APP_NAME;
     const description = to.meta.description || DEFAULT_DESCRIPTION;
     const url = window.location.origin + to.path;
+
+    // Catat kunjungan halaman (traffic monitoring).
+    trackPageview(to.fullPath, from?.fullPath || document.referrer || '');
 
     document.title = title;
 
