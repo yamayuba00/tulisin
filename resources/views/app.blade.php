@@ -145,6 +145,20 @@
         </style>
     </head>
     <body>
+        {{-- Banner "under maintenance [Beta]" hanya saat environment local --}}
+        @env('local')
+        <style>
+            body { padding-top: 28px; }
+        </style>
+        <div
+            class="env-banner"
+            style="position: fixed; top: 0; left: 0; right: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; gap: 8px; height: 28px; background: #f59e0b; color: #1c1917; font-size: 12px; font-weight: 600; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;"
+        >
+            <span>Under Maintenance</span>
+            <span style="background: #1c1917; color: #fbbf24; padding: 1px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em;">BETA</span>
+        </div>
+        @endenv
+
         <div id="app">
             <div class="app-splash">
                 <div class="app-splash__inner">
