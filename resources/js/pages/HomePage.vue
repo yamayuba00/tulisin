@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
         <header class="sticky top-0 z-30 px-4 pt-4 lg:px-6">
             <div class="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-neutral-200 bg-white/80 px-4 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 lg:px-5">
                 <RouterLink to="/" class="inline-flex items-center gap-2 text-lg font-bold tracking-tight">
-                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white">
+                    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
                         <PenLine class="h-4 w-4" />
                     </span>
                     Tulisin
@@ -403,14 +403,14 @@ onBeforeUnmount(() => {
 
                 <div class="hidden items-center gap-2 md:flex">
                     <template v-if="isAuthenticated">
-                        <RouterLink :to="dashboardPath" class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
+                        <RouterLink :to="dashboardPath" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
                             Dashboard
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
                     </template>
                     <template v-else>
                         <RouterLink to="/login" class="rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900">Masuk</RouterLink>
-                        <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
+                        <RouterLink to="/register" class="inline-flex items-center gap-1.5 rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
                             Mulai Menulis
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
@@ -436,11 +436,11 @@ onBeforeUnmount(() => {
                     <a href="#paket" :class="navLinkClass('paket')" @click="menuOpen = false">Paket</a>
                     <div class="mt-2 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
                         <template v-if="isAuthenticated">
-                            <RouterLink :to="dashboardPath" class="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-center font-medium text-white dark:border-indigo-500 dark:bg-indigo-500 dark:text-white" @click="menuOpen = false">Dashboard</RouterLink>
+                            <RouterLink :to="dashboardPath" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-900" @click="menuOpen = false">Dashboard</RouterLink>
                         </template>
                         <template v-else>
                             <RouterLink to="/login" class="rounded-lg border border-neutral-200 px-4 py-2 text-center font-medium dark:border-neutral-800" @click="menuOpen = false">Masuk</RouterLink>
-                            <RouterLink to="/register" class="rounded-lg border border-indigo-600 bg-indigo-600 px-4 py-2 text-center font-medium text-white dark:border-indigo-500 dark:bg-indigo-500 dark:text-white" @click="menuOpen = false">Mulai Menulis</RouterLink>
+                            <RouterLink to="/register" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-900" @click="menuOpen = false">Mulai Menulis</RouterLink>
                         </template>
                     </div>
                 </nav>
@@ -448,10 +448,10 @@ onBeforeUnmount(() => {
         </header>
 
         <!-- Hero -->
-        <section class="relative overflow-hidden bg-gradient-to-b from-indigo-50/60 via-transparent to-transparent dark:from-indigo-950/20">
+        <section class="relative overflow-hidden bg-gradient-to-b from-neutral-100/60 via-transparent to-transparent dark:from-neutral-900/20">
             <div class="pointer-events-none absolute inset-0" aria-hidden="true">
-                <div class="absolute -top-28 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-indigo-400/15 blur-3xl dark:bg-indigo-500/10"></div>
-                <div class="absolute right-0 top-24 h-72 w-72 rounded-full bg-indigo-300/20 blur-3xl dark:bg-indigo-500/10"></div>
+                <div class="absolute -top-28 left-1/2 h-[480px] w-[820px] -translate-x-1/2 rounded-full bg-neutral-400/15 blur-3xl dark:bg-neutral-500/10"></div>
+                <div class="absolute right-0 top-24 h-72 w-72 rounded-full bg-neutral-300/20 blur-3xl dark:bg-neutral-500/10"></div>
             </div>
             <div class="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 lg:grid-cols-2 lg:px-6 lg:py-24">
                 <div>
@@ -466,7 +466,7 @@ onBeforeUnmount(() => {
                         Tulisin menyatukan canvas dokumen, asisten AI, dan format akademik dalam satu tempat — dari judul sampai daftar pustaka.
                     </p>
                     <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                        <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-600 bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
+                        <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
                             Mulai Gratis
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
@@ -483,9 +483,9 @@ onBeforeUnmount(() => {
                     <div class="relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
                         <!-- title bar -->
                         <div class="flex items-center gap-2 border-b border-neutral-200 px-4 py-2.5 dark:border-neutral-800">
-                            <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
-                            <span class="h-2.5 w-2.5 rounded-full bg-yellow-400"></span>
-                            <span class="h-2.5 w-2.5 rounded-full bg-green-400"></span>
+                            <span class="h-2.5 w-2.5 rounded-full bg-neutral-300"></span>
+                            <span class="h-2.5 w-2.5 rounded-full bg-neutral-400"></span>
+                            <span class="h-2.5 w-2.5 rounded-full bg-neutral-500"></span>
                             <span class="ml-3 flex-1 truncate rounded-md bg-neutral-100 px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800">tulisin.app/project/skripsi</span>
                         </div>
                         <div class="flex">
@@ -512,10 +512,10 @@ onBeforeUnmount(() => {
                                     <!-- Status auto-save -->
                                     <div class="mb-3 flex items-center justify-end gap-1.5 text-[10px]">
                                         <span v-if="saveState === 'saving'" class="inline-flex items-center gap-1.5 text-neutral-400">
-                                            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400"></span>
+                                            <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-400"></span>
                                             Menyimpan…
                                         </span>
-                                        <span v-else-if="saveState === 'saved'" class="inline-flex items-center gap-1 text-emerald-500">
+                                        <span v-else-if="saveState === 'saved'" class="inline-flex items-center gap-1 text-neutral-700 dark:text-neutral-300">
                                             <Check class="h-3 w-3" />
                                             Tersimpan
                                         </span>
@@ -587,7 +587,7 @@ onBeforeUnmount(() => {
         <section class="mx-auto max-w-6xl px-4 pb-14 lg:px-6">
             <div class="grid grid-cols-2 gap-x-6 gap-y-8 rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 md:grid-cols-4">
                 <div v-for="s in stats" :key="s.label" class="text-center">
-                    <p class="text-3xl font-bold tracking-tight text-indigo-600 dark:text-indigo-400">{{ s.value }}</p>
+                    <p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">{{ s.value }}</p>
                     <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ s.label }}</p>
                 </div>
             </div>
@@ -627,7 +627,7 @@ onBeforeUnmount(() => {
                 >
                     <span
                         v-if="f.comingSoon"
-                        class="absolute right-4 top-4 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                        class="absolute right-4 top-4 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
                     >
                         Segera Hadir
                     </span>
@@ -665,7 +665,7 @@ onBeforeUnmount(() => {
                     </div>
                     <ul class="mt-6 space-y-3">
                         <li v-for="t in ['Buat abstrak & ringkasan otomatis', 'Kembangkan ide dari poin yang dipilih', 'Sesuaikan gaya sesuai format kampus']" :key="t" class="flex items-center gap-3 text-sm">
-                            <Check class="h-4 w-4 shrink-0 text-emerald-500" />
+                            <Check class="h-4 w-4 shrink-0 text-neutral-900 dark:text-white" />
                             {{ t }}
                         </li>
                     </ul>
@@ -715,7 +715,7 @@ onBeforeUnmount(() => {
                             :key="t.id"
                             type="button"
                             class="cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-                            :class="optimizerTab === t.id ? 'bg-indigo-600 text-white dark:bg-indigo-500 dark:text-white' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
+                            :class="optimizerTab === t.id ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
                             @click="optimizerTab = t.id"
                         >
                             {{ t.label }}
@@ -729,20 +729,20 @@ onBeforeUnmount(() => {
                     @pointerdown.prevent="startDrag"
                 >
                     <!-- Sebelum (lapisan dasar) -->
-                    <div class="relative bg-red-50/50 px-8 py-10 dark:bg-red-950/10">
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600 dark:bg-red-900/40 dark:text-red-300">Sebelum</span>
+                    <div class="relative bg-neutral-100 px-8 py-10 dark:bg-neutral-800/40">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-600 dark:bg-neutral-700 dark:text-neutral-200">Sebelum</span>
                         <p class="mt-4 text-base leading-relaxed text-neutral-700 dark:text-neutral-200">{{ sample.before }}</p>
-                        <p class="mt-4 text-sm font-medium text-red-500 dark:text-red-400">{{ sample.metric.before }}</p>
+                        <p class="mt-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">{{ sample.metric.before }}</p>
                     </div>
 
                     <!-- Sesudah (ter-reveal dari kiri ke kanan) -->
                     <div
-                        class="absolute inset-0 bg-emerald-50/70 px-8 py-10 dark:bg-emerald-950/20"
+                        class="absolute inset-0 bg-white px-8 py-10 dark:bg-neutral-900"
                         :style="{ clipPath: 'inset(0 0 0 ' + optimizerPos + '%)' }"
                     >
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">Sesudah</span>
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white dark:bg-white dark:text-neutral-900">Sesudah</span>
                         <p class="mt-4 text-base leading-relaxed text-neutral-800 dark:text-neutral-100">{{ sample.after }}</p>
-                        <p class="mt-4 text-sm font-medium text-emerald-600 dark:text-emerald-400">{{ sample.metric.after }}</p>
+                        <p class="mt-4 text-sm font-medium text-neutral-900 dark:text-white">{{ sample.metric.after }}</p>
                     </div>
 
                     <!-- Handle -->
@@ -774,7 +774,7 @@ onBeforeUnmount(() => {
                 >
                     <span
                         v-if="a.comingSoon"
-                        class="absolute right-4 top-4 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
+                        class="absolute right-4 top-4 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
                     >
                         Segera Hadir
                     </span>
@@ -821,7 +821,7 @@ onBeforeUnmount(() => {
                         v-for="p in plans"
                         :key="p.name"
                         class="relative flex flex-col rounded-xl border p-6 transition-colors"
-                        :class="p.highlight ? 'border-indigo-600 dark:border-indigo-400' : 'border-neutral-200 dark:border-neutral-800'"
+                        :class="p.highlight ? 'border-neutral-900 dark:border-white' : 'border-neutral-200 dark:border-neutral-800'"
                     >
                         <h3 class="font-semibold">{{ p.name }}</h3>
                         <p class="mt-2 text-2xl font-bold">
@@ -830,14 +830,14 @@ onBeforeUnmount(() => {
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ p.desc }}</p>
                         <ul class="mt-6 flex-1 space-y-3">
                             <li v-for="f in p.features" :key="f" class="flex items-center gap-3 text-sm">
-                                <Check class="h-4 w-4 shrink-0 text-emerald-500" />
+                                <Check class="h-4 w-4 shrink-0 text-neutral-900 dark:text-white" />
                                 {{ f }}
                             </li>
                         </ul>
                         <RouterLink
                             to="/register"
                             class="mt-6 inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors"
-                            :class="p.highlight ? 'border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
+                            :class="p.highlight ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200' : 'border-neutral-200 hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900'"
                         >
                             {{ p.cta }}
                         </RouterLink>
@@ -867,7 +867,7 @@ onBeforeUnmount(() => {
                     :key="t.id"
                     class="flex flex-col rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700"
                 >
-                    <div class="flex gap-0.5 text-amber-400">
+                    <div class="flex gap-0.5 text-neutral-900 dark:text-white">
                         <Star v-for="i in 5" :key="i" class="h-4 w-4" :class="i <= t.rating ? 'fill-current' : 'fill-transparent text-neutral-300 dark:text-neutral-600'" />
                     </div>
                     <blockquote class="mt-4 flex-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
@@ -937,7 +937,7 @@ onBeforeUnmount(() => {
                 <h2 class="font-serif text-3xl font-bold tracking-tight">Siap menyusun karya terbaikmu?</h2>
                 <p class="mx-auto mt-3 max-w-md text-neutral-500 dark:text-neutral-400">Buat akun gratis dan mulai tulis dokumen pertamamu sekarang.</p>
                 <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                    <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-indigo-600 bg-indigo-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-indigo-500 dark:border-indigo-500 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-400">
+                    <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
                         Buat Akun Gratis
                         <ArrowRight class="h-4 w-4" />
                     </RouterLink>
