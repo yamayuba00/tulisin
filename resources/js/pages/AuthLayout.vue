@@ -7,8 +7,8 @@ import { PenLine, ArrowLeft, Check } from 'lucide-vue-next';
     <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-neutral-50 px-4 py-12 dark:bg-neutral-950">
         <!-- Dekorasi background halus -->
         <div class="pointer-events-none absolute inset-0">
-            <div class="absolute -top-40 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-indigo-200/40 blur-3xl dark:bg-indigo-500/10"></div>
-            <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-fuchsia-200/30 blur-3xl dark:bg-fuchsia-500/10"></div>
+            <div class="absolute -top-40 left-1/2 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-neutral-300/30 blur-3xl dark:bg-neutral-700/20"></div>
+            <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-neutral-200/40 blur-3xl dark:bg-neutral-800/30"></div>
         </div>
 
         <div class="relative w-full max-w-md">
@@ -25,7 +25,7 @@ import { PenLine, ArrowLeft, Check } from 'lucide-vue-next';
 
             <!-- Trust -->
             <p class="mt-6 flex items-center justify-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500">
-                <Check class="h-3.5 w-3.5 text-emerald-500" />
+                <Check class="h-3.5 w-3.5 text-neutral-500 dark:text-neutral-400" />
                 Dipercaya mahasiswa dari 200+ kampus
             </p>
 

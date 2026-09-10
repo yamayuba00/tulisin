@@ -45,4 +45,6 @@ return [
         'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
     ],
 
+    'google_tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
+
 ];

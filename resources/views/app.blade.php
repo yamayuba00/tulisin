@@ -70,6 +70,19 @@
                 if (theme === 'dark') document.documentElement.classList.add('dark');
             })();
         </script>
+
+        {{-- Google Tag Manager --}}
+        @if (config('services.google_tag_manager_id'))
+        <script>
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','{{ config('services.google_tag_manager_id') }}');
+        </script>
+        @endif
+        {{-- End Google Tag Manager --}}
+
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
         {{-- Splash loader statis: tampil segera sebelum bundle Vue dimuat & di-mount --}}
@@ -145,19 +158,12 @@
         </style>
     </head>
     <body>
-        {{-- Banner "under maintenance [Beta]" hanya saat environment local --}}
-        @env('local')
-        <style>
-            body { padding-top: 28px; }
-        </style>
-        <div
-            class="env-banner"
-            style="position: fixed; top: 0; left: 0; right: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; gap: 8px; height: 28px; background: #f59e0b; color: #1c1917; font-size: 12px; font-weight: 600; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;"
-        >
-            <span>Under Maintenance</span>
-            <span style="background: #1c1917; color: #fbbf24; padding: 1px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; letter-spacing: 0.02em;">BETA</span>
-        </div>
-        @endenv
+        {{-- Google Tag Manager (noscript) --}}
+        @if (config('services.google_tag_manager_id'))
+        <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{ config('services.google_tag_manager_id') }}"
+        height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+        @endif
+        {{-- End Google Tag Manager (noscript) --}}
 
         <div id="app">
             <div class="app-splash">

@@ -188,9 +188,27 @@ const features = [
 ];
 
 const steps = [
-    { no: '01', title: 'Buat Project', desc: 'Tentukan judul, kategori, format, dan orientasi halaman dokumen.' },
-    { no: '02', title: 'Susun & Tulis', desc: 'Atur blok dokumen, minta bantuan AI, dan rapikan gaya per bagian.' },
-    { no: '03', title: 'Ekspor & Selesai', desc: 'Unduh dokumen yang rapi dan sesuai standar kampusmu.' },
+    {
+        no: '01',
+        title: 'Buat Project',
+        icon: FolderOpen,
+        desc: 'Tentukan judul, kategori, format, dan orientasi halaman dokumen.',
+        points: ['Pilih format kampus', 'Atur margin & orientasi', 'Tentukan jenis dokumen'],
+    },
+    {
+        no: '02',
+        title: 'Susun & Tulis',
+        icon: Sparkles,
+        desc: 'Atur blok dokumen, minta bantuan AI, dan rapikan gaya per bagian.',
+        points: ['Susun blok konten', 'Minta bantuan asisten AI', 'Rapikan gaya per bagian'],
+    },
+    {
+        no: '03',
+        title: 'Ekspor & Selesai',
+        icon: Send,
+        desc: 'Unduh dokumen yang rapi dan sesuai standar kampusmu.',
+        points: ['Cek daftar pustaka', 'Ekspor PDF siap cetak', 'Langsung kirim ke dosen'],
+    },
 ];
 
 // Statistik sosial proof (angka placeholder — sesuaikan dengan data riil).
@@ -224,6 +242,22 @@ const plans = computed(() => [
         cta: 'Beli Koin',
     },
 ]);
+
+// Tabel perbandingan paket untuk section "Paket".
+const comparisonPlans = [
+    { key: 'gratis', label: 'Gratis' },
+    { key: 'bulanan', label: 'Bulanan', highlight: true },
+    { key: 'koin', label: 'Koin' },
+];
+
+const comparisonRows = [
+    { feature: 'Canvas dokumen (blok)', gratis: true, bulanan: true, koin: true },
+    { feature: 'Asisten AI Kontekstual', gratis: false, bulanan: true, koin: true },
+    { feature: 'Turnitin AI Optimizer', gratis: false, bulanan: true, koin: true },
+    { feature: 'Plagiarism Optimizer', gratis: false, bulanan: true, koin: true },
+    { feature: 'Ekspor PDF siap cetak', gratis: false, bulanan: true, koin: false },
+    { feature: 'Template & File Manager', gratis: true, bulanan: true, koin: false },
+];
 
 const faqs = [
     { q: 'Apakah Tulisin cocok untuk selain skripsi?', a: 'Ya. Tulisin dirancang untuk beragam dokumen: skripsi, tesis, makalah, jurnal, laporan, proposal, hingga esai.' },
@@ -383,10 +417,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div class="min-h-screen text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <!-- Navbar -->
-        <header class="sticky top-0 z-30 px-4 pt-4 lg:px-6">
-            <div class="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-neutral-200 bg-white/80 px-4 shadow-sm backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80 lg:px-5">
+        <header class="sticky top-0 z-50 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+            <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 lg:px-6">
                 <RouterLink to="/" class="inline-flex items-center gap-2 text-lg font-bold tracking-tight">
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
                         <PenLine class="h-4 w-4" />
@@ -428,8 +462,8 @@ onBeforeUnmount(() => {
                 </button>
             </div>
 
-            <div v-if="menuOpen" class="mx-auto mt-2 max-w-6xl rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-950 md:hidden">
-                <nav class="flex flex-col gap-1 text-sm">
+            <div v-if="menuOpen" class="border-b border-neutral-200 bg-white px-4 py-4 dark:border-neutral-800 dark:bg-neutral-950 md:hidden">
+                <nav class="mx-auto flex max-w-6xl flex-col gap-1 text-sm">
                     <a href="#fitur" :class="navLinkClass('fitur')" @click="menuOpen = false">Fitur</a>
                     <a href="#untuk-siapa" :class="navLinkClass('untuk-siapa')" @click="menuOpen = false">Untuk Siapa</a>
                     <a href="#testimoni" :class="navLinkClass('testimoni')" @click="menuOpen = false">Testimoni</a>
@@ -462,7 +496,10 @@ onBeforeUnmount(() => {
                     <h1 class="mt-6 font-serif text-4xl font-bold leading-[1.1] tracking-tight lg:text-5xl">
                         Tulis karya ilmiah yang rapi, lebih cepat.
                     </h1>
-                    <p class="mt-4 max-w-lg text-lg text-neutral-500 dark:text-neutral-400">
+                    <p class="mt-4 text-base font-medium text-neutral-700 dark:text-neutral-200">
+                        Untuk mahasiswa, dosen, peneliti, hingga kampus.
+                    </p>
+                    <p class="mt-2 max-w-lg text-lg text-neutral-500 dark:text-neutral-400">
                         Tulisin menyatukan canvas dokumen, asisten AI, dan format akademik dalam satu tempat — dari judul sampai daftar pustaka.
                     </p>
                     <div class="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -486,7 +523,7 @@ onBeforeUnmount(() => {
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-300"></span>
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-400"></span>
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-500"></span>
-                            <span class="ml-3 flex-1 truncate rounded-md bg-neutral-100 px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800">tulisin.app/project/skripsi</span>
+                            <span class="ml-3 flex-1 truncate rounded-md bg-neutral-100 px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800">tulisin.com/project?builder=</span>
                         </div>
                         <div class="flex">
                             <!-- mini sidebar: blok yang bisa di-drag -->
@@ -843,6 +880,41 @@ onBeforeUnmount(() => {
                         </RouterLink>
                     </div>
                 </div>
+
+                <!-- Tabel perbandingan paket -->
+                <div class="mt-14">
+                    <h3 class="text-center text-lg font-semibold">Perbandingan Paket</h3>
+                    <div class="mt-6 overflow-x-auto rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+                        <table class="w-full min-w-[560px] border-collapse text-sm">
+                            <thead>
+                                <tr class="border-b border-neutral-200 dark:border-neutral-800">
+                                    <th class="px-4 py-3 text-left font-medium text-neutral-500 dark:text-neutral-400">Fitur</th>
+                                    <th
+                                        v-for="c in comparisonPlans"
+                                        :key="c.key"
+                                        class="px-4 py-3 text-center font-semibold"
+                                        :class="c.highlight ? 'text-neutral-900 dark:text-white' : 'text-neutral-700 dark:text-neutral-300'"
+                                    >
+                                        {{ c.label }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="(r, i) in comparisonRows"
+                                    :key="r.feature"
+                                    :class="i % 2 ? 'bg-neutral-50 dark:bg-neutral-900/40' : ''"
+                                >
+                                    <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300">{{ r.feature }}</td>
+                                    <td v-for="c in comparisonPlans" :key="c.key" class="px-4 py-3 text-center">
+                                        <Check v-if="r[c.key]" class="mx-auto h-4 w-4 text-neutral-900 dark:text-white" />
+                                        <X v-else class="mx-auto h-4 w-4 text-neutral-300 dark:text-neutral-600" />
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -898,12 +970,24 @@ onBeforeUnmount(() => {
             <div class="text-center">
                 <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Cara Kerja</span>
                 <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Tiga langkah mulai menulis</h2>
+                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari nol sampai dokumen jadi — cukup tiga langkah sederhana.</p>
             </div>
             <div class="mt-12 grid gap-6 md:grid-cols-3">
                 <div v-for="s in steps" :key="s.no" class="rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
-                    <span class="font-mono text-3xl font-bold text-neutral-200 dark:text-neutral-700">{{ s.no }}</span>
-                    <h3 class="mt-3 font-semibold">{{ s.title }}</h3>
+                    <div class="flex items-center justify-between">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+                            <component :is="s.icon" class="h-5 w-5" />
+                        </div>
+                        <span class="font-mono text-sm font-semibold text-neutral-400 dark:text-neutral-500">{{ s.no }}</span>
+                    </div>
+                    <h3 class="mt-4 font-semibold">{{ s.title }}</h3>
                     <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ s.desc }}</p>
+                    <ul class="mt-4 space-y-2">
+                        <li v-for="p in s.points" :key="p" class="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                            <Check class="h-4 w-4 shrink-0 text-neutral-400 dark:text-neutral-500" />
+                            {{ p }}
+                        </li>
+                    </ul>
                 </div>
             </div>
         </section>
