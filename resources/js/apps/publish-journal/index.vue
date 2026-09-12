@@ -6,7 +6,7 @@ import EmptyState from '../../components/EmptyState.vue';
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Publish Jurnal" description="Publikasikan karya ilmiahmu langsung ke jurnal dalam satu alur kerja." />
+        <PageHeader title="Publikasi Jurnal" description="Publikasikan karya ilmiahmu langsung ke jurnal dalam satu alur kerja." />
 
         <EmptyState
             :icon="Send"

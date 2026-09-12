@@ -57,7 +57,7 @@ async function onFileChange(e) {
     try {
         const res = await request('/api/wallet/spend', {
             method: 'POST',
-            body: JSON.stringify({ credits, reason: 'font_upload' }),
+            body: JSON.stringify({ credits, reason: 'font_upload', quantity: files.length }),
         });
         if (!res.ok) {
             toast(res.data?.error || 'Saldo koin tidak mencukupi.', 'error');
@@ -88,7 +88,7 @@ async function remove(id) {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="File Font" description="Kelola font kustom (TTF/OTF/WOFF) untuk dokumen kamu.">
+        <PageHeader title="Font Kustom" description="Kelola font kustom (TTF/OTF/WOFF) untuk dokumen kamu.">
             <template #action>
                 <AppButton :disabled="uploading" @click="openUpload">
                     <Upload class="h-4 w-4" />

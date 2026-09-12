@@ -117,7 +117,7 @@ async function copyLink() {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Affiliate" description="Ajak temanmu mendaftar, dapatkan koin setiap ada yang bergabung." />
+        <PageHeader title="Afiliasi" description="Ajak temanmu mendaftar, dapatkan koin setiap ada yang bergabung." />
 
         <div v-if="loading" class="flex items-center justify-center py-16 text-sm text-neutral-500 dark:text-neutral-400">
             Memuat…

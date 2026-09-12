@@ -105,7 +105,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Tickets" :description="`${total} tiket dukungan`" />
+        <PageHeader title="Tiket" :description="`${total} tiket dukungan`" />
 
         <div class="mt-6">
             <DataTable :columns="columns" :rows="tickets" :loading="loading" empty-text="Belum ada tiket.">

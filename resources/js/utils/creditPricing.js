@@ -18,6 +18,10 @@ export const DEFAULT_CREDIT_PRICING = {
     download_base: 4,
     download_per_10_pages: 1,
     affiliate_referral: 10,
+    topup_rate: 500,
+    topup_min: 25000,
+    template_price: 8,
+    template_creator_share: 2,
 };
 
 // Singleton reactive agar semua halaman/komponen memakai nilai yang sama.

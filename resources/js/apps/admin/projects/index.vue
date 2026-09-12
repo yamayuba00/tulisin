@@ -63,7 +63,7 @@ onMounted(async () => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Projects" :description="`${total} dokumen terdaftar`" />
+        <PageHeader title="Dokumen" :description="`${total} dokumen terdaftar`" />
 
         <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="sm:w-72">

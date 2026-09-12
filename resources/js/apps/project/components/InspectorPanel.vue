@@ -19,6 +19,7 @@ import {
 import FilterSelect from '../../../components/FilterSelect.vue';
 import { authorYearLabel } from '../../../utils/csl-formatter';
 import { renderMarkdown } from '../../../utils/markdown';
+import appName from '../../../utils/appName';
 
 const props = defineProps({
     selectedBlock: { type: Object, default: null },
@@ -816,7 +817,7 @@ function historyTypeLabel() {
                                 <Upload class="h-4 w-4" />
                                 Buka Workspace untuk Menambah Referensi
                             </button>
-                            <p class="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">Belum ada referensi. Unggah PDF di Tulisin Workspace terlebih dahulu.</p>
+                            <p class="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">Belum ada referensi. Unggah PDF di {{ appName }} Workspace terlebih dahulu.</p>
                         </template>
                     </div>
 

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Upload, FileText, Loader2, Trash2, BookMarked, FileSearch, Quote, Library, Eye, Coins, Lock } from 'lucide-vue-next';
+import { Upload, FileText, Loader2, Trash2, BookMarked, Quote, Library, Eye, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import { pdfToCSL, listReferences, addReferences, removeReference } from '../../utils/workspaceLibrary';
@@ -9,6 +9,7 @@ import { parseCSLItem, formatBibliography, authorYearLabel } from '../../utils/c
 import { request, getJson } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
+import appName from '../../utils/appName';
 
 const TYPE_OPTIONS = [
     { value: 'article-journal', label: 'Artikel Jurnal' },
@@ -93,8 +94,7 @@ async function confirmGenerate() {
     pendingFile.value = null;
     confirmGenerateOpen.value = false;
 
-    const cost = Number(creditPricing.value.ai_generate) || 5;
-    if (!(await spendCredits(cost, 'ai_generate'))) return;
+    if (!(await spendCredits('ai_generate'))) return;
 
     processing.value = true;
     processingMsg.value = 'Mengunggah & membaca PDF…';
@@ -161,12 +161,12 @@ function buildDraft(fileInfo, text, ai) {
     };
 }
 
-// Potong saldo koin untuk suatu fitur. Return true bila berhasil.
-async function spendCredits(amount, reason) {
+// Potong saldo koin untuk suatu fitur. Biaya dihitung server-side dari reason.
+async function spendCredits(reason, { quantity = 1, pages = 0 } = {}) {
     try {
         const res = await request('/api/wallet/spend', {
             method: 'POST',
-            body: JSON.stringify({ credits: amount, reason }),
+            body: JSON.stringify({ reason, quantity, pages }),
         });
         if (res.ok) return true;
         showToast(res.data?.error || 'Saldo koin tidak mencukupi.');
@@ -229,7 +229,7 @@ function typeLabel(value) {
 <template>
     <div class="p-6 lg:p-8">
         <PageHeader
-            title="Tulisin Workspace"
+            :title="`${appName} Workspace`"
             description="Unggah PDF dan baca strukturnya (judul, penulis, tahun, DOI) untuk dijadikan sitasi di builder."
         />
 
@@ -237,11 +237,6 @@ function typeLabel(value) {
             <Lock class="h-4 w-4 shrink-0" />
             <span>Fitur Workspace memerlukan langganan aktif.</span>
             <button type="button" class="cursor-pointer font-semibold underline underline-offset-2" @click="router.push('/apps/u/topup')">Berlangganan</button>
-        </div>
-
-        <div class="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-300">
-            <FileSearch class="h-4 w-4 shrink-0" />
-            Metadata diisi otomatis oleh AI (DeepSeek). Periksa kembali hasilnya sebelum disimpan.
         </div>
 
         <!-- Konfirmasi generate metadata AI (memotong koin) -->

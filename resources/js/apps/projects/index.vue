@@ -55,12 +55,12 @@ async function confirmDelete() {
     try {
         const res = await request(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' });
         if (res.ok) {
-            toast('Project berhasil dihapus.', 'success');
+            toast('Dokumen berhasil dihapus.', 'success');
         } else {
-            toast(res.data?.error || 'Gagal menghapus project.', 'error');
+            toast(res.data?.error || 'Gagal menghapus dokumen.', 'error');
         }
     } catch {
-        toast('Gagal menghapus project.', 'error');
+        toast('Gagal menghapus dokumen.', 'error');
     }
     refresh();
 }
@@ -72,25 +72,25 @@ function cancelDelete() {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Projects" description="Kelola project dokumen kamu.">
+        <PageHeader title="Dokumen Saya" description="Kelola dokumen kamu.">
             <template #action>
                 <AppButton @click="createProject">
                     <Plus class="h-4 w-4" />
-                    Buat Project
+                    Buat Dokumen
                 </AppButton>
             </template>
         </PageHeader>
 
         <EmptyState
             v-if="!loading && projects.length === 0"
-            title="Belum ada project"
-            description="Buat project pertamamu dan mulai menyusun dokumen dengan AI."
+            title="Belum ada dokumen"
+            description="Buat dokumen pertamamu dan mulai menyusun dengan AI."
         >
             <template #icon>
                 <FileText class="h-6 w-6" />
             </template>
             <template #action>
-                <AppButton variant="outline" @click="createProject">Buat Project Pertama</AppButton>
+                <AppButton variant="outline" @click="createProject">Buat Dokumen Pertama</AppButton>
             </template>
         </EmptyState>
 
@@ -155,9 +155,9 @@ function cancelDelete() {
                         <Trash2 class="h-5 w-5" />
                     </span>
                     <div>
-                        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Hapus project ini?</h2>
+                        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Hapus dokumen ini?</h2>
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Project beserta isinya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
+                            Dokumen beserta isinya akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.
                         </p>
                     </div>
                 </div>

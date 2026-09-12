@@ -16,8 +16,8 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'moderator', 'description' => 'Verifikasi koin & konten'],
             ['name' => 'user', 'description' => 'Mahasiswa / pengguna umum'],
             ['name' => 'writer', 'description' => 'Penulis jasa'],
-            ['name' => 'agency', 'description' => 'Agency skripsi / olah data'],
             ['name' => 'affiliate', 'description' => 'Referral / affiliate'],
+            ['name' => 'brand-ambassador', 'description' => 'Brand Ambassador — duta merek / promosi'],
             ['name' => 'partner', 'description' => 'Kampus / perusahaan (B2B)'],
             ['name' => 'advertiser', 'description' => 'Pengiklan'],
         ];
@@ -65,8 +65,8 @@ class RolePermissionSeeder extends Seeder
                 'submissions.create', 'credits.topup', 'credits.view', 'services.order',
             ],
             'writer' => ['services.manage', 'projects.create', 'projects.update'],
-            'agency' => ['services.manage', 'organizations.manage', 'projects.create', 'projects.update'],
             'affiliate' => ['affiliates.view', 'affiliates.payout'],
+            'brand-ambassador' => ['affiliates.view', 'affiliates.payout'],
             'partner' => ['organizations.manage', 'subscriptions.manage'],
             'advertiser' => ['ads.manage', 'coupons.manage'],
         ];

@@ -73,7 +73,7 @@ async function onFileChange(e) {
     try {
         const res = await request('/api/wallet/spend', {
             method: 'POST',
-            body: JSON.stringify({ credits, reason: 'image_upload' }),
+            body: JSON.stringify({ credits, reason: 'image_upload', quantity: files.length }),
         });
         if (!res.ok) {
             toast(res.data?.error || 'Saldo koin tidak mencukupi.', 'error');
@@ -121,7 +121,7 @@ function formatSize(bytes) {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="File Manager" description="Kelola gambar yang sudah kamu unggah.">
+        <PageHeader title="Manajer File" description="Kelola gambar yang sudah kamu unggah.">
             <template #action>
                 <AppButton :disabled="uploading" @click="openUpload">
                     <Upload class="h-4 w-4" />

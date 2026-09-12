@@ -6,6 +6,7 @@ import AppButton from '../../../components/AppButton.vue';
 import RichTextEditor from './components/RichTextEditor.vue';
 import { getJson, request } from '../../../utils/http';
 import { toast } from '../../../utils/toast';
+import appName from '../../../utils/appName';
 
 const sending = ref(false);
 const loadingRecipients = ref(false);
@@ -331,7 +332,7 @@ function stopPolling() {
                     <div class="flex items-center justify-between bg-neutral-900 px-6 py-4">
                         <span class="flex items-center gap-2 text-base font-bold text-white">
                             <Mail class="h-4 w-4 text-neutral-300" />
-                            Tulisin
+                            {{ appName }}
                         </span>
                         <span class="text-[11px] text-neutral-400">no-reply</span>
                     </div>
@@ -360,7 +361,7 @@ function stopPolling() {
                     <!-- Footer -->
                     <div class="border-t border-neutral-200 bg-neutral-50 px-6 py-4 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
                         <p class="mb-1">Best Regards,</p>
-                        <p class="font-semibold text-neutral-700 dark:text-neutral-200">Tim Tulisin</p>
+                        <p class="font-semibold text-neutral-700 dark:text-neutral-200">Tim {{ appName }}</p>
                     </div>
                 </div>
             </div>

@@ -41,7 +41,12 @@
     background-color: rgb(115 115 115 / 0.6);
 }
 
+/* Warna skema native (form control, caret, scrollbar) agar sinkron dengan tema. */
+:root {
+    color-scheme: light;
+}
 .dark {
+    color-scheme: dark;
     scrollbar-color: rgb(64 64 64 / 0.6) transparent;
 }
 

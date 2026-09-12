@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
     <div class="p-6 lg:p-8">
         <div class="flex items-start justify-between gap-4">
             <PageHeader
-                title="Analytics Traffic"
+                title="Analitik"
                 description="Gelombang traffic, pengguna aktif, durasi sesi, dan unduhan — ter-update otomatis."
             />
             <div class="flex shrink-0 items-center gap-2">

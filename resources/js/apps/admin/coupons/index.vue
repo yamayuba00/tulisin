@@ -142,7 +142,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Promo" description="Kelola promo spesial untuk bonus koin atau diskon topup pengguna.">
+        <PageHeader title="Kupon" description="Kelola promo spesial untuk bonus koin atau diskon topup pengguna.">
             <template #action>
                 <AppButton @click="openCreate">
                     <Plus class="h-4 w-4" />

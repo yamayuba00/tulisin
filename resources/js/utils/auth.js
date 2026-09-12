@@ -61,11 +61,11 @@ function errorMessage(data, fallback) {
     return fallback;
 }
 
-async function login({ email, password }) {
+async function login({ email, password, remember = false }) {
     await ensureCsrf();
     const { ok, data } = await apiFetch('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, remember }),
     });
     if (!ok) return { ok: false, error: errorMessage(data, 'Login gagal.') };
     currentUser.value = data.user || null;
@@ -80,6 +80,17 @@ async function register(payload) {
     });
     if (!ok) return { ok: false, error: errorMessage(data, 'Registrasi gagal.') };
     currentUser.value = data.user || null;
+    return { ok: true };
+}
+
+async function updateProfile(payload) {
+    await ensureCsrf();
+    const { ok, data } = await apiFetch('/api/auth/profile', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    if (!ok) return { ok: false, error: errorMessage(data, 'Gagal menyimpan profil.') };
+    currentUser.value = data.user || currentUser.value;
     return { ok: true };
 }
 
@@ -144,6 +155,7 @@ export function useAuth() {
         isAuthenticated,
         login,
         register,
+        updateProfile,
         resetPassword,
         confirmResetPassword,
         resendVerification,

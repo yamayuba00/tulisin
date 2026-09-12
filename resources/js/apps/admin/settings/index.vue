@@ -79,6 +79,30 @@ const fields = [
         hint: 'Koin yang diterima per teman yang terverifikasi.',
         min: 0,
     },
+    {
+        key: 'topup_rate',
+        label: 'Kurs Topup (Rp per Koin)',
+        hint: 'Rupiah yang dibutuhkan untuk 1 koin.',
+        min: 1,
+    },
+    {
+        key: 'topup_min',
+        label: 'Minimal Topup (Rp)',
+        hint: 'Nominal minimal pembelian koin.',
+        min: 1000,
+    },
+    {
+        key: 'template_price',
+        label: 'Harga Default Template',
+        hint: 'Harga fallback template marketplace bila pembuat tidak set harga.',
+        min: 0,
+    },
+    {
+        key: 'template_creator_share',
+        label: 'Creator Share Template',
+        hint: 'Koin fallback untuk pembuat template per penjualan.',
+        min: 0,
+    },
 ];
 
 onMounted(async () => {

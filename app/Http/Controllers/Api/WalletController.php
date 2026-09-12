@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\Wallet;
+use App\Services\CreditPricing;
 use App\Services\Payments\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -62,13 +63,16 @@ class WalletController extends Controller
      */
     public function topup(Request $request): JsonResponse
     {
+        $rate = max(1, CreditPricing::get('topup_rate'));
+        $minTopup = max(1000, CreditPricing::get('topup_min'));
+
         $data = $request->validate([
-            'amount' => ['required', 'integer', 'min:25000'],
+            'amount' => ['required', 'integer', 'min:' . $minTopup],
             'coupon' => ['nullable', 'string', 'max:40'],
         ]);
 
         $amount = (int) $data['amount'];
-        $baseCredits = intdiv($amount, 500);
+        $baseCredits = intdiv($amount, $rate);
 
         $coupon = null;
         $couponCode = null;
@@ -124,19 +128,40 @@ class WalletController extends Controller
     }
 
     /**
-     * Gunakan kredit (potong saldo) untuk suatu fitur.
+     * Gunakan kredit (potong saldo) untuk suatu fitur. Jumlah biaya dihitung
+     * di sisi server dari `reason` + `quantity`/`pages`, agar tarif tidak bisa
+     * dimanipulasi lewat request.
      */
     public function spend(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'credits' => ['required', 'integer', 'min:1'],
             'reason' => ['required', 'string', 'max:40'],
+            'quantity' => ['sometimes', 'integer', 'min:1', 'max:1000'],
+            'pages' => ['sometimes', 'integer', 'min:0', 'max:100000'],
         ]);
+
+        $cost = CreditPricing::cost(
+            (string) $data['reason'],
+            (int) ($data['quantity'] ?? 1),
+            (int) ($data['pages'] ?? 0),
+        );
+
+        if ($cost === null) {
+            return response()->json(['error' => 'Alasan pemakaian tidak dikenal.'], 422);
+        }
 
         $wallet = $this->walletFor($request);
 
+        if ($cost <= 0) {
+            return response()->json([
+                'message' => 'Tidak ada biaya.',
+                'balance' => $wallet->balance,
+                'cost' => 0,
+            ]);
+        }
+
         try {
-            $balance = $wallet->debit((int) $data['credits'], (string) $data['reason']);
+            $balance = $wallet->debit($cost, (string) $data['reason']);
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
         }
@@ -144,6 +169,7 @@ class WalletController extends Controller
         return response()->json([
             'message' => 'Koin berhasil digunakan.',
             'balance' => $balance,
+            'cost' => $cost,
         ]);
     }
 

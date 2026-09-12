@@ -1,6 +1,7 @@
 <script setup>
 import { RouterLink } from 'vue-router';
 import { PenLine, ArrowLeft, Check } from 'lucide-vue-next';
+import appName from '../utils/appName';
 </script>
 
 <template>
@@ -15,7 +16,7 @@ import { PenLine, ArrowLeft, Check } from 'lucide-vue-next';
             <!-- Logo -->
             <RouterLink to="/" class="mb-8 flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 <PenLine class="h-6 w-6" />
-                Tulisin
+                {{ appName }}
             </RouterLink>
 
             <!-- Card form -->

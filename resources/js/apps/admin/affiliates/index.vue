@@ -125,7 +125,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Affiliate" description="Verifikasi referral, komisi, dan kode afiliasi." />
+        <PageHeader title="Afiliasi" description="Verifikasi referral, komisi, dan kode afiliasi." />
 
         <h2 class="mt-6 mb-2 flex items-center gap-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
             <UserPlus class="h-4 w-4" /> Verifikasi Referral (+{{ creditPerReferral }} koin)

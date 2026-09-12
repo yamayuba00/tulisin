@@ -101,7 +101,7 @@ onMounted(() => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Paper / Journal" description="Cari dan baca paper & journal dari Crossref." />
+        <PageHeader title="Paper & Jurnal" description="Cari dan baca paper & journal dari Crossref." />
 
         <form class="relative mb-6" @submit.prevent="search">
             <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />

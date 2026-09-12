@@ -1,9 +1,10 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter, useRoute, RouterLink } from 'vue-router';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-vue-next';
 import AuthLayout from './AuthLayout.vue';
 import Altcha from '../components/Altcha.vue';
+import SocialLoginButtons from '../components/SocialLoginButtons.vue';
 import { useAuth } from '../utils/auth';
 
 const router = useRouter();
@@ -12,10 +13,25 @@ const { login, currentUser } = useAuth();
 
 const email = ref('');
 const password = ref('');
+const remember = ref(false);
 const showPassword = ref(false);
 const altchaVerified = ref(false);
 const error = ref('');
 const loading = ref(false);
+
+const SOCIAL_ERRORS = {
+    email_exists: 'Email ini sudah terdaftar. Silakan masuk dengan email & password.',
+    email_missing: 'Kami tidak menerima email dari akun tersebut. Silakan pakai akun lain atau daftar manual.',
+    callback_failed: 'Login sosial gagal. Silakan coba lagi.',
+    inactive: 'Akun ini dinonaktifkan.',
+};
+
+onMounted(() => {
+    const code = typeof route.query.social_error === 'string' ? route.query.social_error : '';
+    if (code && SOCIAL_ERRORS[code]) {
+        error.value = SOCIAL_ERRORS[code];
+    }
+});
 
 async function submit() {
     error.value = '';
@@ -30,7 +46,7 @@ async function submit() {
     }
 
     loading.value = true;
-    const result = await login({ email: email.value, password: password.value });
+    const result = await login({ email: email.value, password: password.value, remember: remember.value });
     loading.value = false;
 
     if (!result.ok) {
@@ -85,6 +101,15 @@ async function submit() {
                 </div>
             </div>
 
+            <label class="flex cursor-pointer items-center gap-2 text-sm text-neutral-600 dark:text-neutral-300">
+                <input
+                    v-model="remember"
+                    type="checkbox"
+                    class="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-500 dark:border-neutral-700 dark:bg-neutral-900"
+                />
+                Ingat saya
+            </label>
+
             <div>
                 <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Verifikasi (Altcha)</label>
                 <div class="mt-1">
@@ -104,6 +129,8 @@ async function submit() {
                 {{ loading ? 'Memproses...' : 'Masuk' }}
             </button>
         </form>
+
+        <SocialLoginButtons />
 
         <div class="mt-4 flex items-center justify-between text-sm">
             <RouterLink to="/forgot-password" class="text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white">Lupa password?</RouterLink>

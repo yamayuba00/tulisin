@@ -17,7 +17,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'uuid', 'phone', 'avatar', 'status', 'last_login_at'])]
+#[Fillable(['name', 'email', 'password', 'uuid', 'phone', 'avatar', 'status', 'last_login_at', 'provider', 'provider_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmailContract
 {
@@ -46,6 +46,11 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function wallet(): HasOne
     {
         return $this->hasOne(Wallet::class);
+    }
+
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
     }
 
     public function subscription(): HasOne

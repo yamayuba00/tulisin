@@ -1,9 +1,10 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { Mail, Lock, User, Eye, EyeOff, GraduationCap, Building2, Phone, Target } from 'lucide-vue-next';
+import { Mail, Lock, User, Eye, EyeOff, GraduationCap, Phone, Target } from 'lucide-vue-next';
 import AuthLayout from './AuthLayout.vue';
 import SearchableSelect from '../components/SearchableSelect.vue';
+import SocialLoginButtons from '../components/SocialLoginButtons.vue';
 import { useAuth } from '../utils/auth';
 
 const router = useRouter();
@@ -15,9 +16,7 @@ const referralRef = ref(typeof route.query.ref === 'string' ? route.query.ref : 
 const name = ref('');
 const email = ref('');
 const phone = ref('');
-const accountType = ref('individual'); // 'individual' | 'agency'
 const university = ref('');
-const agencyName = ref('');
 const interest = ref('');
 const subscribeInfo = ref(false);
 const subscribeProduct = ref(false);
@@ -78,10 +77,6 @@ async function submit() {
         error.value = 'Pilih kampus / universitas kamu.';
         return;
     }
-    if (accountType.value === 'agency' && !agencyName.value.trim()) {
-        error.value = 'Isi nama instansi / agency kamu.';
-        return;
-    }
     if (!interest.value) {
         error.value = 'Pilih kebutuhan / produk kamu.';
         return;
@@ -105,9 +100,7 @@ async function submit() {
         phone: phone.value.trim(),
         password: password.value,
         password_confirmation: confirm.value,
-        accountType: accountType.value,
         university: resolvedUniversity,
-        agencyName: accountType.value === 'agency' ? agencyName.value.trim() : '',
         interest: resolvedInterest,
         subscribeInfo: subscribeInfo.value,
         subscribeProduct: subscribeProduct.value,
@@ -120,7 +113,7 @@ async function submit() {
         return;
     }
 
-    router.push({ path: '/verify-email', query: { status: 'sent', email: email.value } });
+    router.push('/boarding');
 }
 </script>
 
@@ -175,49 +168,12 @@ async function submit() {
             </div>
 
             <div>
-                <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Tipe Akun <span class="text-red-500">*</span></label>
-                <div class="mt-1 grid grid-cols-2 gap-1 rounded-xl border border-neutral-200 p-1 dark:border-neutral-800">
-                    <button
-                        type="button"
-                        class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors"
-                        :class="accountType === 'individual' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
-                        @click="accountType = 'individual'"
-                    >
-                        <User class="h-4 w-4" />
-                        Individual
-                    </button>
-                    <button
-                        type="button"
-                        class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-medium transition-colors"
-                        :class="accountType === 'agency' ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950' : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-white'"
-                        @click="accountType = 'agency'"
-                    >
-                        <Building2 class="h-4 w-4" />
-                        Agency
-                    </button>
-                </div>
-            </div>
-
-            <div>
                 <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Kampus / Universitas <span class="text-red-500">*</span></label>
                 <SearchableSelect v-model="university" :options="UNIVERSITIES" placeholder="Pilih atau ketik kampus" class="mt-1">
                     <template #icon>
                         <GraduationCap class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
                     </template>
                 </SearchableSelect>
-            </div>
-
-            <div v-if="accountType === 'agency'">
-                <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Nama Instansi / Agency <span class="text-red-500">*</span></label>
-                <div class="relative mt-1">
-                    <Building2 class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
-                    <input
-                        v-model="agencyName"
-                        type="text"
-                        placeholder="Nama agency kamu"
-                        class="w-full rounded-xl border border-neutral-200 bg-transparent py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-100 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-500 dark:focus:ring-neutral-800"
-                    />
-                </div>
             </div>
 
             <div>
@@ -298,6 +254,8 @@ async function submit() {
                 {{ loading ? 'Memproses...' : 'Daftar' }}
             </button>
         </form>
+
+        <SocialLoginButtons />
 
         <p class="mt-4 text-center text-sm text-neutral-500 dark:text-neutral-400">
             Sudah punya akun?

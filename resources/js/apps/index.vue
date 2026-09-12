@@ -1,15 +1,30 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3 } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3, Megaphone, UserCog, Info } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import TourGuide from '../components/TourGuide.vue';
+import DailyPromoModal from '../components/DailyPromoModal.vue';
 import { useAuth } from '../utils/auth';
+import appName from '../utils/appName';
 
 const route = useRoute();
 const router = useRouter();
 const { currentUser, logout } = useAuth();
 const sidebarOpen = ref(false);
+
+const TOUR_STORAGE_KEY = 'tulisin.tour-guide.dismissed';
+const tourDone = ref(localStorage.getItem(TOUR_STORAGE_KEY) === '1');
+
+function onTourDone() {
+    tourDone.value = true;
+    try {
+        localStorage.setItem(TOUR_STORAGE_KEY, '1');
+    } catch {
+        // Abaikan bila localStorage tidak tersedia.
+    }
+}
 
 const userInitial = computed(() => {
     const name = currentUser.value?.name;
@@ -18,26 +33,27 @@ const userInitial = computed(() => {
 
 const pageTitle = computed(() => {
     const titles = {
-        dashboard: 'Dashboard',
+        dashboard: 'Beranda',
         agent: 'Agent AI',
-        projects: 'Projects',
-        lists: 'Lists Project',
-        topup: 'Topup',
-        affiliate: 'Affiliate',
+        projects: 'Dokumen Saya',
+        lists: 'Dokumen Publik',
+        topup: 'Isi Saldo',
+        affiliate: 'Afiliasi',
         earn: 'Dapatkan Koin',
-        'my-reviews': 'Rating & Review',
-        'publish-journal': 'Publish Jurnal',
+        'my-reviews': 'Ulasan',
+        'publish-journal': 'Publikasi Jurnal',
         templates: 'Template',
-        journals: 'Paper / Journal',
-        workspace: 'Tulisin Workspace',
-        files: 'File Manager',
-        fonts: 'File Font',
+        journals: 'Paper & Jurnal',
+        workspace: `${appName} Workspace`,
+        files: 'Manajer File',
+        fonts: 'Font Kustom',
         'admin-dashboard': 'Dashboard Admin',
         'admin-monitoring': 'Monitoring',
-        'admin-analytics': 'Analytics Traffic',
-        'admin-users': 'Users',
-        'admin-roles': 'Roles & Permissions',
-        'admin-projects': 'Projects',
+        'admin-analytics': 'Analitik',
+        'admin-users': 'Pengguna',
+        'admin-roles': 'Peran & Izin',
+        'admin-members': 'Kelola Member',
+        'admin-projects': 'Dokumen',
         'admin-ai-results': 'Hasil AI',
         'admin-reviews': 'Review Pengguna',
         'admin-ai-settings': 'Mesin AI',
@@ -46,14 +62,16 @@ const pageTitle = computed(() => {
         'admin-credits': 'Verifikasi Koin',
         'admin-settings': 'Pengaturan Koin',
         'admin-subscriptions': 'Langganan',
-        'admin-coupons': 'Promo',
+        'admin-coupons': 'Kupon',
+        'admin-promo': 'Banner Promo',
+        'admin-banner': 'Banner Informasi',
         'admin-notifications': 'Notifikasi',
         'admin-payments': 'Transaksi',
-        'admin-topups': 'Topup Orders',
-        'admin-affiliates': 'Affiliate',
-        'admin-tickets': 'Tickets',
-        'admin-exports': 'Export PDF',
-        'admin-audit': 'Audit Log',
+        'admin-topups': 'Pesanan Topup',
+        'admin-affiliates': 'Afiliasi',
+        'admin-tickets': 'Tiket',
+        'admin-exports': 'Ekspor PDF',
+        'admin-audit': 'Log Audit',
     };
     return titles[route.name] ?? 'Dashboard';
 });
@@ -62,32 +80,37 @@ const isSuperAdmin = computed(() => !!currentUser.value?.is_super_admin);
 
 const userNavGroups = [
     {
-        label: 'Umum',
+        label: 'Utama',
         items: [
-            { label: 'Dashboard', to: '/apps/u/dashboard', icon: Home },
+            { label: 'Beranda', to: '/apps/u/dashboard', icon: Home },
             { label: 'Agent AI', to: '/apps/u/agent', icon: Sparkles },
-            { label: 'Projects', to: '/apps/u/projects', icon: FolderKanban },
-            { label: 'Lists Project', to: '/apps/u/lists', icon: Users },
+            { label: 'Dokumen Saya', to: '/apps/u/projects', icon: FolderKanban },
+            { label: 'Dokumen Publik', to: '/apps/u/lists', icon: Users },
         ],
     },
     {
-        label: 'Konten',
+        label: 'Riset & Referensi',
+        items: [
+            { label: 'Paper & Jurnal', to: '/apps/u/journals', icon: FileText },
+            { label: 'Publikasi Jurnal', to: '/apps/u/publish-journal', icon: Send, soon: true },
+            { label: `${appName} Workspace`, to: '/apps/u/workspace', icon: Library },
+        ],
+    },
+    {
+        label: 'Aset',
         items: [
             { label: 'Template', to: '/apps/u/templates', icon: LayoutTemplate },
-            { label: 'Paper / Journal', to: '/apps/u/journals', icon: FileText },
-            { label: 'Publish Jurnal', to: '/apps/u/publish-journal', icon: Send },
-            { label: 'Tulisin Workspace', to: '/apps/u/workspace', icon: Library },
-            { label: 'File Manager', to: '/apps/u/files', icon: FolderOpen },
-            { label: 'File Font', to: '/apps/u/fonts', icon: Type },
+            { label: 'Manajer File', to: '/apps/u/files', icon: FolderOpen },
+            { label: 'Font Kustom', to: '/apps/u/fonts', icon: Type },
         ],
     },
     {
-        label: 'Akun',
+        label: 'Akun & Koin',
         items: [
-            { label: 'Topup', to: '/apps/u/topup', icon: Wallet },
+            { label: 'Isi Saldo', to: '/apps/u/topup', icon: Wallet },
             { label: 'Dapatkan Koin', to: '/apps/u/earn', icon: Gift },
-            { label: 'Affiliate', to: '/apps/u/affiliate', icon: Handshake },
-            { label: 'Rating & Review', to: '/apps/u/reviews', icon: Star },
+            { label: 'Afiliasi', to: '/apps/u/affiliate', icon: Handshake },
+            { label: 'Ulasan', to: '/apps/u/reviews', icon: Star },
         ],
     },
 ];
@@ -98,19 +121,21 @@ const adminNavGroups = [
         items: [
             { label: 'Dashboard', to: '/apps/u/admin/dashboard', icon: Home },
             { label: 'Monitoring', to: '/apps/u/admin/monitoring', icon: Activity },
-            { label: 'Analytics', to: '/apps/u/admin/analytics', icon: BarChart3 },
-            { label: 'Users', to: '/apps/u/admin/users', icon: Users },
-            { label: 'Roles & Permissions', to: '/apps/u/admin/roles', icon: ShieldCheck },
+            { label: 'Analitik', to: '/apps/u/admin/analytics', icon: BarChart3 },
+            { label: 'Pengguna', to: '/apps/u/admin/users', icon: Users },
+            { label: 'Peran & Izin', to: '/apps/u/admin/roles', icon: ShieldCheck },
+            { label: 'Kelola Member', to: '/apps/u/admin/members', icon: UserCog },
         ],
     },
     {
         label: 'Konten & AI',
         items: [
-            { label: 'Projects', to: '/apps/u/admin/projects', icon: FolderKanban },
+            { label: 'Dokumen', to: '/apps/u/admin/projects', icon: FolderKanban },
             { label: 'Hasil AI', to: '/apps/u/admin/ai-results', icon: ScanSearch },
             { label: 'Review Pengguna', to: '/apps/u/admin/reviews', icon: Star },
             { label: 'Mesin AI', to: '/apps/u/admin/ai-settings', icon: Cpu },
             { label: 'Dokumen Dibagikan', to: '/apps/u/admin/shared', icon: Share2 },
+            { label: 'Banner Informasi', to: '/apps/u/admin/banner', icon: Info },
         ],
     },
     {
@@ -119,19 +144,20 @@ const adminNavGroups = [
             { label: 'Verifikasi Koin', to: '/apps/u/admin/credits', icon: BadgeCheck },
             { label: 'Pengaturan Koin', to: '/apps/u/admin/settings', icon: Coins },
             { label: 'Langganan', to: '/apps/u/admin/subscriptions', icon: BadgeCheck },
-            { label: 'Promo', to: '/apps/u/admin/coupons', icon: Ticket },
+            { label: 'Kupon', to: '/apps/u/admin/coupons', icon: Ticket },
+            { label: 'Banner Promo', to: '/apps/u/admin/promo', icon: Megaphone },
             { label: 'Riwayat Koin', to: '/apps/u/admin/coins', icon: Wallet },
             { label: 'Transaksi', to: '/apps/u/admin/payments', icon: ReceiptText },
-            { label: 'Topup Orders', to: '/apps/u/admin/topups', icon: CreditCard },
-            { label: 'Affiliate', to: '/apps/u/admin/affiliates', icon: Handshake },
+            { label: 'Pesanan Topup', to: '/apps/u/admin/topups', icon: CreditCard },
+            { label: 'Afiliasi', to: '/apps/u/admin/affiliates', icon: Handshake },
         ],
     },
     {
         label: 'Dukungan & Log',
         items: [
-            { label: 'Tickets', to: '/apps/u/admin/tickets', icon: MessageSquare },
-            { label: 'Export PDF', to: '/apps/u/admin/exports', icon: FileDown },
-            { label: 'Audit Log', to: '/apps/u/admin/audit', icon: ScrollText },
+            { label: 'Tiket', to: '/apps/u/admin/tickets', icon: MessageSquare },
+            { label: 'Ekspor PDF', to: '/apps/u/admin/exports', icon: FileDown },
+            { label: 'Log Audit', to: '/apps/u/admin/audit', icon: ScrollText },
             { label: 'Notifikasi', to: '/apps/u/admin/notifications', icon: Mail },
         ],
     },
@@ -147,6 +173,9 @@ async function handleLogout() {
 
 <template>
     <div class="flex min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <TourGuide v-if="!tourDone" @done="onTourDone" />
+        <DailyPromoModal v-if="tourDone" />
+
         <!-- Overlay (mobile) -->
         <div
             v-if="sidebarOpen"
@@ -161,7 +190,7 @@ async function handleLogout() {
         >
             <div class="flex h-16 items-center border-b border-neutral-200 px-4 dark:border-neutral-800">
                 <RouterLink to="/apps/u/dashboard" class="text-lg font-bold tracking-tight">
-                    Tulisin
+                    {{ appName }}
                 </RouterLink>
             </div>
 
@@ -176,6 +205,7 @@ async function handleLogout() {
                         :to="item.to"
                         :label="item.label"
                         :icon="item.icon"
+                        :soon="item.soon"
                     />
                 </template>
             </nav>

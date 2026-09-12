@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\CreditSettingController;
 use App\Http\Controllers\Api\CreditSubmissionController;
 use App\Http\Controllers\Api\FontController;
+use App\Http\Controllers\Api\InformationBannerController;
 use App\Http\Controllers\Api\LandingController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\NotificationController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PdfExportController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectAiResultController;
+use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SharedDocumentController;
 use App\Http\Controllers\Api\SubscriptionController;
@@ -39,6 +41,12 @@ Route::post('/chat', [ChatController::class, 'store']);
 Route::get('/landing-settings', [LandingController::class, 'index']);
 Route::get('/reviews/published', [ReviewController::class, 'published']);
 
+// ---- Banner promo (popup harian, publik) ----
+Route::get('/promo', [PromoController::class, 'show']);
+
+// ---- Banner informasi (di atas header homepage, publik) ----
+Route::get('/information-banner', [InformationBannerController::class, 'show']);
+
 // ---- Auth (Sanctum) ----
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:auth');
@@ -54,6 +62,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/send-verification', [AuthController::class, 'sendVerificationNotification']);
+        Route::post('/profile', [AuthController::class, 'updateProfile']);
     });
 });
 
@@ -68,6 +77,11 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::get('/users', [AdminController::class, 'users'])->middleware('permission:users.view');
     Route::patch('/users/{id}', [AdminController::class, 'updateUser'])->middleware('permission:users.manage');
     Route::get('/roles', [AdminController::class, 'roles'])->middleware('permission:roles.manage');
+
+    Route::get('/user-manage', [AdminController::class, 'userManage'])->middleware('permission:users.view');
+    Route::post('/user-manage/{id}/subscribe', [AdminController::class, 'subscribeUser'])->middleware('permission:subscriptions.manage');
+    Route::post('/user-manage/{id}/credit', [AdminController::class, 'creditUser'])->middleware('permission:credits.adjust');
+    Route::post('/user-manage/{id}/brand-ambassador', [AdminController::class, 'toggleBrandAmbassador'])->middleware('permission:users.manage');
 
     Route::get('/credit-submissions', [AdminController::class, 'creditSubmissions'])->middleware('permission:submissions.review');
     Route::post('/credit-submissions/{id}/review', [AdminController::class, 'reviewCreditSubmission'])->middleware('permission:submissions.review');
@@ -102,6 +116,12 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::post('/coupons', [CouponController::class, 'store'])->middleware('permission:coupons.manage');
     Route::put('/coupons/{id}', [CouponController::class, 'update'])->middleware('permission:coupons.manage');
     Route::delete('/coupons/{id}', [CouponController::class, 'destroy'])->middleware('permission:coupons.manage');
+
+    Route::get('/promo-settings', [PromoController::class, 'settings'])->middleware('permission:notifications.manage');
+    Route::put('/promo-settings', [PromoController::class, 'update'])->middleware('permission:notifications.manage');
+
+    Route::get('/information-banner-settings', [InformationBannerController::class, 'settings'])->middleware('permission:notifications.manage');
+    Route::put('/information-banner-settings', [InformationBannerController::class, 'update'])->middleware('permission:notifications.manage');
 
     Route::post('/email-blast', [NotificationController::class, 'emailBlast'])->middleware('permission:notifications.manage');
     Route::get('/email-broadcasts', [NotificationController::class, 'emailBroadcasts'])->middleware('permission:notifications.manage');

@@ -4,13 +4,14 @@ import { RouterLink } from 'vue-router';
 import {
     PenLine, Sparkles, LayoutTemplate, FolderOpen, Type, BookOpen,
     Check, ArrowRight, Menu, X, Image, ShieldCheck,
-    Zap, ChevronDown, GripVertical, GraduationCap, Users, Building2,
+    Zap, ChevronDown, GripVertical, GraduationCap, Building2,
     ScanSearch, ClipboardCheck, Star, Send,
 } from 'lucide-vue-next';
 import FloatingChat from '../components/FloatingChat.vue';
 import { useAuth } from '../utils/auth';
 import { getJson } from '../utils/http';
 import { formatCurrency } from '../utils/format';
+import { appName } from '../utils/appName';
 
 const { currentUser, isAuthenticated } = useAuth();
 
@@ -23,7 +24,7 @@ const openFaq = ref(0);
 
 // ---- Scroll-spy: sorot menu navbar sesuai section yang sedang terlihat ----
 const activeSection = ref('');
-const spySectionIds = ['fitur', 'untuk-siapa', 'paket', 'testimoni'];
+const spySectionIds = ['fitur', 'paket', 'untuk-siapa', 'testimoni'];
 
 function updateActiveSection() {
     const offset = 120;
@@ -176,47 +177,39 @@ onBeforeUnmount(() => {
 const categories = ['Skripsi', 'Tesis', 'Disertasi', 'Makalah', 'Jurnal', 'Laporan', 'Proposal', 'Esai'];
 
 const features = [
-    { icon: Sparkles, title: 'Asisten AI Kontekstual', desc: 'Minta AI membuat abstrak, merapikan paragraf, atau menyesuaikan gaya langsung pada canvas dokumenmu.' },
-    { icon: ScanSearch, title: 'Turnitin AI Optimizer', desc: 'Sesuaikan gaya penulisan agar lolos deteksi AI (Turnitin) tanpa mengubah makna tulisanmu.' },
-    { icon: ClipboardCheck, title: 'Plagiarism Optimizer', desc: 'Parafrase dan rapikan kalimat agar skor kemiripan turun, tetap natural dan mudah dibaca.' },
-    { icon: LayoutTemplate, title: 'Block Canvas', desc: 'Susun dokumen per blok — judul, paragraf, gambar, daftar, tabel, hingga blok kode.' },
-    { icon: Type, title: 'Gaya Per Blok', desc: 'Atur spasi baris, warna teks, dan font custom (TTF/OTF) per bagian, bukan sekadar global.' },
-    { icon: FolderOpen, title: 'File Manager', desc: 'Kelola gambar dan file dalam satu tempat, lalu pakai langsung saat sedang menulis.' },
-    { icon: BookOpen, title: 'Sitasi & Daftar Pustaka', desc: 'Daftar pustaka dan rujukan akademik tertata otomatis sesuai gaya sitasi.' },
-    { icon: ShieldCheck, title: 'Siap Cetak & Ekspor', desc: 'Atur margin, orientasi, dan ukuran halaman lalu ekspor ke format siap cetak.' },
-    { icon: Send, title: 'Publish Jurnal', desc: 'Publikasikan karya ilmiahmu langsung ke jurnal dan kelola prosesnya dalam satu tempat.', comingSoon: true },
+    { icon: Sparkles, title: 'Asisten AI untuk Tiap Bab', desc: 'Minta AI membuat abstrak, mengembangkan ide, atau merapikan kalimat langsung di dokumenmu.' },
+    { icon: ScanSearch, title: 'Tulisan Lolos Deteksi AI', desc: 'Rapikan gaya agar terbaca manusiawi dan tidak terdeteksi Turnitin, tanpa mengubah makna.' },
+    { icon: ClipboardCheck, title: 'Kemiripan Turun Otomatis', desc: 'Parafrase kalimat agar skor plagiarisme turun, tetap natural dan enak dibaca.' },
+    { icon: LayoutTemplate, title: 'Susun Dokumen Per Blok', desc: 'Atur judul, paragraf, tabel, gambar, dan daftar pustaka sebagai blok yang mudah digeser.' },
+    { icon: Type, title: 'Format Sesuai Kampus', desc: 'Atur spasi, font, dan margin per bagian agar sesuai pedoman, tanpa edit manual.' },
+    { icon: FolderOpen, title: 'Semua File Satu Tempat', desc: 'Kelola gambar dan file sekali, pakai langsung saat menulis di dokumen mana pun.' },
+    { icon: BookOpen, title: 'Sitasi & Daftar Pustaka Otomatis', desc: 'Rujukan tertata rapi sesuai APA, IEEE, atau gaya yang diminta kampus.' },
+    { icon: ShieldCheck, title: 'Ekspor Siap Cetak', desc: 'Atur margin & ukuran halaman, lalu unduh PDF yang rapi dalam sekali klik.' },
+    { icon: Send, title: 'Publish Jurnal', desc: 'Publikasikan karya ilmiahmu dan kelola prosesnya dalam satu tempat.', comingSoon: true },
 ];
 
 const steps = [
     {
         no: '01',
-        title: 'Buat Project',
+        title: 'Pilih Jenis Dokumen',
         icon: FolderOpen,
-        desc: 'Tentukan judul, kategori, format, dan orientasi halaman dokumen.',
-        points: ['Pilih format kampus', 'Atur margin & orientasi', 'Tentukan jenis dokumen'],
+        desc: 'Tentukan skripsi, makalah, atau jurnal — format kampus langsung terpasang otomatis.',
+        points: ['Pilih skripsi, tesis, atau jurnal', 'Format kampus terpasang otomatis', 'Mulai dari template yang sudah rapi'],
     },
     {
         no: '02',
-        title: 'Susun & Tulis',
+        title: 'Tulis dengan Bantuan AI',
         icon: Sparkles,
-        desc: 'Atur blok dokumen, minta bantuan AI, dan rapikan gaya per bagian.',
-        points: ['Susun blok konten', 'Minta bantuan asisten AI', 'Rapikan gaya per bagian'],
+        desc: 'Susun bab, minta AI mengembangkan ide, dan rapikan paragraf tanpa mulai dari kosong.',
+        points: ['Susun kerangka bab otomatis', 'AI bantu kembangkan isi', 'Sitasi & daftar pustaka beres sendiri'],
     },
     {
         no: '03',
-        title: 'Ekspor & Selesai',
+        title: 'Unduh Siap Cetak',
         icon: Send,
-        desc: 'Unduh dokumen yang rapi dan sesuai standar kampusmu.',
-        points: ['Cek daftar pustaka', 'Ekspor PDF siap cetak', 'Langsung kirim ke dosen'],
+        desc: 'Ekspor ke PDF yang rapi dan langsung kirim ke dosen — selesai.',
+        points: ['Cek format akhir', 'Ekspor PDF sekali klik', 'Langsung kumpulkan'],
     },
-];
-
-// Statistik sosial proof (angka placeholder — sesuaikan dengan data riil).
-const stats = [
-    { value: '10.000+', label: 'Dokumen dibuat' },
-    { value: '5.000+', label: 'Penulis aktif' },
-    { value: '120+', label: 'Kampus & institusi' },
-    { value: '4.9/5', label: 'Rating pengguna' },
 ];
 
 // Data publik homepage: harga langganan & daftar mesin AI (tenaga agent).
@@ -260,10 +253,18 @@ const comparisonRows = [
 ];
 
 const faqs = [
-    { q: 'Apakah Tulisin cocok untuk selain skripsi?', a: 'Ya. Tulisin dirancang untuk beragam dokumen: skripsi, tesis, makalah, jurnal, laporan, proposal, hingga esai.' },
-    { q: 'Bagaimana cara kerja asisten AI-nya?', a: 'AI bekerja langsung pada canvas dokumen. Kamu bisa memintanya membuat abstrak, merapikan paragraf, atau menyesuaikan gaya sesuai blok yang dipilih.' },
-    { q: 'Apakah dokumen saya aman?', a: 'Dokumen hanya bisa diakses oleh akunmu. Fitur berbagi publik (Lists Project) bersifat opsional dan hanya lihat (read-only).' },
-    { q: 'Bisakah memakai font kampus sendiri?', a: 'Bisa. Kamu dapat mengunggah font custom (TTF/OTF/WOFF) dan menerapkannya ke bagian dokumen tertentu.' },
+    { q: 'Apakah hasil tulisan saya terdeteksi AI atau plagiarisme?', a: `Tidak. ${appName} punya AI Optimizer dan Plagiarism Optimizer untuk membuat gaya tulisan lebih manusiawi serta menurunkan skor kemiripan sebelum kamu kirim ke Turnitin.` },
+    { q: 'Apakah formatnya sesuai standar kampus (margin, APA, IEEE, dll.)?', a: 'Ya. Margin, spasi, font, hingga gaya sitasi (APA, IEEE, Harvard) diatur otomatis dan bisa disesuaikan dengan pedoman kampusmu.' },
+    { q: 'Apakah ide & data penelitian saya aman?', a: 'Aman. Dokumen hanya bisa diakses akunmu dan tidak dipublikasikan tanpa izin. Berbagi publik (Lists Project) bersifat opsional dan read-only.' },
+    { q: 'Apakah ada opsi uji coba gratis?', a: 'Ada. Kamu bisa mulai menulis dengan paket gratis tanpa kartu kredit, lalu upgrade hanya saat butuh fitur AI & ekspor.' },
+];
+
+// Perbandingan: cara manual vs Tulisin.
+const comparison = [
+    { aspect: 'Sitasi & daftar pustaka', old: 'Ketik ulang satu per satu, rawan keliru.', new: 'Tertata otomatis (APA, IEEE, dll).' },
+    { aspect: 'Susun bab', old: 'Maju-mundur antar file, mudah kehilangan jejak.', new: 'Semua bab dalam satu kanvas blok.' },
+    { aspect: 'Cek plagiarisme & deteksi AI', old: 'Cek manual di banyak tempat, hasil tidak pasti.', new: 'Diturunkan otomatis sampai aman untuk Turnitin.' },
+    { aspect: 'Waktu pengerjaan', old: 'Berbulan-bulan habis untuk urusan teknis.', new: 'Fokus isi, urusan teknis beres otomatis.' },
 ];
 
 // Animasi chat pada section Asisten AI.
@@ -286,7 +287,6 @@ onBeforeUnmount(() => {
 const audiences = [
     { icon: GraduationCap, title: 'Mahasiswa', desc: 'Selesaikan skripsi, tesis, hingga disertasi dengan format kampus yang rapi dan bantuan AI.' },
     { icon: BookOpen, title: 'Dosen & Peneliti', desc: 'Susun jurnal, makalah, dan laporan penelitian dengan sitasi serta gaya penulisan yang konsisten.', comingSoon: true },
-    { icon: Users, title: 'Agency Penulisan', desc: 'Kelola banyak proyek klien, template, dan tim penulis dalam satu alur kerja yang teratur.', comingSoon: true },
     { icon: Building2, title: 'Kampus & Institusi', desc: 'Standarisasi format dokumen, kelola seat anggota, hingga integrasi sistem (B2B).', comingSoon: true },
 ];
 
@@ -328,8 +328,23 @@ async function loadReviews() {
 onMounted(loadLanding);
 onMounted(loadReviews);
 
+// ---- Information banner (di atas header, konten dinamis & bisa diaktifkan admin) ----
+const infoBanner = ref(null);
+const infoBannerDismissed = ref(false);
+
+async function loadInfoBanner() {
+    try {
+        const data = await getJson('/api/information-banner');
+        infoBanner.value = data.banner || null;
+    } catch {
+        infoBanner.value = null;
+    }
+}
+
+onMounted(loadInfoBanner);
+
 const chatSuggestions = [
-    'Bagaimana cara kerja Tulisin?',
+    `Bagaimana cara kerja ${appName}?`,
     'Apakah gratis untuk mencoba?',
     'Bisakah memakai format kampus saya?',
 ];
@@ -418,6 +433,32 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="min-h-screen text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <!-- Information banner (di atas header) -->
+        <div
+            v-if="infoBanner && infoBanner.enabled && infoBanner.text && !infoBannerDismissed"
+            class="relative z-50 border-b border-neutral-200 bg-neutral-900 text-neutral-100 dark:border-neutral-800 dark:bg-white dark:text-neutral-900"
+        >
+            <div class="mx-auto flex max-w-6xl items-center justify-center gap-2 px-10 py-2 text-center text-sm lg:px-6">
+                <Sparkles class="h-4 w-4 shrink-0 opacity-70" />
+                <p class="min-w-0">
+                    {{ infoBanner.text }}
+                    <a
+                        v-if="infoBanner.link_text && infoBanner.link_url"
+                        :href="infoBanner.link_url"
+                        class="ml-1 font-semibold underline underline-offset-4 hover:opacity-80"
+                    >{{ infoBanner.link_text }}</a>
+                </p>
+                <button
+                    type="button"
+                    class="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md opacity-70 hover:opacity-100"
+                    aria-label="Tutup"
+                    @click="infoBannerDismissed = true"
+                >
+                    <X class="h-4 w-4" />
+                </button>
+            </div>
+        </div>
+
         <!-- Navbar -->
         <header class="sticky top-0 z-50 border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
             <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 lg:px-6">
@@ -425,14 +466,14 @@ onBeforeUnmount(() => {
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
                         <PenLine class="h-4 w-4" />
                     </span>
-                    Tulisin
+                    {{ appName }}
                 </RouterLink>
 
                 <nav class="hidden items-center gap-1 text-sm text-neutral-600 dark:text-neutral-300 md:flex">
                     <a href="#fitur" :class="navLinkClass('fitur')">Fitur</a>
                     <a href="#untuk-siapa" :class="navLinkClass('untuk-siapa')">Untuk Siapa</a>
-                    <a href="#testimoni" :class="navLinkClass('testimoni')">Testimoni</a>
                     <a href="#paket" :class="navLinkClass('paket')">Paket</a>
+                    <a href="#testimoni" :class="navLinkClass('testimoni')">Testimoni</a>
                 </nav>
 
                 <div class="hidden items-center gap-2 md:flex">
@@ -465,9 +506,9 @@ onBeforeUnmount(() => {
             <div v-if="menuOpen" class="border-b border-neutral-200 bg-white px-4 py-4 dark:border-neutral-800 dark:bg-neutral-950 md:hidden">
                 <nav class="mx-auto flex max-w-6xl flex-col gap-1 text-sm">
                     <a href="#fitur" :class="navLinkClass('fitur')" @click="menuOpen = false">Fitur</a>
+                    <a href="#paket" :class="navLinkClass('paket')" @click="menuOpen = false">Paket</a>
                     <a href="#untuk-siapa" :class="navLinkClass('untuk-siapa')" @click="menuOpen = false">Untuk Siapa</a>
                     <a href="#testimoni" :class="navLinkClass('testimoni')" @click="menuOpen = false">Testimoni</a>
-                    <a href="#paket" :class="navLinkClass('paket')" @click="menuOpen = false">Paket</a>
                     <div class="mt-2 flex flex-col gap-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
                         <template v-if="isAuthenticated">
                             <RouterLink :to="dashboardPath" class="rounded-lg border border-neutral-900 bg-neutral-900 px-4 py-2 text-center font-medium text-white dark:border-white dark:bg-white dark:text-neutral-900" @click="menuOpen = false">Dashboard</RouterLink>
@@ -491,39 +532,39 @@ onBeforeUnmount(() => {
                 <div>
                     <span class="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-medium text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
                         <Sparkles class="h-3.5 w-3.5" />
-                        Platform penulisan akademik berbasis AI
+                        Tulis skripsi, tesis, makalah, jurnal & proposal — selesai otomatis
                     </span>
                     <h1 class="mt-6 font-serif text-4xl font-bold leading-[1.1] tracking-tight lg:text-5xl">
-                        Tulis karya ilmiah yang rapi, lebih cepat.
+                        Selesaikan karya ilmiah tanpa pusing format & daftar pustaka.
                     </h1>
                     <p class="mt-4 text-base font-medium text-neutral-700 dark:text-neutral-200">
                         Untuk mahasiswa, dosen, peneliti, hingga kampus.
                     </p>
                     <p class="mt-2 max-w-lg text-lg text-neutral-500 dark:text-neutral-400">
-                        Tulisin menyatukan canvas dokumen, asisten AI, dan format akademik dalam satu tempat — dari judul sampai daftar pustaka.
+                        Susun bab, tulis dengan bantuan AI, dan biarkan format beres otomatis — dari margin, sitasi, sampai daftar pustaka. Semua dalam satu kanvas, tanpa pindah-pindah aplikasi.
                     </p>
                     <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                         <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
-                            Mulai Gratis
+                            Mulai Menulis Gratis
                             <ArrowRight class="h-4 w-4" />
                         </RouterLink>
-                        <a href="#fitur" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 px-6 py-3 text-sm font-medium transition-colors hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900">
-                            Lihat Fitur
+                        <a href="#cara-kerja" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 px-6 py-3 text-sm font-medium transition-colors hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900">
+                            Lihat Cara Kerja
                         </a>
                     </div>
-                    <p class="mt-4 text-xs text-neutral-400 dark:text-neutral-500">Tanpa kartu kredit · Bisa ekspor siap cetak</p>
+                    <p class="mt-4 text-xs text-neutral-400 dark:text-neutral-500">Tanpa kartu kredit · Format APA/IEEE siap pakai</p>
                 </div>
 
                 <!-- Product mockup -->
                 <div class="relative animate-float">
-                    <div class="absolute -inset-6 rounded-3xl bg-gradient-to-tr from-neutral-200/60 to-transparent blur-2xl dark:from-neutral-800/60"></div>
-                    <div class="relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
+                    <div class="absolute -inset-6 rounded-3xl bg-gradient-to-tr from-neutral-200/40 to-transparent blur-xl dark:from-neutral-800/40"></div>
+                    <div class="relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
                         <!-- title bar -->
                         <div class="flex items-center gap-2 border-b border-neutral-200 px-4 py-2.5 dark:border-neutral-800">
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-300"></span>
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-400"></span>
                             <span class="h-2.5 w-2.5 rounded-full bg-neutral-500"></span>
-                            <span class="ml-3 flex-1 truncate rounded-md bg-neutral-100 px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800">tulisin.com/project?builder=</span>
+                            <span class="ml-3 flex-1 truncate rounded-md bg-neutral-100 px-3 py-1 text-xs text-neutral-500 dark:bg-neutral-800">tulissin.com/project?builder=</span>
                         </div>
                         <div class="flex">
                             <!-- mini sidebar: blok yang bisa di-drag -->
@@ -616,16 +657,8 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </section>
 
-        <!-- Statistik -->
-        <section class="mx-auto max-w-6xl px-4 pb-14 lg:px-6">
-            <div class="grid grid-cols-2 gap-x-6 gap-y-8 rounded-2xl border border-neutral-200 bg-white p-8 shadow-sm dark:border-neutral-800 dark:bg-neutral-900 md:grid-cols-4">
-                <div v-for="s in stats" :key="s.label" class="text-center">
-                    <p class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">{{ s.value }}</p>
-                    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ s.label }}</p>
+                    <p class="mt-4 text-center text-xs text-neutral-400 dark:text-neutral-500">Seret blok ke kanvas — dokumen tersusun, terformat, dan siap ekspor otomatis.</p>
                 </div>
             </div>
         </section>
@@ -711,7 +744,7 @@ onBeforeUnmount(() => {
                 <div class="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
                     <div class="flex items-center gap-2 border-b border-neutral-100 pb-3 dark:border-neutral-800">
                         <Sparkles class="h-4 w-4 text-neutral-400" />
-                        <span class="text-sm font-medium">Asisten Tulisin</span>
+                        <span class="text-sm font-medium">Asisten {{ appName }}</span>
                     </div>
                     <div class="mt-4 space-y-3 text-sm">
                         <transition name="chat">
@@ -793,59 +826,6 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
-        <!-- Untuk Siapa -->
-        <section id="untuk-siapa" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
-            <div class="text-center">
-                <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Untuk Siapa</span>
-                <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Dibuat untuk setiap penulis karya ilmiah</h2>
-                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga institusi — Tulisin menyesuaikan kebutuhan setiap jenis pengguna.</p>
-            </div>
-            <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                <div
-                    v-for="a in audiences"
-                    :key="a.title"
-                    class="relative rounded-xl border p-6 transition-all duration-200"
-                    :class="a.comingSoon
-                        ? 'border-dashed border-neutral-200 opacity-70 hover:opacity-90 dark:border-neutral-700'
-                        : 'border-neutral-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700'"
-                >
-                    <span
-                        v-if="a.comingSoon"
-                        class="absolute right-4 top-4 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
-                    >
-                        Segera Hadir
-                    </span>
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
-                        <component :is="a.icon" class="h-5 w-5" />
-                    </div>
-                    <h3 class="mt-4 font-semibold">{{ a.title }}</h3>
-                    <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ a.desc }}</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Mahasiswa universitas -->
-        <section class="border-t border-neutral-200 py-12 dark:border-neutral-800">
-            <div class="mx-auto max-w-6xl px-4 lg:px-6">
-                <p class="text-center text-sm font-medium text-neutral-500 dark:text-neutral-400">Dipercaya mahasiswa dari berbagai universitas</p>
-                <div class="relative mt-6 overflow-hidden">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent dark:from-neutral-950"></div>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent dark:from-neutral-950"></div>
-                    <div class="flex w-max animate-marquee">
-                        <div v-for="n in 2" :key="n" class="flex shrink-0 items-center gap-3 pr-3">
-                            <span
-                                v-for="u in universities"
-                                :key="u + n"
-                                class="whitespace-nowrap rounded-full border border-neutral-200 bg-neutral-50 px-5 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
-                            >
-                                {{ u }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <!-- Paket -->
         <section id="paket" class="border-t border-neutral-200 bg-neutral-50 py-20 dark:border-neutral-800 dark:bg-neutral-900/40">
             <div class="mx-auto max-w-6xl scroll-mt-20 px-4 lg:px-6">
@@ -918,50 +898,56 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
-        <!-- Testimoni -->
-        <section id="testimoni" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
+        <!-- Untuk Siapa -->
+        <section id="untuk-siapa" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
             <div class="text-center">
-                <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Testimoni</span>
-                <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Kata mereka yang sudah menulis bersama Tulisin</h2>
-                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga penulis profesional — begini pengalaman mereka.</p>
+                <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Untuk Siapa</span>
+                <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Dibuat untuk setiap penulis karya ilmiah</h2>
+                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga institusi — {{ appName }} menyesuaikan kebutuhan setiap jenis pengguna.</p>
             </div>
-            <div v-if="reviewsLoading" class="mt-12 text-center text-sm text-neutral-400 dark:text-neutral-500">
-                Memuat ulasan…
-            </div>
-
-            <div v-else-if="reviews.length === 0" class="mt-12 rounded-xl border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada ulasan. Jadilah yang pertama berbagi pengalaman.</p>
-            </div>
-
-            <div v-else class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <figure
-                    v-for="t in reviews"
-                    :key="t.id"
-                    class="flex flex-col rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700"
+            <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div
+                    v-for="a in audiences"
+                    :key="a.title"
+                    class="relative rounded-xl border p-6 transition-all duration-200"
+                    :class="a.comingSoon
+                        ? 'border-dashed border-neutral-200 opacity-70 hover:opacity-90 dark:border-neutral-700'
+                        : 'border-neutral-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700'"
                 >
-                    <div class="flex gap-0.5 text-neutral-900 dark:text-white">
-                        <Star v-for="i in 5" :key="i" class="h-4 w-4" :class="i <= t.rating ? 'fill-current' : 'fill-transparent text-neutral-300 dark:text-neutral-600'" />
+                    <span
+                        v-if="a.comingSoon"
+                        class="absolute right-4 top-4 rounded-full border border-neutral-300 bg-neutral-100 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+                    >
+                        Segera Hadir
+                    </span>
+                    <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-200 text-neutral-700 dark:border-neutral-800 dark:text-neutral-300">
+                        <component :is="a.icon" class="h-5 w-5" />
                     </div>
-                    <blockquote class="mt-4 flex-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-                        "{{ t.text }}"
-                    </blockquote>
-                    <figcaption class="mt-5 flex items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800">
-                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
-                            {{ t.initial }}
-                        </span>
-                        <div>
-                            <p class="text-sm font-medium">{{ t.name }}</p>
-                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Pengguna Tulisin</p>
-                        </div>
-                    </figcaption>
-                </figure>
+                    <h3 class="mt-4 font-semibold">{{ a.title }}</h3>
+                    <p class="mt-1.5 text-sm text-neutral-500 dark:text-neutral-400">{{ a.desc }}</p>
+                </div>
             </div>
+        </section>
 
-            <div class="mt-10 text-center">
-                <RouterLink to="/reviews" class="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 underline-offset-4 hover:underline dark:text-neutral-200">
-                    Lihat semua rating
-                    <ArrowRight class="h-4 w-4" />
-                </RouterLink>
+        <!-- Mahasiswa universitas -->
+        <section class="border-t border-neutral-200 py-12 dark:border-neutral-800">
+            <div class="mx-auto max-w-6xl px-4 lg:px-6">
+                <p class="text-center text-sm font-medium text-neutral-500 dark:text-neutral-400">Dipercaya mahasiswa dari berbagai universitas</p>
+                <div class="relative mt-6 overflow-hidden">
+                    <div class="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-white to-transparent dark:from-neutral-950"></div>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-white to-transparent dark:from-neutral-950"></div>
+                    <div class="flex w-max animate-marquee">
+                        <div v-for="n in 2" :key="n" class="flex shrink-0 items-center gap-3 pr-3">
+                            <span
+                                v-for="u in universities"
+                                :key="u + n"
+                                class="whitespace-nowrap rounded-full border border-neutral-200 bg-neutral-50 px-5 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                            >
+                                {{ u }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -992,6 +978,42 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
+        <!-- Perbandingan -->
+        <section id="perbandingan" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
+            <div class="text-center">
+                <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Perbandingan</span>
+                <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Berhenti berjuang dengan format, mulai menulis</h2>
+                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Cara lama vs cara {{ appName }} — lihat apa yang berubah.</p>
+            </div>
+            <div class="mt-12 grid gap-6 lg:grid-cols-2">
+                <div class="rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Cara Manual</h3>
+                    <ul class="mt-5 space-y-4">
+                        <li v-for="c in comparison" :key="'old-' + c.aspect" class="flex gap-3 text-sm">
+                            <X class="mt-0.5 h-4 w-4 shrink-0 text-neutral-300 dark:text-neutral-600" />
+                            <div>
+                                <p class="font-medium text-neutral-700 dark:text-neutral-300">{{ c.aspect }}</p>
+                                <p class="text-neutral-500 dark:text-neutral-400">{{ c.old }}</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="rounded-xl border border-neutral-900 bg-neutral-900 p-6 text-white dark:border-white dark:bg-white dark:text-neutral-900">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Dengan {{ appName }}</h3>
+                    <ul class="mt-5 space-y-4">
+                        <li v-for="c in comparison" :key="'new-' + c.aspect" class="flex gap-3 text-sm">
+                            <Check class="mt-0.5 h-4 w-4 shrink-0 text-neutral-200 dark:text-neutral-400" />
+                            <div>
+                                <p class="font-medium">{{ c.aspect }}</p>
+                                <p class="text-neutral-300 dark:text-neutral-500">{{ c.new }}</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
         <!-- FAQ -->
         <section id="faq" class="mx-auto max-w-3xl scroll-mt-20 px-4 py-20 lg:px-6">
             <div class="text-center">
@@ -1015,14 +1037,61 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
+        <!-- Testimoni -->
+        <section id="testimoni" class="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 lg:px-6">
+            <div class="text-center">
+                <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Testimoni</span>
+                <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Kata mereka yang sudah menulis bersama {{ appName }}</h2>
+                <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Dari mahasiswa hingga penulis profesional — begini pengalaman mereka.</p>
+            </div>
+            <div v-if="reviewsLoading" class="mt-12 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                Memuat ulasan…
+            </div>
+
+            <div v-else-if="reviews.length === 0" class="mt-12 rounded-xl border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
+                <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada ulasan. Jadilah yang pertama berbagi pengalaman.</p>
+            </div>
+
+            <div v-else class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <figure
+                    v-for="t in reviews"
+                    :key="t.id"
+                    class="flex flex-col rounded-xl border border-neutral-200 p-6 transition-all duration-200 hover:-translate-y-1 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700"
+                >
+                    <div class="flex gap-0.5 text-neutral-900 dark:text-white">
+                        <Star v-for="i in 5" :key="i" class="h-4 w-4" :class="i <= t.rating ? 'fill-current' : 'fill-transparent text-neutral-300 dark:text-neutral-600'" />
+                    </div>
+                    <blockquote class="mt-4 flex-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
+                        "{{ t.text }}"
+                    </blockquote>
+                    <figcaption class="mt-5 flex items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+                        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-sm font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                            {{ t.initial }}
+                        </span>
+                        <div>
+                            <p class="text-sm font-medium">{{ t.name }}</p>
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">Pengguna {{ appName }}</p>
+                        </div>
+                    </figcaption>
+                </figure>
+            </div>
+
+            <div class="mt-10 text-center">
+                <RouterLink to="/reviews" class="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-700 underline-offset-4 hover:underline dark:text-neutral-200">
+                    Lihat semua rating
+                    <ArrowRight class="h-4 w-4" />
+                </RouterLink>
+            </div>
+        </section>
+
         <!-- CTA -->
         <section class="border-t border-neutral-200 py-20 dark:border-neutral-800">
             <div class="mx-auto max-w-3xl px-4 text-center lg:px-6">
-                <h2 class="font-serif text-3xl font-bold tracking-tight">Siap menyusun karya terbaikmu?</h2>
-                <p class="mx-auto mt-3 max-w-md text-neutral-500 dark:text-neutral-400">Buat akun gratis dan mulai tulis dokumen pertamamu sekarang.</p>
+                <h2 class="font-serif text-3xl font-bold tracking-tight">Jangan biarkan format & sitasi menghabiskan waktumu.</h2>
+                <p class="mx-auto mt-3 max-w-md text-neutral-500 dark:text-neutral-400">Mulai sekarang dan selesaikan karya ilmiah pertamamu dengan format yang sudah beres otomatis.</p>
                 <div class="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                     <RouterLink to="/register" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-900 bg-neutral-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:border-white dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
-                        Buat Akun Gratis
+                        Mulai Menulis Gratis
                         <ArrowRight class="h-4 w-4" />
                     </RouterLink>
                     <RouterLink to="/login" class="inline-flex items-center justify-center gap-2 rounded-lg border border-neutral-200 px-6 py-3 text-sm font-medium transition-colors hover:bg-neutral-100 dark:border-neutral-800 dark:hover:bg-neutral-900">
@@ -1037,14 +1106,14 @@ onBeforeUnmount(() => {
             <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-neutral-500 dark:text-neutral-400 md:flex-row lg:px-6">
                 <div class="inline-flex items-center gap-2 font-semibold text-neutral-900 dark:text-white">
                     <PenLine class="h-4 w-4" />
-                    Tulisin
+                    {{ appName }}
                 </div>
                 <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
                     <a href="#fitur" class="hover:text-neutral-900 dark:hover:text-white">Fitur</a>
                     <a href="#paket" class="hover:text-neutral-900 dark:hover:text-white">Paket</a>
                     <a href="#faq" class="hover:text-neutral-900 dark:hover:text-white">FAQ</a>
                 </div>
-                <p>&copy; 2026 Tulisin. Semua hak dilindungi.</p>
+                <p>&copy; 2026 {{ appName }}. Semua hak dilindungi.</p>
             </div>
         </footer>
 

@@ -24,11 +24,11 @@ class SubscriptionReminderNotification extends Notification
         $url = rtrim((string) config('app.url'), '/') . '/apps/u/topup';
 
         return (new MailMessage)
-            ->subject('Langganan Tulisin kamu segera berakhir')
+            ->subject('Langganan ' . config('app.name') . ' kamu segera berakhir')
             ->greeting('Halo,')
             ->line('Masa langganan kamu akan berakhir pada ' . $this->endsAt . '.')
             ->line('Perpanjang sekarang agar fitur download, Agent Canvas, dan Turnitin tetap aktif.')
             ->action('Perpanjang Langganan', $url)
-            ->salutation('Salam, Tim Tulisin');
+            ->salutation('Salam, Tim ' . config('app.name'));
     }
 }

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuth } from '../utils/auth';
 import { trackPageview } from '../utils/analytics';
+import appName from '../utils/appName';
 
 const routes = [
     {
@@ -9,44 +10,50 @@ const routes = [
         component: () => import('../pages/HomePage.vue'),
         meta: {
             title: 'Platform Penulisan Akademik Berbasis AI',
-            description: 'Tulisin — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.',
+            description: `${appName} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.`,
         },
     },
     {
         path: '/login',
         name: 'login',
         component: () => import('../pages/LoginPage.vue'),
-        meta: { title: 'Masuk', description: 'Masuk ke akun Tulisin dan lanjutkan menyusun dokumen akademikmu.' },
+        meta: { title: 'Masuk', description: `Masuk ke akun ${appName} dan lanjutkan menyusun dokumen akademikmu.` },
     },
     {
         path: '/register',
         name: 'register',
         component: () => import('../pages/RegisterPage.vue'),
-        meta: { title: 'Daftar', description: 'Buat akun Tulisin gratis dan mulai tulis dokumen pertamamu hari ini.' },
+        meta: { title: 'Daftar', description: `Buat akun ${appName} gratis dan mulai tulis dokumen pertamamu hari ini.` },
     },
     {
         path: '/reviews',
         name: 'reviews',
         component: () => import('../pages/ReviewsPage.vue'),
-        meta: { title: 'Semua Rating', description: 'Lihat semua ulasan pengguna Tulisin dari mahasiswa dan penulis akademik.' },
+        meta: { title: 'Semua Rating', description: `Lihat semua ulasan pengguna ${appName} dari mahasiswa dan penulis akademik.` },
     },
     {
         path: '/forgot-password',
         name: 'forgot-password',
         component: () => import('../pages/ForgotPasswordPage.vue'),
-        meta: { title: 'Lupa Password', description: 'Reset kata sandi akun Tulisin kamu.' },
+        meta: { title: 'Lupa Password', description: `Reset kata sandi akun ${appName} kamu.` },
     },
     {
         path: '/verify-email',
         name: 'verify-email',
         component: () => import('../pages/VerifyEmailPage.vue'),
-        meta: { title: 'Verifikasi Email', description: 'Verifikasi alamat email akun Tulisin kamu.' },
+        meta: { title: 'Verifikasi Email', description: `Verifikasi alamat email akun ${appName} kamu.` },
     },
     {
         path: '/reset-password',
         name: 'reset-password',
         component: () => import('../pages/ResetPasswordPage.vue'),
-        meta: { title: 'Reset Password', description: 'Buat kata sandi baru untuk akun Tulisin kamu.' },
+        meta: { title: 'Reset Password', description: `Buat kata sandi baru untuk akun ${appName} kamu.` },
+    },
+    {
+        path: '/boarding',
+        name: 'boarding',
+        component: () => import('../pages/BoardingPage.vue'),
+        meta: { requiresAuth: true, title: 'Onboarding', description: `Selesaikan pengaturan awal akun ${appName} kamu.` },
     },
     {
         path: '/apps/u',
@@ -61,7 +68,7 @@ const routes = [
                 path: 'dashboard',
                 name: 'dashboard',
                 component: () => import('../apps/dashboard/index.vue'),
-                meta: { title: 'Dashboard' },
+                meta: { title: 'Beranda' },
             },
             {
                 path: 'agent',
@@ -73,19 +80,19 @@ const routes = [
                 path: 'projects',
                 name: 'projects',
                 component: () => import('../apps/projects/index.vue'),
-                meta: { title: 'Projects' },
+                meta: { title: 'Dokumen Saya' },
             },
             {
                 path: 'lists',
                 name: 'lists',
                 component: () => import('../apps/lists/index.vue'),
-                meta: { title: 'Lists Project' },
+                meta: { title: 'Dokumen Publik' },
             },
             {
                 path: 'topup',
                 name: 'topup',
                 component: () => import('../apps/topup/index.vue'),
-                meta: { title: 'Topup' },
+                meta: { title: 'Isi Saldo' },
             },
             {
                 path: 'earn',
@@ -97,13 +104,13 @@ const routes = [
                 path: 'affiliate',
                 name: 'affiliate',
                 component: () => import('../apps/affiliate/index.vue'),
-                meta: { title: 'Affiliate' },
+                meta: { title: 'Afiliasi' },
             },
             {
                 path: 'reviews',
                 name: 'my-reviews',
                 component: () => import('../apps/reviews/index.vue'),
-                meta: { title: 'Rating & Review' },
+                meta: { title: 'Ulasan' },
             },
             {
                 path: 'templates',
@@ -115,31 +122,31 @@ const routes = [
                 path: 'journals',
                 name: 'journals',
                 component: () => import('../apps/journals/index.vue'),
-                meta: { title: 'Paper / Journal' },
+                meta: { title: 'Paper & Jurnal' },
             },
             {
                 path: 'publish-journal',
                 name: 'publish-journal',
                 component: () => import('../apps/publish-journal/index.vue'),
-                meta: { title: 'Publish Jurnal' },
+                meta: { title: 'Publikasi Jurnal' },
             },
             {
                 path: 'workspace',
                 name: 'workspace',
                 component: () => import('../apps/workspace/index.vue'),
-                meta: { title: 'Tulisin Workspace' },
+                meta: { title: `${appName} Workspace` },
             },
             {
                 path: 'files',
                 name: 'files',
                 component: () => import('../apps/files/index.vue'),
-                meta: { title: 'File Manager' },
+                meta: { title: 'Manajer File' },
             },
             {
                 path: 'fonts',
                 name: 'fonts',
                 component: () => import('../apps/fonts/index.vue'),
-                meta: { title: 'File Font' },
+                meta: { title: 'Font Kustom' },
             },
             {
                 path: 'admin/dashboard',
@@ -151,19 +158,25 @@ const routes = [
                 path: 'admin/users',
                 name: 'admin-users',
                 component: () => import('../apps/admin/users/index.vue'),
-                meta: { title: 'Users' },
+                meta: { title: 'Pengguna' },
             },
             {
                 path: 'admin/roles',
                 name: 'admin-roles',
                 component: () => import('../apps/admin/roles/index.vue'),
-                meta: { title: 'Roles & Permissions' },
+                meta: { title: 'Peran & Izin' },
+            },
+            {
+                path: 'admin/members',
+                name: 'admin-members',
+                component: () => import('../apps/admin/members/index.vue'),
+                meta: { title: 'Kelola Member' },
             },
             {
                 path: 'admin/projects',
                 name: 'admin-projects',
                 component: () => import('../apps/admin/projects/index.vue'),
-                meta: { title: 'Projects' },
+                meta: { title: 'Dokumen' },
             },
             {
                 path: 'admin/ai-results',
@@ -211,7 +224,19 @@ const routes = [
                 path: 'admin/coupons',
                 name: 'admin-coupons',
                 component: () => import('../apps/admin/coupons/index.vue'),
-                meta: { title: 'Promo' },
+                meta: { title: 'Kupon' },
+            },
+            {
+                path: 'admin/promo',
+                name: 'admin-promo',
+                component: () => import('../apps/admin/promo/index.vue'),
+                meta: { title: 'Banner Promo' },
+            },
+            {
+                path: 'admin/banner',
+                name: 'admin-banner',
+                component: () => import('../apps/admin/banner/index.vue'),
+                meta: { title: 'Banner Informasi' },
             },
             {
                 path: 'admin/notifications',
@@ -235,31 +260,31 @@ const routes = [
                 path: 'admin/topups',
                 name: 'admin-topups',
                 component: () => import('../apps/admin/topups/index.vue'),
-                meta: { title: 'Topup Orders' },
+                meta: { title: 'Pesanan Topup' },
             },
             {
                 path: 'admin/affiliates',
                 name: 'admin-affiliates',
                 component: () => import('../apps/admin/affiliates/index.vue'),
-                meta: { title: 'Affiliate' },
+                meta: { title: 'Afiliasi' },
             },
             {
                 path: 'admin/tickets',
                 name: 'admin-tickets',
                 component: () => import('../apps/admin/tickets/index.vue'),
-                meta: { title: 'Tickets' },
+                meta: { title: 'Tiket' },
             },
             {
                 path: 'admin/exports',
                 name: 'admin-exports',
                 component: () => import('../apps/admin/exports/index.vue'),
-                meta: { title: 'Export PDF' },
+                meta: { title: 'Ekspor PDF' },
             },
             {
                 path: 'admin/audit',
                 name: 'admin-audit',
                 component: () => import('../apps/admin/audit/index.vue'),
-                meta: { title: 'Audit Log' },
+                meta: { title: 'Log Audit' },
             },
             {
                 path: 'admin/monitoring',
@@ -271,7 +296,7 @@ const routes = [
                 path: 'admin/analytics',
                 name: 'admin-analytics',
                 component: () => import('../apps/admin/analytics/index.vue'),
-                meta: { title: 'Analytics Traffic' },
+                meta: { title: 'Analitik' },
             },
         ],
     },
@@ -310,8 +335,8 @@ const router = createRouter({
     routes,
 });
 
-const APP_NAME = 'Tulisin';
-const DEFAULT_DESCRIPTION = 'Tulisin — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.';
+const APP_NAME = appName;
+const DEFAULT_DESCRIPTION = `${appName} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.`;
 
 // Guard: lindungi halaman aplikasi, dan arahkan user yang sudah login.
 router.beforeEach(async (to) => {

@@ -31,7 +31,7 @@ onMounted(async () => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Roles & Permissions" description="Kelola role dan hak akses pengguna." />
+        <PageHeader title="Peran & Izin" description="Kelola role dan hak akses pengguna." />
 
         <div class="mt-6">
             <DataTable :columns="columns" :rows="roles" :loading="loading" empty-text="Belum ada role.">

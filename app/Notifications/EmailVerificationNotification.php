@@ -19,7 +19,7 @@ class EmailVerificationNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Verifikasi Email Tulisin')
+            ->subject('Verifikasi Email ' . config('app.name'))
             ->view('emails.verify-email', [
                 'name' => $notifiable->name,
                 'url' => $this->verificationUrl($notifiable),

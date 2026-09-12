@@ -34,7 +34,7 @@ onMounted(async () => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Export PDF" :description="`${total} riwayat ekspor PDF`" />
+        <PageHeader title="Ekspor PDF" :description="`${total} riwayat ekspor PDF`" />
 
         <div class="mt-6">
             <DataTable :columns="columns" :rows="exports" :loading="loading" empty-text="Belum ada ekspor PDF.">

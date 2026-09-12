@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Template;
 use App\Models\Wallet;
+use App\Services\CreditPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -55,8 +56,8 @@ class TemplateController extends Controller
             'format' => $data['format'] ?? 'A4',
             'font' => $data['font'] ?? 'Times New Roman',
             'blocks' => $data['blocks'],
-            'price' => (int) ($data['price'] ?? 8),
-            'creator_share' => (int) ($data['creator_share'] ?? 2),
+            'price' => (int) ($data['price'] ?? CreditPricing::get('template_price')),
+            'creator_share' => (int) ($data['creator_share'] ?? CreditPricing::get('template_creator_share')),
         ]);
 
         return response()->json(['template' => $this->present($template)], 201);
@@ -78,8 +79,8 @@ class TemplateController extends Controller
             return response()->json(['error' => 'Ini template milikmu sendiri, tidak perlu dibeli.'], 422);
         }
 
-        $price = (int) ($template->price ?? 8);
-        $creatorShare = (int) ($template->creator_share ?? 2);
+        $price = (int) ($template->price ?? CreditPricing::get('template_price'));
+        $creatorShare = (int) ($template->creator_share ?? CreditPricing::get('template_creator_share'));
 
         $buyerWallet = Wallet::firstOrCreate(['user_id' => $request->user()->id]);
 

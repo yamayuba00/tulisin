@@ -32,7 +32,7 @@ onMounted(async () => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Audit Log" description="Jejak aktivitas pengguna di platform." />
+        <PageHeader title="Log Audit" description="Jejak aktivitas pengguna di platform." />
 
         <div class="mt-6">
             <DataTable :columns="columns" :rows="logs" :loading="loading" empty-text="Belum ada aktivitas tercatat.">

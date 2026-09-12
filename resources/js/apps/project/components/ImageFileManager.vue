@@ -48,7 +48,7 @@ async function onFileChange(e) {
         const credits = files.length * imageCostPerItem();
         const res = await request('/api/wallet/spend', {
             method: 'POST',
-            body: JSON.stringify({ credits, reason: 'image_upload' }),
+            body: JSON.stringify({ credits, reason: 'image_upload', quantity: files.length }),
         });
         if (!res.ok) {
             toast(res.data?.error || 'Saldo koin tidak mencukupi.', 'error');

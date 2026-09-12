@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowLeft, BookMarked, User, Calendar, Hash, Link2, Quote, FileText, BookOpen, Layers } from 'lucide-vue-next';
 import { parseCSLItem, formatBibliography, CSL_STYLES } from '../../../utils/csl-formatter';
+import appName from '../../../utils/appName';
 
 const props = defineProps({
     reference: { type: Object, default: null },
@@ -57,7 +58,7 @@ function back() {
                 <ArrowLeft class="h-5 w-5" />
             </button>
             <div class="min-w-0">
-                <p class="truncate text-sm font-semibold">Tulisin Workspace</p>
+                <p class="truncate text-sm font-semibold">{{ appName }} Workspace</p>
                 <p class="text-xs text-neutral-500 dark:text-neutral-400">Mode baca (read-only)</p>
             </div>
         </header>

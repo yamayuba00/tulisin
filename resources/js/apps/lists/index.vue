@@ -60,7 +60,7 @@ onMounted(loadProjects);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Lists Project" description="Jelajahi project dari pengguna lain. Mode lihat saja (read-only)." />
+        <PageHeader title="Dokumen Publik" description="Jelajahi dokumen dari pengguna lain. Mode lihat saja (read-only)." />
 
         <!-- Filter -->
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -90,7 +90,7 @@ onMounted(loadProjects);
         <!-- Loading -->
         <div v-if="loading" class="mt-6 flex items-center justify-center rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-neutral-400 dark:border-neutral-700">
             <Loader2 class="h-5 w-5 animate-spin" />
-            <span class="ml-2 text-sm">Memuat project publik…</span>
+            <span class="ml-2 text-sm">Memuat dokumen publik…</span>
         </div>
 
         <!-- Grid -->
@@ -118,7 +118,7 @@ onMounted(loadProjects);
         </div>
 
         <div v-else class="mt-6 rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
-            <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada project publik yang tersedia.</p>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">Belum ada dokumen publik yang tersedia.</p>
         </div>
     </div>
 </template>

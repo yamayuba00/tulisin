@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\CreditPricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,15 +65,15 @@ class CreditSettingController extends Controller
             'download_base' => ['required', 'integer', 'min:0'],
             'download_per_10_pages' => ['required', 'integer', 'min:0'],
             'affiliate_referral' => ['required', 'integer', 'min:0'],
+            'topup_rate' => ['required', 'integer', 'min:1'],
+            'topup_min' => ['required', 'integer', 'min:1000'],
+            'template_price' => ['required', 'integer', 'min:0'],
+            'template_creator_share' => ['required', 'integer', 'min:0'],
         ];
     }
 
     private function resolvePricing(): array
     {
-        $defaults = config('credits.pricing', []);
-        $setting = Setting::where('key', self::KEY)->first();
-        $stored = $setting ? $setting->value : [];
-
-        return array_replace($defaults, is_array($stored) ? $stored : []);
+        return CreditPricing::all();
     }
 }

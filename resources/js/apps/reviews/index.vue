@@ -7,6 +7,7 @@ import StatusBadge from '../../components/StatusBadge.vue';
 import { getJson, request } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { formatDate } from '../../utils/format';
+import appName from '../../utils/appName';
 
 const MAX_TEXT = 150;
 
@@ -75,7 +76,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Rating & Review" description="Bagikan pengalamanmu. Review akan tampil di homepage setelah disetujui admin." />
+        <PageHeader title="Ulasan" description="Bagikan pengalamanmu. Review akan tampil di homepage setelah disetujui admin." />
 
         <div class="grid gap-6 lg:grid-cols-2">
             <!-- Form kirim review -->
@@ -108,7 +109,7 @@ onMounted(load);
                         v-model="text"
                         rows="4"
                         :maxlength="MAX_TEXT"
-                        placeholder="Ceritakan pengalamanmu menggunakan Tulisin…"
+                        :placeholder="`Ceritakan pengalamanmu menggunakan ${appName}…`"
                         class="mt-1 w-full rounded-lg border border-neutral-200 bg-transparent px-3 py-2.5 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
                     ></textarea>
                     <p class="mt-1 text-right text-xs text-neutral-400 dark:text-neutral-500">{{ textRemaining }} karakter tersisa</p>

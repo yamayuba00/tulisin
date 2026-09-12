@@ -23,7 +23,7 @@ class SubscriptionActivatedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Langganan Tulisin Kamu Aktif')
+            ->subject('Langganan ' . config('app.name') . ' Kamu Aktif')
             ->view('emails.subscription-activated', [
                 'name' => $notifiable->name,
                 'ends_at' => $this->subscription->ends_at?->format('d M Y H:i') ?? '-',

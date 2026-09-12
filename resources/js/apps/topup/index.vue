@@ -279,7 +279,7 @@ onBeforeUnmount(() => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Topup" description="Isi saldo koin untuk menggunakan fitur AI." />
+        <PageHeader title="Isi Saldo" description="Isi saldo koin untuk menggunakan fitur AI." />
 
         <div class="grid gap-6 lg:grid-cols-3">
             <!-- Kolom form -->

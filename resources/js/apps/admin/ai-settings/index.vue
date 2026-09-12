@@ -5,6 +5,7 @@ import PageHeader from '../../../components/PageHeader.vue';
 import AppButton from '../../../components/AppButton.vue';
 import { getJson, request } from '../../../utils/http';
 import { toast } from '../../../utils/toast';
+import appName from '../../../utils/appName';
 
 const loading = ref(true);
 const saving = ref(false);
@@ -75,7 +76,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Mesin AI" description="Kelola daftar mesin AI yang menjadi tenaga Agent Tulisin. Daftar ini ditampilkan di homepage.">
+        <PageHeader title="Mesin AI" :description="`Kelola daftar mesin AI yang menjadi tenaga Agent ${appName}. Daftar ini ditampilkan di homepage.`">
             <template #action>
                 <AppButton :disabled="saving || loading" @click="save">
                     <Save class="h-4 w-4" />

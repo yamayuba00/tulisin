@@ -46,7 +46,7 @@ onMounted(async () => {
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Topup Orders" :description="`${total} order pembelian koin`" />
+        <PageHeader title="Pesanan Topup" :description="`${total} order pembelian koin`" />
 
         <div class="mt-6">
             <DataTable :columns="columns" :rows="orders" :loading="loading" empty-text="Belum ada order topup.">

@@ -6,11 +6,18 @@
 
         {{-- Primary SEO --}}
         <title>{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI</title>
-        <meta name="description" content="Tulisin — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, Turnitin AI Optimizer, serta format kampus otomatis.">
-        <meta name="keywords" content="Tulisin, skripsi, tesis, disertasi, makalah, jurnal, penulisan akademik, asisten AI, Turnitin AI Optimizer, plagiarism optimizer, mahasiswa, kampus, format kampus, daftar pustaka">
-        <meta name="author" content="Tulisin">
+        <meta name="description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, Turnitin AI Optimizer, serta format kampus otomatis.">
+        <meta name="keywords" content="{{ config('app.name') }}, skripsi, tesis, disertasi, makalah, jurnal, penulisan akademik, asisten AI, Turnitin AI Optimizer, plagiarism optimizer, mahasiswa, kampus, format kampus, daftar pustaka">
+        <meta name="author" content="{{ config('app.name') }}">
         <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
         <link rel="canonical" href="{{ config('app.url') }}">
+
+        {{-- Dublin Core (meta akademik) --}}
+        <meta name="DC.title" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
+        <meta name="DC.description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, Turnitin AI Optimizer, serta format kampus otomatis.">
+        <meta name="DC.language" content="id">
+        <meta name="DC.publisher" content="{{ config('app.name') }}">
+        <meta name="DC.type" content="Service">
 
         {{-- Favicon --}}
         <link rel="icon" href="/img/favicon.png">
@@ -23,7 +30,7 @@
         <meta property="og:type" content="website">
         <meta property="og:site_name" content="{{ config('app.name') }}">
         <meta property="og:title" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
-        <meta property="og:description" content="Tulisin — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
+        <meta property="og:description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
         <meta property="og:url" content="{{ config('app.url') }}">
         <meta property="og:image" content="{{ config('app.url') }}/og-image.png">
         <meta property="og:locale" content="id_ID">
@@ -31,9 +38,9 @@
 
         {{-- Twitter Card --}}
         <meta name="twitter:card" content="summary_large_image">
-        <meta name="twitter:site" content="@@tulisin">
+        <meta name="twitter:site" content="{{ '@' . config('app.name') }}">
         <meta name="twitter:title" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
-        <meta name="twitter:description" content="Tulisin — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
+        <meta name="twitter:description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
         <meta name="twitter:image" content="{{ config('app.url') }}/og-image.png">
 
         {{-- Structured data (JSON-LD) --}}
@@ -59,6 +66,17 @@
                         'name' => config('app.name'),
                         'publisher' => ['@id' => $seoSiteUrl . '/#organization'],
                     ],
+                    [
+                        '@type' => 'WebApplication',
+                        '@id' => $seoSiteUrl . '/#webapp',
+                        'name' => config('app.name'),
+                        'url' => $seoSiteUrl,
+                        'applicationCategory' => 'EducationalApplication',
+                        'operatingSystem' => 'Web',
+                        'inLanguage' => 'id',
+                        'description' => 'Platform penulisan akademik berbasis AI untuk menyusun skripsi, tesis, makalah, dan jurnal.',
+                        'publisher' => ['@id' => $seoSiteUrl . '/#organization'],
+                    ],
                 ],
             ];
         @endphp
@@ -82,6 +100,11 @@
         </script>
         @endif
         {{-- End Google Tag Manager --}}
+
+        {{-- Brand aplikasi untuk frontend (sumber tunggal: env APP_NAME) --}}
+        <script>
+            window.__APP_NAME__ = @json(config('app.name'));
+        </script>
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -174,7 +197,7 @@
                             <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
                         </svg>
                     </div>
-                    <div class="app-splash__brand">Tulisin</div>
+                    <div class="app-splash__brand">{{ config('app.name') }}</div>
                     <div class="app-splash__bar"><span></span></div>
                 </div>
             </div>

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { PenLine, ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-vue-next';
 import { getJson } from '../utils/http';
 import { formatDate } from '../utils/format';
+import appName from '../utils/appName';
 
 const PER_PAGE = 12;
 
@@ -47,7 +48,7 @@ onMounted(load);
                     <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-950">
                         <PenLine class="h-4 w-4" />
                     </span>
-                    Tulisin
+                    {{ appName }}
                 </RouterLink>
                 <RouterLink to="/" class="inline-flex items-center gap-1.5 text-sm font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white">
                     <ArrowLeft class="h-4 w-4" />
@@ -59,9 +60,9 @@ onMounted(load);
         <main class="mx-auto max-w-6xl px-4 py-16 lg:px-6">
             <div class="text-center">
                 <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Semua Rating</span>
-                <h1 class="mt-3 font-serif text-3xl font-bold tracking-tight">Ulasan pengguna Tulisin</h1>
+                <h1 class="mt-3 font-serif text-3xl font-bold tracking-tight">Ulasan pengguna {{ appName }}</h1>
                 <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">
-                    {{ total }} ulasan dari pengguna yang sudah menulis bersama Tulisin.
+                    {{ total }} ulasan dari pengguna yang sudah menulis bersama {{ appName }}.
                 </p>
             </div>
 

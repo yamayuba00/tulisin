@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { MessageCircle, X, Send, Sparkles } from 'lucide-vue-next';
 import { request, ensureCsrf } from '../utils/http';
+import appName from '../utils/appName';
 
 // Cangkang konteks (knowledge base) per jalur/route.
 // Setiap jalur punya `label`, `system` (instruksi AI), dan `fallback`
@@ -9,8 +10,8 @@ import { request, ensureCsrf } from '../utils/http';
 const CONTEXTS = {
     landing: {
         label: 'Landing',
-        system: 'Kamu adalah asisten Tulisin, platform penulisan dokumen akademik berbasis AI. Bantu pengunjung memahami fitur, paket harga, dan cara kerja Tulisin.',
-        fallback: 'Terima kasih atas pertanyaannya! Tulisin membantu menyusun skripsi, tesis, jurnal, dan dokumen akademik lain dengan block canvas, asisten AI, serta format otomatis sesuai standar kampus.',
+        system: `Kamu adalah asisten ${appName}, platform penulisan dokumen akademik berbasis AI. Bantu pengunjung memahami fitur, paket harga, dan cara kerja ${appName}.`,
+        fallback: `Terima kasih atas pertanyaannya! ${appName} membantu menyusun skripsi, tesis, jurnal, dan dokumen akademik lain dengan block canvas, asisten AI, serta format otomatis sesuai standar kampus.`,
     },
     // dashboard: { label: 'Dashboard', system: '...', fallback: '...' },
     // builder: { label: 'Builder', system: '...', fallback: '...' },
@@ -37,7 +38,7 @@ const body = ref(null);
 
 onMounted(() => {
     messages.value = [
-        { from: 'ai', text: `Halo! Saya asisten Tulisin (konteks: ${ctx.value.label}). Tanya apa saja — saya akan menjawab sesuai konteks halaman ini.` },
+        { from: 'ai', text: `Halo! Saya asisten ${appName} (konteks: ${ctx.value.label}). Tanya apa saja — saya akan menjawab sesuai konteks halaman ini.` },
     ];
 });
 
@@ -114,7 +115,7 @@ function scrollToBottom() {
                             <Sparkles class="h-3.5 w-3.5" />
                         </span>
                         <div class="leading-tight">
-                            <p class="text-sm font-semibold">Asisten Tulisin</p>
+                            <p class="text-sm font-semibold">Asisten {{ appName }}</p>
                             <p class="text-[11px] text-neutral-400 dark:text-neutral-500">Online · siap membantu</p>
                         </div>
                     </div>

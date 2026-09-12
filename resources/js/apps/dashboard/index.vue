@@ -5,7 +5,6 @@ import {
     LayoutTemplate,
     Sparkles,
     Download,
-    ShieldCheck,
     FolderOpen,
     Clock,
     Plus,
@@ -20,6 +19,7 @@ import {
 import PageHeader from '../../components/PageHeader.vue';
 import StatCard from '../../components/StatCard.vue';
 import AppButton from '../../components/AppButton.vue';
+import GettingStarted from './GettingStarted.vue';
 import { getJson } from '../../utils/http';
 import { useAuth } from '../../utils/auth';
 import { formatDate } from '../../utils/format';
@@ -40,6 +40,20 @@ const ACTIVE_WINDOW = 7 * 24 * 60 * 60 * 1000; // 7 hari
 const firstName = computed(() => {
     const name = currentUser.value?.name || '';
     return name.split(' ')[0] || '';
+});
+
+const timeGreeting = computed(() => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 11) {
+        return { title: 'Selamat pagi', subtitle: 'Awali harimu dengan ide segar — mari tulis sesuatu yang hebat hari ini.' };
+    }
+    if (h >= 11 && h < 15) {
+        return { title: 'Selamat siang', subtitle: 'Waktu terbaik untuk fokus. Selesaikan satu bagian kecil, sisanya mengikuti.' };
+    }
+    if (h >= 15 && h < 18) {
+        return { title: 'Selamat sore', subtitle: 'Kamu sudah melangkah sejauh ini. Sedikit lagi, bab ini selesai.' };
+    }
+    return { title: 'Selamat malam', subtitle: 'Suasana tenang, ide mengalir. Mari rapikan paragraf berikutnya.' };
 });
 
 const activeCount = computed(() => {
@@ -153,20 +167,17 @@ const features = [
         title: 'Export Perfection',
         desc: 'Ekspor dokumen ke PDF dan Word dengan tata letak yang konsisten dan siap cetak.',
     },
-    {
-        icon: ShieldCheck,
-        title: 'Institutional Ready',
-        desc: 'Sistem yang transparan dengan audit log dan standar etika penulisan.',
-    },
 ];
 </script>
 
 <template>
     <div class="p-6 lg:p-8">
         <PageHeader
-            :title="firstName ? `Halo, ${firstName}` : 'Dashboard'"
-            description="Ringkasan aktivitas penulisan kamu."
+            :title="firstName ? `${timeGreeting.title}, ${firstName}` : 'Dashboard'"
+            :description="timeGreeting.subtitle"
         />
+
+        <GettingStarted :project-count="projects.length" class="mb-6" />
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <RouterLink to="/apps/u/topup" class="block">

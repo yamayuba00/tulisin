@@ -33,6 +33,6 @@ class PaymentReceivedNotification extends Notification
             ->line('Pelanggan: ' . ($user?->name ?? '-') . ' (' . ($user?->email ?? '-') . ')')
             ->line('Metode: ' . $payment->method)
             ->line('Nominal: Rp ' . number_format((float) $payment->amount, 0, ',', '.'))
-            ->salutation('Salam, Sistem Tulisin');
+            ->salutation('Salam, Sistem ' . config('app.name'));
     }
 }

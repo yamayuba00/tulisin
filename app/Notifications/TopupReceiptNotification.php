@@ -26,7 +26,7 @@ class TopupReceiptNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Pembelian Koin Tulisin Berhasil')
+            ->subject('Pembelian Koin ' . config('app.name') . ' Berhasil')
             ->view('emails.topup-receipt', [
                 'name' => $notifiable->name,
                 'invoice' => $this->payment->invoice_number,

@@ -123,7 +123,7 @@ onMounted(load);
 
 <template>
     <div class="p-6 lg:p-8">
-        <PageHeader title="Users" :description="`${total} akun terdaftar`" />
+        <PageHeader title="Pengguna" :description="`${total} akun terdaftar`" />
 
         <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="sm:w-72">

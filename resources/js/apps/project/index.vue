@@ -2364,15 +2364,16 @@ async function loadCredits() {
     }
 }
 
-// Potong saldo kredit untuk suatu fitur. Return true bila berhasil.
-async function spendCredits(amount, reason) {
+// Potong saldo kredit untuk suatu fitur. Biaya dihitung server-side dari reason.
+// Return true bila berhasil.
+async function spendCredits(reason, { quantity = 1, pages = 0 } = {}) {
     try {
         const res = await request('/api/wallet/spend', {
             method: 'POST',
-            body: JSON.stringify({ credits: amount, reason }),
+            body: JSON.stringify({ reason, quantity, pages }),
         });
         if (res.ok) {
-            totalCredits.value = res.data.balance ?? (totalCredits.value - amount);
+            totalCredits.value = res.data.balance ?? totalCredits.value;
             return true;
         }
         showToast(res.data?.error || 'Saldo koin tidak mencukupi.');
@@ -2488,7 +2489,7 @@ const pageAiPrompts = computed(() => {
 async function generateBlockContent() {
     const prompt = aiGenInput.value.trim();
     if (!prompt) return;
-    if (!(await spendCredits(creditPricing.value.ai_generate, 'ai_generate'))) return;
+    if (!(await spendCredits('ai_generate'))) return;
     aiGenLoading.value = true;
     try {
         const res = await request('/api/ai/generate', {
@@ -2514,7 +2515,7 @@ async function generateBlockContent() {
 async function generatePageContent() {
     const prompt = aiGenInput.value.trim();
     if (!prompt) return;
-    if (!(await spendCredits(creditPricing.value.ai_generate, 'ai_generate'))) return;
+    if (!(await spendCredits('ai_generate'))) return;
     aiGenLoading.value = true;
     try {
         const res = await request('/api/ai/generate', {
@@ -3872,7 +3873,7 @@ async function downloadProject(opt) {
 
     // Potong koin hanya setelah ekspor benar-benar berhasil.
     if (cost > 0) {
-        const paid = await spendCredits(cost, 'download');
+        const paid = await spendCredits('download', { pages: Number(opt.pages) || 0 });
         if (!paid) return;
     }
 

@@ -27,7 +27,7 @@ class ResetPasswordNotification extends Notification
             . '&email=' . urlencode($email);
 
         return (new MailMessage)
-            ->subject('Reset Password Tulisin')
+            ->subject('Reset Password ' . config('app.name'))
             ->view('emails.reset-password', [
                 'name' => $notifiable->name,
                 'url' => $url,

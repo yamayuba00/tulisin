@@ -9,6 +9,7 @@ import TableBlock from '../components/TableBlock.vue';
 import ImageBlock from '../components/ImageBlock.vue';
 import FormulaBlock from '../components/FormulaBlock.vue';
 import WatermarkOverlay from '../components/WatermarkOverlay.vue';
+import appName from '../utils/appName';
 
 const route = useRoute();
 
@@ -676,7 +677,7 @@ onBeforeUnmount(() => {
 
                     <p class="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500">
                         <Link2 class="h-3.5 w-3.5" />
-                        Dibagikan melalui Tulisin
+                        Dibagikan melalui {{ appName }}
                     </p>
                 </template>
             </div>

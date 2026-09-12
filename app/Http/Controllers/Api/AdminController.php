@@ -11,6 +11,7 @@ use App\Models\Review;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Models\SharedDocument;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
@@ -234,6 +235,147 @@ class AdminController extends Controller
         return response()->json([
             'message' => 'Pengguna diperbarui.',
             'user' => $this->userSummary($user),
+        ]);
+    }
+
+    /**
+     * Daftar pengguna untuk manajemen langganan & koin (subscribe, tambah koin,
+     * dan penanda Brand Ambassador).
+     */
+    public function userManage(Request $request): JsonResponse
+    {
+        $users = User::with(['roles:id,name', 'wallet:id,user_id,balance'])
+            ->latest()
+            ->get();
+
+        $activeSubs = Subscription::query()
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->whereIn('user_id', $users->pluck('id'))
+            ->get(['user_id', 'ends_at'])
+            ->keyBy('user_id');
+
+        $mapped = $users->map(fn (User $u) => [
+            'id' => $u->id,
+            'uuid' => $u->uuid,
+            'name' => $u->name,
+            'email' => $u->email,
+            'phone' => $u->phone,
+            'status' => $u->status,
+            'is_super_admin' => $u->isSuperAdmin(),
+            'is_brand_ambassador' => $u->hasRole('brand-ambassador'),
+            'wallet_balance' => (int) ($u->wallet?->balance ?? 0),
+            'subscription_active' => isset($activeSubs[$u->id]),
+            'subscription_ends_at' => isset($activeSubs[$u->id])
+                ? $activeSubs[$u->id]->ends_at->toISOString()
+                : null,
+        ]);
+
+        return response()->json([
+            'total' => $mapped->count(),
+            'users' => $mapped,
+        ]);
+    }
+
+    /**
+     * Aktifkan / perpanjang langganan pengguna secara manual oleh admin.
+     */
+    public function subscribeUser(Request $request, int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+
+        $data = $request->validate([
+            'days' => ['required', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $days = (int) $data['days'];
+
+        $active = Subscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->latest('ends_at')
+            ->first();
+
+        if ($active) {
+            $active->update([
+                'ends_at' => $active->ends_at->copy()->addDays($days),
+            ]);
+
+            return response()->json([
+                'message' => 'Langganan diperpanjang hingga ' . $active->ends_at->format('d M Y') . '.',
+                'ends_at' => $active->ends_at->toISOString(),
+            ]);
+        }
+
+        $subscription = Subscription::create([
+            'user_id' => $user->id,
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addDays($days),
+            'price' => 0,
+            'payment_method' => 'manual',
+        ]);
+
+        return response()->json([
+            'message' => 'Langganan diaktifkan hingga ' . $subscription->ends_at->format('d M Y') . '.',
+            'ends_at' => $subscription->ends_at->toISOString(),
+        ]);
+    }
+
+    /**
+     * Tambah koin ke wallet pengguna secara manual oleh admin.
+     */
+    public function creditUser(Request $request, int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1'],
+            'note' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
+        $reason = trim((string) ($data['note'] ?? '')) !== ''
+            ? trim((string) $data['note'])
+            : 'Penyesuaian koin manual';
+        $balance = $wallet->credit(
+            (int) $data['amount'],
+            $reason,
+            'admin_adjustment',
+            $request->user()->id,
+        );
+
+        return response()->json([
+            'message' => 'Koin berhasil ditambahkan.',
+            'balance' => $balance,
+        ]);
+    }
+
+    /**
+     * Beri / cabut role Brand Ambassador pada pengguna.
+     */
+    public function toggleBrandAmbassador(Request $request, int $id): JsonResponse
+    {
+        $user = User::findOrFail($id);
+
+        $data = $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $role = Role::firstOrCreate(
+            ['name' => 'brand-ambassador'],
+            ['description' => 'Brand Ambassador — duta merek / promosi'],
+        );
+
+        if ($data['enabled']) {
+            $user->roles()->syncWithoutDetaching([$role->id]);
+        } else {
+            $user->roles()->detach($role->id);
+        }
+
+        return response()->json([
+            'message' => $data['enabled'] ? 'Role Brand Ambassador diberikan.' : 'Role Brand Ambassador dicabut.',
+            'is_brand_ambassador' => (bool) $data['enabled'],
         ]);
     }
 

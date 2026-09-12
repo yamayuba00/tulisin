@@ -9,7 +9,6 @@ use App\Models\ReferralCode;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\WriterProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,25 +26,22 @@ class AuthController extends Controller
         $data = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:120'],
             'email' => ['required', 'email', 'max:191', Rule::unique('users', 'email')],
-            'phone' => ['nullable', 'string', 'max:20'],
+            'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')],
             'password' => ['required', 'confirmed', Password::min(6)],
-            'accountType' => ['sometimes', 'in:individual,agency'],
             'university' => ['nullable', 'string', 'max:191'],
-            'agencyName' => ['nullable', 'string', 'max:191'],
-            'interest' => ['nullable', 'string', 'max:191'],
+            'interest' => ['nullable'],
             'ref' => ['nullable', 'string', 'max:40'],
         ])->validate();
 
         $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'phone' => $data['phone'] ?? null,
+            'phone' => $data['phone'],
             'password' => $data['password'],
             'status' => 'active',
         ]);
 
-        $roleName = ($data['accountType'] ?? 'individual') === 'agency' ? 'agency' : 'user';
-        $role = Role::where('name', $roleName)->first();
+        $role = Role::where('name', 'user')->first();
         if ($role) {
             $user->roles()->attach($role->id);
         }
@@ -54,14 +50,7 @@ class AuthController extends Controller
             UserProfile::create([
                 'user_id' => $user->id,
                 'university' => $data['university'] ?? null,
-                'major' => $data['interest'] ?? null,
-            ]);
-        }
-
-        if ($roleName === 'agency' && ! empty($data['agencyName'])) {
-            WriterProfile::create([
-                'user_id' => $user->id,
-                'agency_name' => $data['agencyName'],
+                'major' => $this->normalizeInterest($data['interest'] ?? null),
             ]);
         }
 
@@ -85,6 +74,7 @@ class AuthController extends Controller
         $data = Validator::make($request->all(), [
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'remember' => ['sometimes', 'boolean'],
         ])->validate();
 
         $user = User::where('email', $data['email'])->first();
@@ -101,7 +91,7 @@ class AuthController extends Controller
 
         $user->forceFill(['last_login_at' => now()])->save();
 
-        Auth::guard('web')->login($user);
+        Auth::guard('web')->login($user, (bool) ($data['remember'] ?? false));
         $request->session()->regenerate();
 
         return response()->json([
@@ -182,6 +172,46 @@ class AuthController extends Controller
     }
 
     /**
+     * Lengkapi profil onboarding (kampus + kebutuhan) — utamanya untuk pengguna login sosial.
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user('sanctum');
+
+        if (! $user) {
+            return response()->json(['message' => 'Tidak terautentikasi.'], 401);
+        }
+
+        $data = Validator::make($request->all(), [
+            'phone' => ['required', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($user->id)],
+            'university' => ['nullable', 'string', 'max:191'],
+            'interest' => ['nullable'],
+            'nim' => ['nullable', 'string', 'max:40'],
+            'degree' => ['nullable', 'string', 'max:20'],
+        ])->validate();
+
+        $user->phone = $data['phone'];
+        $user->save();
+
+        UserProfile::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'university' => $data['university'] ?? null,
+                'major' => $this->normalizeInterest($data['interest'] ?? null),
+                'nim' => $data['nim'] ?? null,
+                'degree' => $data['degree'] ?? null,
+            ],
+        );
+
+        $user->unsetRelation('profile');
+
+        return response()->json([
+            'message' => 'Profil berhasil disimpan.',
+            'user' => $this->userPayload($user),
+        ]);
+    }
+
+    /**
      * Verifikasi email dari tautan yang dikirim (redirect ke halaman SPA).
      */
     public function verifyEmail(Request $request): \Illuminate\Http\RedirectResponse
@@ -237,6 +267,22 @@ class AuthController extends Controller
     }
 
     /**
+     * Normalisasi nilai "kebutuhan" menjadi string (bisa array dari multi-select).
+     *
+     * @param  mixed  $value
+     */
+    private function normalizeInterest($value): ?string
+    {
+        if (is_array($value)) {
+            $value = implode(', ', $value);
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function userPayload(User $user): array
@@ -260,6 +306,12 @@ class AuthController extends Controller
             'status' => $user->status,
             'email_verified' => $user->hasVerifiedEmail(),
             'is_super_admin' => $user->isSuperAdmin(),
+            'profile' => [
+                'university' => $user->profile?->university,
+                'major' => $user->profile?->major,
+                'nim' => $user->profile?->nim,
+                'degree' => $user->profile?->degree,
+            ],
             'roles' => $user->roles()->pluck('name')->all(),
             'permissions' => $permissions,
         ];
