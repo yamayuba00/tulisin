@@ -94,6 +94,27 @@ async function updateProfile(payload) {
     return { ok: true };
 }
 
+async function updateAccount(payload) {
+    await ensureCsrf();
+    const { ok, data } = await apiFetch('/api/auth/account', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    if (!ok) return { ok: false, error: errorMessage(data, 'Gagal memperbarui akun.') };
+    currentUser.value = data.user || currentUser.value;
+    return { ok: true };
+}
+
+async function changePassword(payload) {
+    await ensureCsrf();
+    const { ok, data } = await apiFetch('/api/auth/password', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    if (!ok) return { ok: false, error: errorMessage(data, 'Gagal mengubah password.') };
+    return { ok: true };
+}
+
 async function resetPassword(email) {
     await ensureCsrf();
     const { ok, data } = await apiFetch('/api/auth/forgot-password', {
@@ -156,6 +177,8 @@ export function useAuth() {
         login,
         register,
         updateProfile,
+        updateAccount,
+        changePassword,
         resetPassword,
         confirmResetPassword,
         resendVerification,

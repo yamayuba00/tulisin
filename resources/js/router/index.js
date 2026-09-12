@@ -107,6 +107,12 @@ const routes = [
                 meta: { title: 'Afiliasi' },
             },
             {
+                path: 'profile',
+                name: 'profile',
+                component: () => import('../apps/profile/index.vue'),
+                meta: { title: 'Profil Saya' },
+            },
+            {
                 path: 'reviews',
                 name: 'my-reviews',
                 component: () => import('../apps/reviews/index.vue'),

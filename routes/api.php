@@ -63,6 +63,8 @@ Route::prefix('auth')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/send-verification', [AuthController::class, 'sendVerificationNotification']);
         Route::post('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/account', [AuthController::class, 'updateAccount']);
+        Route::post('/password', [AuthController::class, 'changePassword']);
     });
 });
 
@@ -194,6 +196,8 @@ Route::middleware('auth:sanctum')->prefix('templates')->group(function () {
 Route::middleware('auth:sanctum')->prefix('affiliate')->group(function () {
     Route::get('/', [AffiliateController::class, 'show']);
     Route::post('/code', [AffiliateController::class, 'updateCode']);
+    Route::post('/withdraw', [AffiliateController::class, 'withdraw']);
+    Route::get('/payouts', [AffiliateController::class, 'payouts']);
 });
 
 // ---- Tulisin Workspace (parsing PDF + simpan file) ----

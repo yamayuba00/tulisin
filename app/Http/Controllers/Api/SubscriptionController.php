@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Referral;
 use App\Models\Setting;
 use App\Models\Subscription;
 use App\Services\Payments\PaymentService;
@@ -48,8 +49,23 @@ class SubscriptionController extends Controller
         $user = $request->user();
         $price = $this->resolvePrice();
 
+        // Diskon Rp 10rb untuk pembelian langganan PERTAMA lewat kode referral.
+        $referral = Referral::where('referred_user_id', $user->id)
+            ->whereIn('status', ['pending', 'registered'])
+            ->first();
+        $hasSubscribed = Subscription::where('user_id', $user->id)->exists();
+
+        $discount = 0;
+        $referralId = null;
+        if ($referral && ! $hasSubscribed) {
+            $discount = (int) config('affiliate.referral_discount', 10000);
+            $referralId = $referral->id;
+        }
+
+        $payable = max(0, $price - $discount);
+
         try {
-            $payment = app(PaymentService::class)->createSubscriptionPayment($user, $price);
+            $payment = app(PaymentService::class)->createSubscriptionPayment($user, $payable, $discount, $referralId);
         } catch (RuntimeException $e) {
             return response()->json(['error' => $e->getMessage()], 502);
         }
@@ -58,6 +74,8 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'message' => 'Silakan selesaikan pembayaran QRIS.',
+            'discount' => $discount,
+            'original_price' => $price,
             'payment' => [
                 'uuid' => $payment->uuid,
                 'invoice_number' => $payment->invoice_number,

@@ -20,10 +20,12 @@ class Subscription extends Model
         'uuid',
         'user_id',
         'payment_id',
+        'referral_id',
         'status',
         'starts_at',
         'ends_at',
         'price',
+        'discount_amount',
         'payment_method',
         'reminded_at',
     ];

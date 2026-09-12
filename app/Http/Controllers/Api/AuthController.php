@@ -188,6 +188,7 @@ class AuthController extends Controller
             'interest' => ['nullable'],
             'nim' => ['nullable', 'string', 'max:40'],
             'degree' => ['nullable', 'string', 'max:20'],
+            'ref' => ['nullable', 'string', 'max:40'],
         ])->validate();
 
         $user->phone = $data['phone'];
@@ -203,12 +204,71 @@ class AuthController extends Controller
             ],
         );
 
+        if (! empty($data['ref'])) {
+            $this->processReferral((string) $data['ref'], $user);
+        }
+
         $user->unsetRelation('profile');
 
         return response()->json([
             'message' => 'Profil berhasil disimpan.',
             'user' => $this->userPayload($user),
         ]);
+    }
+
+    /**
+     * Perbarui data akun (nama). Email sengaja tidak bisa diubah dari sini.
+     */
+    public function updateAccount(Request $request): JsonResponse
+    {
+        $user = $request->user('sanctum');
+
+        if (! $user) {
+            return response()->json(['message' => 'Tidak terautentikasi.'], 401);
+        }
+
+        $data = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:120'],
+        ])->validate();
+
+        $user->name = $data['name'];
+        $user->save();
+
+        return response()->json([
+            'message' => 'Akun berhasil diperbarui.',
+            'user' => $this->userPayload($user),
+        ]);
+    }
+
+    /**
+     * Ganti password — hanya untuk akun manual (login Google tidak punya password).
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user('sanctum');
+
+        if (! $user) {
+            return response()->json(['message' => 'Tidak terautentikasi.'], 401);
+        }
+
+        if ($user->provider) {
+            return response()->json(['message' => 'Akun login Google tidak bisa mengubah password.'], 403);
+        }
+
+        $data = Validator::make($request->all(), [
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'confirmed', Password::min(6)],
+        ])->validate();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Password saat ini salah.'],
+            ]);
+        }
+
+        $user->forceFill(['password' => $data['password']])->save();
+
+        return response()->json(['message' => 'Password berhasil diubah.']);
     }
 
     /**
@@ -304,6 +364,7 @@ class AuthController extends Controller
             'email' => $user->email,
             'phone' => $user->phone,
             'status' => $user->status,
+            'provider' => $user->provider,
             'email_verified' => $user->hasVerifiedEmail(),
             'is_super_admin' => $user->isSuperAdmin(),
             'profile' => [

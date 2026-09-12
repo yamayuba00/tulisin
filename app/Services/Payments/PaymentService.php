@@ -3,8 +3,10 @@
 namespace App\Services\Payments;
 
 use App\Contracts\PaymentProvider;
+use App\Models\AffiliateCommission;
 use App\Models\Coupon;
 use App\Models\Payment;
+use App\Models\Referral;
 use App\Models\Subscription;
 use App\Models\TopupOrder;
 use App\Models\User;
@@ -93,14 +95,17 @@ class PaymentService
     /**
      * Buat order langganan + payment intent QRIS. Langganan diaktifkan
      * setelah pembayaran dikonfirmasi lewat webhook provider.
+     *
+     * @param  int  $discount  Potongan (Rp) untuk pembelian langganan pertama referral.
+     * @param  int|null  $referralId  ID referral bila pengguna membeli lewat kode afiliasi.
      */
-    public function createSubscriptionPayment(User $user, int $price): Payment
+    public function createSubscriptionPayment(User $user, int $price, int $discount = 0, ?int $referralId = null): Payment
     {
         $fee = $this->feeFor($price);
         $total = $price + $fee;
         $invoice = $this->generateInvoiceNumber();
 
-        return DB::transaction(function () use ($user, $price, $fee, $total, $invoice) {
+        return DB::transaction(function () use ($user, $price, $discount, $fee, $total, $invoice, $referralId) {
             $payment = Payment::create([
                 'user_id' => $user->id,
                 'invoice_number' => $invoice,
@@ -114,8 +119,10 @@ class PaymentService
             Subscription::create([
                 'user_id' => $user->id,
                 'payment_id' => $payment->id,
+                'referral_id' => $referralId,
                 'status' => 'pending',
                 'price' => $price,
+                'discount_amount' => $discount,
                 'payment_method' => 'QRIS',
             ]);
 
@@ -231,6 +238,9 @@ class PaymentService
 
     private function activateSubscription(Subscription $subscription): Subscription
     {
+        $referralId = $subscription->referral_id;
+        $referredUserId = $subscription->user_id;
+
         $active = Subscription::where('user_id', $subscription->user_id)
             ->where('status', 'active')
             ->where('ends_at', '>', now())
@@ -243,17 +253,51 @@ class PaymentService
                 'price' => (int) $active->price + $subscription->price,
             ]);
             $subscription->delete();
-
-            return $active->fresh();
+            $result = $active->fresh();
+        } else {
+            $subscription->update([
+                'status' => 'active',
+                'starts_at' => now(),
+                'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
+            ]);
+            $result = $subscription->fresh();
         }
 
-        $subscription->update([
-            'status' => 'active',
-            'starts_at' => now(),
-            'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
+        $this->grantReferralCommission($referralId, $referredUserId);
+
+        return $result;
+    }
+
+    /**
+     * Beri komisi kepada perujuk saat referral-nya membeli langganan pertama kali.
+     */
+    private function grantReferralCommission(?int $referralId, int $referredUserId): void
+    {
+        if (! $referralId) {
+            return;
+        }
+
+        $referral = Referral::find($referralId);
+        if (! $referral || $referral->referrer_id === $referredUserId) {
+            return;
+        }
+
+        // Komisi hanya diberikan sekali per referral.
+        if (AffiliateCommission::where('referral_id', $referralId)->exists()) {
+            return;
+        }
+
+        AffiliateCommission::create([
+            'affiliate_id' => $referral->referrer_id,
+            'referral_id' => $referral->id,
+            'reference_type' => 'subscription',
+            'reference_id' => $referredUserId,
+            'amount' => (float) config('affiliate.commission_per_referral', 4000),
+            'rate' => 100,
+            'status' => 'approved',
         ]);
 
-        return $subscription->fresh();
+        $referral->update(['status' => 'approved']);
     }
 
     private function redeemCoupon(TopupOrder $order): void

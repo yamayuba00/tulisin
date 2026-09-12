@@ -16,6 +16,7 @@ const interests = ref(splitInterests(currentUser.value?.profile?.major));
 const phone = ref(currentUser.value?.phone || '');
 const nim = ref(currentUser.value?.profile?.nim || '');
 const degree = ref(currentUser.value?.profile?.degree || '');
+const refCode = ref('');
 const loading = ref(false);
 const error = ref('');
 
@@ -99,6 +100,7 @@ async function submit() {
         interest: interests.value.join(', '),
         nim: nim.value.trim(),
         degree: degree.value,
+        ref: refCode.value.trim() || undefined,
     });
     loading.value = false;
 
@@ -275,8 +277,18 @@ function skip() {
                             </div>
                         </div>
 
-                        <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
+                        <div>
+                            <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Kode Referral <span class="font-normal text-neutral-400 dark:text-neutral-500">(opsional)</span></label>
+                            <input
+                                v-model="refCode"
+                                type="text"
+                                placeholder="Masukkan kode referral temanmu"
+                                class="mt-1 w-full rounded-xl border border-neutral-200 bg-transparent px-3 py-2.5 text-sm uppercase outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-100 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-500 dark:focus:ring-neutral-800"
+                            />
+                            <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">Kamu bisa hemat Rp 10.000 di langganan pertamamu.</p>
+                        </div>
 
+                        <p v-if="error" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p>
                         <button
                             type="submit"
                             :disabled="loading"

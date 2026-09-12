@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\CreditTransaction;
+use App\Models\AffiliateCommission;
+use App\Models\AffiliatePayout;
 use App\Models\Referral;
 use App\Models\ReferralCode;
-use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AffiliateController extends Controller
@@ -31,16 +33,24 @@ class AffiliateController extends Controller
             ->latest()
             ->get();
 
-        $earned = (int) CreditTransaction::where('user_id', $user->id)
-            ->where('reason', 'affiliate_referral')
+        $commissionBalance = (float) AffiliateCommission::where('affiliate_id', $user->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        $totalWithdrawn = (float) AffiliatePayout::where('affiliate_id', $user->id)
+            ->whereIn('status', ['paid', 'pending'])
             ->sum('amount');
 
         return response()->json([
             'code' => $code->code,
             'is_active' => $code->is_active,
-            'credit_per_referral' => Referral::creditPerReferral(),
             'total_referred' => $referrals->count(),
-            'earned_credits' => $earned,
+            'commission_balance' => $commissionBalance,
+            'total_withdrawn' => $totalWithdrawn,
+            'conversion_rate' => (int) config('affiliate.conversion_rate', 250),
+            'min_withdrawal' => (int) config('affiliate.min_withdrawal', 50000),
+            'commission_per_referral' => (int) config('affiliate.commission_per_referral', 4000),
+            'referral_discount' => (int) config('affiliate.referral_discount', 10000),
             'referrals' => $referrals->map(fn (Referral $r) => [
                 'id' => $r->uuid,
                 'name' => $r->referredUser?->name,
@@ -87,6 +97,96 @@ class AffiliateController extends Controller
             'message' => 'Kode referral berhasil disimpan.',
             'code' => $referralCode->code,
         ]);
+    }
+
+    /**
+     * Tarik komisi: tukar ke koin (langsung masuk wallet) atau ke rekening bank.
+     * Minimal penarikan mengikuti config affiliate.min_withdrawal.
+     */
+    public function withdraw(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $conversionRate = max(1, (int) config('affiliate.conversion_rate', 250));
+        $minWithdrawal = (int) config('affiliate.min_withdrawal', 50000);
+
+        $data = $request->validate([
+            'type' => ['required', 'string', 'in:coins,bank'],
+            'bank_name' => ['required_if:type,bank', 'nullable', 'string', 'max:100'],
+            'account_number' => ['required_if:type,bank', 'nullable', 'string', 'max:40'],
+            'account_name' => ['required_if:type,bank', 'nullable', 'string', 'max:100'],
+        ]);
+
+        $balance = (float) AffiliateCommission::where('affiliate_id', $user->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        if ($balance < $minWithdrawal) {
+            return response()->json([
+                'error' => 'Saldo komisi belum mencapai minimal penarikan Rp ' . number_format($minWithdrawal, 0, ',', '.') . '.',
+            ], 422);
+        }
+
+        $coins = (int) floor($balance / $conversionRate);
+
+        DB::transaction(function () use ($user, $data, $balance, $coins) {
+            if ($data['type'] === 'coins') {
+                $wallet = Wallet::firstOrCreate(['user_id' => $user->id]);
+                $wallet->credit($coins, 'affiliate_withdraw');
+
+                AffiliatePayout::create([
+                    'affiliate_id' => $user->id,
+                    'amount' => $balance,
+                    'method' => 'coins',
+                    'account_detail' => $coins . ' koin',
+                    'status' => 'paid',
+                    'paid_at' => now(),
+                ]);
+            } else {
+                AffiliatePayout::create([
+                    'affiliate_id' => $user->id,
+                    'amount' => $balance,
+                    'method' => 'bank',
+                    'bank_name' => $data['bank_name'] ?? null,
+                    'account_number' => $data['account_number'] ?? null,
+                    'account_name' => $data['account_name'] ?? null,
+                    'account_detail' => trim(($data['bank_name'] ?? '') . ' ' . ($data['account_number'] ?? '') . ' a.n. ' . ($data['account_name'] ?? '')),
+                    'status' => 'pending',
+                ]);
+            }
+
+            AffiliateCommission::where('affiliate_id', $user->id)
+                ->where('status', 'approved')
+                ->update(['status' => 'withdrawn']);
+        });
+
+        return response()->json([
+            'message' => $data['type'] === 'coins'
+                ? 'Komisi berhasil ditukar menjadi ' . $coins . ' koin.'
+                : 'Permintaan penarikan ke rekening bank telah dikirim.',
+        ]);
+    }
+
+    /**
+     * Riwayat penarikan komisi milik pengguna saat ini.
+     */
+    public function payouts(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $payouts = AffiliatePayout::where('affiliate_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(fn (AffiliatePayout $p) => [
+                'id' => $p->uuid,
+                'amount' => $p->amount,
+                'method' => $p->method,
+                'bank_name' => $p->bank_name,
+                'account_number' => $p->account_number,
+                'status' => $p->status,
+                'created_at' => $p->created_at?->toIso8601String(),
+            ]);
+
+        return response()->json(['payouts' => $payouts]);
     }
 
     /**

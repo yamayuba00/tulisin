@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter, useRoute, RouterLink } from 'vue-router';
-import { Mail, Lock, User, Eye, EyeOff, GraduationCap, Phone, Target } from 'lucide-vue-next';
+import { Mail, Lock, User, Eye, EyeOff, GraduationCap, Phone, Target, Gift } from 'lucide-vue-next';
 import AuthLayout from './AuthLayout.vue';
 import SearchableSelect from '../components/SearchableSelect.vue';
 import SocialLoginButtons from '../components/SocialLoginButtons.vue';
@@ -183,6 +183,20 @@ async function submit() {
                         <Target class="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
                     </template>
                 </SearchableSelect>
+            </div>
+
+            <div>
+                <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Kode Referral <span class="font-normal text-neutral-400 dark:text-neutral-500">(opsional)</span></label>
+                <div class="relative mt-1">
+                    <Gift class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 dark:text-neutral-500" />
+                    <input
+                        v-model="referralRef"
+                        type="text"
+                        placeholder="Masukkan kode referral temanmu"
+                        class="w-full rounded-xl border border-neutral-200 bg-transparent py-2.5 pl-9 pr-3 text-sm uppercase outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-100 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-500 dark:focus:ring-neutral-800"
+                    />
+                </div>
+                <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">Kamu bisa hemat Rp 10.000 di langganan pertamamu.</p>
             </div>
 
             <div>

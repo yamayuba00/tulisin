@@ -32,7 +32,11 @@
         <meta property="og:title" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
         <meta property="og:description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
         <meta property="og:url" content="{{ config('app.url') }}">
-        <meta property="og:image" content="{{ config('app.url') }}/og-image.png">
+        <meta property="og:image" content="{{ rtrim((string) config('app.url'), '/') }}/img/tulissin-hero.PNG">
+        <meta property="og:image:width" content="1880">
+        <meta property="og:image:height" content="907">
+        <meta property="og:image:alt" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
+        <meta property="og:image:type" content="image/png">
         <meta property="og:locale" content="id_ID">
         <meta property="og:locale:alternate" content="en_US">
 
@@ -41,7 +45,8 @@
         <meta name="twitter:site" content="{{ '@' . config('app.name') }}">
         <meta name="twitter:title" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
         <meta name="twitter:description" content="{{ config('app.name') }} — platform penulisan akademik berbasis AI. Susun skripsi, tesis, makalah, dan jurnal dengan canvas blok, asisten AI, serta format kampus otomatis.">
-        <meta name="twitter:image" content="{{ config('app.url') }}/og-image.png">
+        <meta name="twitter:image" content="{{ rtrim((string) config('app.url'), '/') }}/img/tulissin-hero.PNG">
+        <meta name="twitter:image:alt" content="{{ config('app.name') }} — Platform Penulisan Akademik Berbasis AI">
 
         {{-- Structured data (JSON-LD) --}}
         @php

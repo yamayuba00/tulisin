@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3, Megaphone, UserCog, Info } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3, Megaphone, UserCog, UserRound, Info } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import TourGuide from '../components/TourGuide.vue';
@@ -39,6 +39,7 @@ const pageTitle = computed(() => {
         lists: 'Dokumen Publik',
         topup: 'Isi Saldo',
         affiliate: 'Afiliasi',
+        profile: 'Profil Saya',
         earn: 'Dapatkan Koin',
         'my-reviews': 'Ulasan',
         'publish-journal': 'Publikasi Jurnal',
@@ -107,6 +108,7 @@ const userNavGroups = [
     {
         label: 'Akun & Koin',
         items: [
+            { label: 'Profil Saya', to: '/apps/u/profile', icon: UserRound },
             { label: 'Isi Saldo', to: '/apps/u/topup', icon: Wallet },
             { label: 'Dapatkan Koin', to: '/apps/u/earn', icon: Gift },
             { label: 'Afiliasi', to: '/apps/u/affiliate', icon: Handshake },
