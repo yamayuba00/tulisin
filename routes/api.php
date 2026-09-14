@@ -207,6 +207,9 @@ Route::middleware('auth:sanctum')->prefix('workspace')->group(function () {
     Route::post('/upload', [WorkspaceController::class, 'upload']);
     Route::get('/files/{id}', [WorkspaceController::class, 'show']);
     Route::delete('/files/{id}', [WorkspaceController::class, 'destroy']);
+    Route::get('/references', [WorkspaceController::class, 'references']);
+    Route::post('/references', [WorkspaceController::class, 'storeReferences']);
+    Route::delete('/references/{id}', [WorkspaceController::class, 'deleteReference']);
 });
 
 // ---- AI (proxy DeepSeek untuk agent canvas/copilot/turnitin/plagiarism) ----

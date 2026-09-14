@@ -58,7 +58,7 @@ import AgentCanvasModal from './components/AgentCanvasModal.vue';
 import ShareModal from './components/ShareModal.vue';
 import { listCustomFonts, addCustomFont, registerFontFace } from '../../utils/fontManager';
 import { CSL_STYLES, formatCitation, authorYearLabel, parseCSLItem, cslFormatter } from '../../utils/csl-formatter';
-import { listReferences as listWorkspaceReferences } from '../../utils/workspaceLibrary';
+import { listReferences as listWorkspaceReferences, syncReferences as syncWorkspaceReferences } from '../../utils/workspaceLibrary';
 import { PROJECT_CATEGORY_OPTIONS, DEFAULT_PROJECT_CATEGORY } from '../../utils/projectCategories';
 import { touchProject } from '../../utils/projectIndex';
 import { DOCUMENT_SECTIONS, buildSectionBlocks, findSection } from '../../utils/sections';
@@ -1568,6 +1568,10 @@ function onGlobalKeydown(e) {
 }
 
 onMounted(async () => {
+    // Sinkronkan pustaka referensi Workspace dari server (per akun). Data
+    // reaktif, jadi WorkspaceViewer & daftar sitasi akan ter-update otomatis.
+    syncWorkspaceReferences();
+
     if (workspaceView.value) return;
     ensureBuilderQuery();
     try {

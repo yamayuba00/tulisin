@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\WorkspaceReference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -122,6 +123,64 @@ class WorkspaceController extends Controller
         $disk->delete($key);
 
         return response()->json(['message' => 'File dihapus.']);
+    }
+
+    /**
+     * Daftar referensi Workspace milik user (CSL-JSON) dari database.
+     */
+    public function references(Request $request): JsonResponse
+    {
+        $items = WorkspaceReference::query()
+            ->where('user_id', $request->user()->id)
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (WorkspaceReference $r) => array_merge(
+                ['id' => $r->ref_id],
+                is_array($r->data) ? $r->data : [],
+            ))
+            ->values()
+            ->all();
+
+        return response()->json($items);
+    }
+
+    /**
+     * Simpan (upsert) satu atau banyak referensi Workspace milik user.
+     * Body: { items: [{ id, ...csl }] }. `id` adalah identitas client (ws_xxx).
+     */
+    public function storeReferences(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'items' => ['required', 'array', 'max:200'],
+            'items.*.id' => ['required', 'string', 'max:64'],
+            'items.*.type' => ['nullable', 'string', 'max:40'],
+            'items.*.title' => ['nullable', 'string'],
+        ]);
+
+        foreach ($data['items'] as $item) {
+            WorkspaceReference::updateOrCreate(
+                [
+                    'user_id' => $request->user()->id,
+                    'ref_id' => (string) $item['id'],
+                ],
+                ['data' => $item],
+            );
+        }
+
+        return $this->references($request);
+    }
+
+    /**
+     * Hapus satu referensi Workspace milik user berdasarkan ref_id.
+     */
+    public function deleteReference(Request $request, string $id): JsonResponse
+    {
+        $deleted = WorkspaceReference::query()
+            ->where('user_id', $request->user()->id)
+            ->where('ref_id', $id)
+            ->delete();
+
+        return response()->json(['deleted' => $deleted > 0]);
     }
 
     /**

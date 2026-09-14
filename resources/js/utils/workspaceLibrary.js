@@ -1,12 +1,37 @@
 // workspaceLibrary.js — Penyimpanan referensi Tulisin Workspace.
-// Mengubah hasil readPdf() menjadi CSL-JSON (format yang dipahami builder sitasi)
-// lalu menyimpannya ke localStorage agar bisa dipakai di builder tanpa backend.
+// Referensi disimpan per akun di server (workspace_references) dan di-cache
+// secara reaktif di memori. localStorage hanya dipakai sebagai cadangan offline
+// dan untuk migrasi otomatis saat server belum punya data.
+
+import { reactive } from 'vue';
+import { request } from './http';
 
 const STORAGE_KEY = 'tulisin:workspace:library';
 
 function uid() {
     return 'ws_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
+
+function loadLocal() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function persistLocal(items) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    } catch {
+        // Abaikan bila localStorage tidak tersedia.
+    }
+}
+
+// Store reaktif — sumber data tunggal untuk seluruh UI.
+const store = reactive({ items: loadLocal() });
 
 // Normalisasi penulis menjadi array { family, given } (dipahami parseCSLItem & authorYearLabel).
 function parseAuthor(name) {
@@ -55,36 +80,82 @@ export function pdfToCSL(pdf, filename = '') {
 }
 
 export function listReferences() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+    return store.items;
 }
 
-function persist(items) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+// Sinkronkan referensi dengan server. Jika server kosong dan masih ada data
+// localStorage, unggah data tersebut (migrasi otomatis) lalu bersihkan lokal.
+export async function syncReferences() {
+    try {
+        const res = await request('/api/workspace/references');
+        if (!res.ok) return store.items;
+
+        let items = Array.isArray(res.data) ? res.data : [];
+        const local = loadLocal();
+
+        if (items.length === 0 && local.length) {
+            const up = await request('/api/workspace/references', {
+                method: 'POST',
+                body: JSON.stringify({ items: local }),
+            });
+            if (up.ok && Array.isArray(up.data)) {
+                items = up.data;
+                try {
+                    localStorage.removeItem(STORAGE_KEY);
+                } catch {
+                    // Abaikan.
+                }
+            } else {
+                items = local;
+            }
+        }
+
+        store.items = items;
+    } catch {
+        // Tetap pakai data lokal bila gagal sinkron.
+    }
+
+    return store.items;
 }
 
 export function addReferences(items) {
-    const list = listReferences();
     for (const item of items) {
-        if (!list.some((r) => r.id === item.id)) list.push(item);
+        if (!store.items.some((r) => r.id === item.id)) store.items.push(item);
     }
-    persist(list);
-    return list;
+    persistLocal(store.items);
+
+    // Kirim ke server (tidak memblokir UI).
+    request('/api/workspace/references', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+    }).catch(() => {});
+
+    return store.items;
 }
 
 export function updateReference(id, patch) {
-    const list = listReferences().map((r) => (r.id === id ? { ...r, ...patch } : r));
-    persist(list);
-    return list;
+    const idx = store.items.findIndex((r) => r.id === id);
+    if (idx === -1) return store.items;
+
+    const updated = { ...store.items[idx], ...patch };
+    store.items.splice(idx, 1, updated);
+    persistLocal(store.items);
+
+    request('/api/workspace/references', {
+        method: 'POST',
+        body: JSON.stringify({ items: [updated] }),
+    }).catch(() => {});
+
+    return store.items;
 }
 
 export function removeReference(id) {
-    const list = listReferences().filter((r) => r.id !== id);
-    persist(list);
-    return list;
+    store.items = store.items.filter((r) => r.id !== id);
+    persistLocal(store.items);
+
+    request(`/api/workspace/references/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+    }).catch(() => {});
+
+    return store.items;
 }

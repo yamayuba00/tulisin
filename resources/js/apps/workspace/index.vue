@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { Upload, FileText, Loader2, Trash2, BookMarked, Quote, Library, Eye, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
-import { pdfToCSL, listReferences, addReferences, removeReference } from '../../utils/workspaceLibrary';
+import { pdfToCSL, listReferences, addReferences, removeReference, syncReferences } from '../../utils/workspaceLibrary';
 import { parseCSLItem, formatBibliography, authorYearLabel } from '../../utils/csl-formatter';
 import { request, getJson } from '../../utils/http';
 import { toast } from '../../utils/toast';
@@ -39,10 +39,12 @@ const confirmGenerateOpen = ref(false);
 const pendingFile = ref(null);
 const subscribed = ref(false);
 
-onMounted(() => {
+onMounted(async () => {
     library.value = listReferences();
     loadCreditPricing();
     loadSubscription();
+    await syncReferences();
+    library.value = listReferences();
 });
 
 async function loadSubscription() {
