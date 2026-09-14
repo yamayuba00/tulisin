@@ -70,12 +70,21 @@ class AiController extends Controller
         };
 
         // Semua agent diproses lewat queue agar request HTTP tidak menahan
-        // worker PHP-FPM. Frontend mem-poll hasilnya lewat status endpoint.
+        // worker PHP-FPM. Status awal ditulis dulu supaya endpoint status
+        // selalu punya data (tidak 404) walau worker belum sempat jalan.
         $token = (string) Str::uuid();
+        $userId = $request->user()->id;
+
+        Cache::put('ai:generate:'.$token, [
+            'status' => 'queued',
+            'user_id' => $userId,
+            'reply' => null,
+            'error' => null,
+        ], now()->addMinutes(10));
 
         GenerateAiJob::dispatch(
             $token,
-            $request->user()->id,
+            $userId,
             $system,
             $user,
             $json,
@@ -96,8 +105,20 @@ class AiController extends Controller
     {
         $data = Cache::get('ai:generate:'.$token);
 
-        if (! $data || ($data['user_id'] ?? null) !== $request->user()->id) {
-            return response()->json(['error' => 'Status tidak ditemukan.'], 404);
+        if (! $data) {
+            return response()->json([
+                'status' => 'failed',
+                'reply' => null,
+                'error' => 'Permintaan AI tidak ditemukan atau sudah kedaluwarsa.',
+            ]);
+        }
+
+        if (($data['user_id'] ?? null) !== $request->user()->id) {
+            return response()->json([
+                'status' => 'failed',
+                'reply' => null,
+                'error' => 'Anda tidak memiliki akses ke permintaan ini.',
+            ]);
         }
 
         return response()->json([
