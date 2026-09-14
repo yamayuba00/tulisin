@@ -248,10 +248,22 @@ class PaymentService
             ->first();
 
         if ($active) {
-            $active->update([
-                'ends_at' => $active->ends_at->addDays(Subscription::PERIOD_DAYS),
-                'price' => (int) $active->price + $subscription->price,
-            ]);
+            // Trial gratis → berbayar: periode 30 hari dihitung dari waktu
+            // pembayaran, bukan ditumpuk di atas sisa trial.
+            if ($active->payment_method === 'trial') {
+                $active->update([
+                    'starts_at' => now(),
+                    'ends_at' => now()->addDays(Subscription::PERIOD_DAYS),
+                    'price' => $subscription->price,
+                    'payment_method' => $subscription->payment_method,
+                ]);
+            } else {
+                $active->update([
+                    'ends_at' => $active->ends_at->addDays(Subscription::PERIOD_DAYS),
+                    'price' => (int) $active->price + $subscription->price,
+                    'payment_method' => $subscription->payment_method,
+                ]);
+            }
             $subscription->delete();
             $result = $active->fresh();
         } else {

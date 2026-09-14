@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, nextTick, watch } from 'vue';
 import { Sparkles, X, Send, Loader2, LayoutGrid, Plus, Info, Trash2, MessageSquarePlus, Menu } from 'lucide-vue-next';
-import { request, streamJson } from '../../../utils/http';
+import { request, requestAiGenerate } from '../../../utils/http';
 import { renderMarkdown } from '../../../utils/markdown';
 import { creditPricing } from '../../../utils/creditPricing';
 
@@ -207,32 +207,22 @@ async function send(text) {
     scrollBottom();
 
     try {
-        await streamJson(
-            '/api/ai/generate',
-            {
-                method: 'POST',
-                body: JSON.stringify({
-                    agent: 'canvas',
-                    message: t,
-                    context: props.summary,
-                    uuid: props.projectUuid,
-                    format: format.value,
-                    blockTypes: props.blockTypes.map((b) => b.id),
-                    history,
-                    stream: true,
-                }),
-            },
-            (ev) => {
-                if (ev.delta != null) {
-                    messages.value[assistantIndex].text += ev.delta;
-                } else if (ev.error != null) {
-                    messages.value[assistantIndex].text = ev.error;
-                }
-                scrollBottom();
-            },
-        );
-        const reply = messages.value[assistantIndex].text;
-        if (activeSessionId.value) persistMessage(activeSessionId.value, 'assistant', reply);
+        const res = await requestAiGenerate({
+            agent: 'canvas',
+            message: t,
+            context: props.summary,
+            uuid: props.projectUuid,
+            format: format.value,
+            blockTypes: props.blockTypes.map((b) => b.id),
+            history,
+        });
+        messages.value[assistantIndex].text = res.ok
+            ? (res.data?.reply || '')
+            : (res.data?.error || 'Gagal menghubungi AI.');
+        scrollBottom();
+        if (res.ok && activeSessionId.value) {
+            persistMessage(activeSessionId.value, 'assistant', messages.value[assistantIndex].text);
+        }
     } catch {
         messages.value[assistantIndex].text = 'Gagal menghubungi AI. Coba lagi.';
     } finally {

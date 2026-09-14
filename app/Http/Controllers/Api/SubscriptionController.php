@@ -50,10 +50,14 @@ class SubscriptionController extends Controller
         $price = $this->resolvePrice();
 
         // Diskon Rp 10rb untuk pembelian langganan PERTAMA lewat kode referral.
+        // Langganan trial (gratis saat daftar) tidak dihitung sebagai pembelian.
         $referral = Referral::where('referred_user_id', $user->id)
             ->whereIn('status', ['pending', 'registered'])
             ->first();
-        $hasSubscribed = Subscription::where('user_id', $user->id)->exists();
+        $hasSubscribed = Subscription::where('user_id', $user->id)
+            ->where('payment_method', '!=', 'trial')
+            ->where('status', '!=', 'pending')
+            ->exists();
 
         $discount = 0;
         $referralId = null;

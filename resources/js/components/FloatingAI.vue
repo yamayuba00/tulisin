@@ -1,7 +1,7 @@
 <script setup>
 import { ref, nextTick } from 'vue';
 import { Sparkles, Send, Loader2 } from 'lucide-vue-next';
-import { request } from '../utils/http';
+import { requestAiGenerate } from '../utils/http';
 import { renderMarkdown } from '../utils/markdown';
 
 const props = defineProps({
@@ -28,13 +28,10 @@ async function send(text) {
     sending.value = true;
 
     try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'copilot',
-                message: t,
-                context: props.canvasContext || props.context || '',
-            }),
+        const res = await requestAiGenerate({
+            agent: 'copilot',
+            message: t,
+            context: props.canvasContext || props.context || '',
         });
         const reply = res.ok
             ? (res.data?.reply || '')

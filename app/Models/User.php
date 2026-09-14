@@ -77,6 +77,28 @@ class User extends Authenticatable implements MustVerifyEmailContract
             ->exists();
     }
 
+    /**
+     * Beri langganan trial gratis untuk akun baru (sekali saja saat registrasi).
+     * Setelah masa trial habis, hasActiveSubscription() otomatis jadi false.
+     */
+    public function grantTrialSubscription(): void
+    {
+        $trialDays = (int) config('subscription.trial_days', 14);
+        if ($trialDays <= 0) {
+            return;
+        }
+
+        Subscription::create([
+            'user_id' => $this->id,
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addDays($trialDays),
+            'price' => 0,
+            'discount_amount' => 0,
+            'payment_method' => 'trial',
+        ]);
+    }
+
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class);

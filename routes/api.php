@@ -215,6 +215,7 @@ Route::middleware('auth:sanctum')->prefix('workspace')->group(function () {
 // ---- AI (proxy DeepSeek untuk agent canvas/copilot/turnitin/plagiarism) ----
 Route::middleware('auth:sanctum')->prefix('ai')->group(function () {
     Route::post('/generate', [AiController::class, 'generate']);
+    Route::get('/generate/{token}', [AiController::class, 'status']);
     Route::get('/results', [ProjectAiResultController::class, 'mine']);
 });
 

@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\DeepSeek;
+use App\Jobs\GenerateAiJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class AiController extends Controller
 {
     /**
      * Proxy percakapan AI ke DeepSeek memakai system prompt sesuai agent.
      */
-    public function generate(Request $request): Response
+    public function generate(Request $request): JsonResponse
     {
         if (! $request->user()->hasActiveSubscription()) {
             return response()->json(['error' => 'Fitur AI memerlukan langganan aktif.'], 402);
@@ -68,45 +69,41 @@ class AiController extends Controller
             default => 0.4,
         };
 
-        // Streaming hanya untuk agent teks bebas (canvas/copilot). Agent JSON
-        // (plagiarism/turnitin) tetap dibuffer agar hasilnya bisa di-parse utuh.
-        if ($request->boolean('stream') && ! $json) {
-            return $this->streamReply($system, $user, $temperature, $history);
-        }
+        // Semua agent diproses lewat queue agar request HTTP tidak menahan
+        // worker PHP-FPM. Frontend mem-poll hasilnya lewat status endpoint.
+        $token = (string) Str::uuid();
 
-        $reply = app(DeepSeek::class)->chat($system, $user, $json, $temperature, $history);
+        GenerateAiJob::dispatch(
+            $token,
+            $request->user()->id,
+            $system,
+            $user,
+            $json,
+            $temperature,
+            $history,
+        );
 
-        if ($reply === null) {
-            return response()->json(['error' => 'Gagal menghubungi AI. Coba lagi.'], 502);
-        }
-
-        return response()->json(['reply' => $reply]);
+        return response()->json([
+            'token' => $token,
+            'status' => 'queued',
+        ], 202);
     }
 
     /**
-     * Kirim balasan AI sebagai Server-Sent Events (SSE) agar teks tampil bertahap.
+     * Poll status & hasil job AI yang dijalankan lewat queue.
      */
-    private function streamReply(string $system, string $user, float $temperature, array $history): Response
+    public function status(Request $request, string $token): JsonResponse
     {
-        return response()->stream(function () use ($system, $user, $temperature, $history) {
-            $full = app(DeepSeek::class)->stream($system, $user, false, $temperature, $history, function (string $delta): void {
-                echo 'data: '.json_encode(['delta' => $delta])."\n\n";
-                @ob_flush();
-                @flush();
-            });
+        $data = Cache::get('ai:generate:'.$token);
 
-            if ($full === null) {
-                echo 'data: '.json_encode(['error' => 'Gagal menghubungi AI. Coba lagi.'])."\n\n";
-            } else {
-                echo 'data: '.json_encode(['done' => true])."\n\n";
-            }
-            @ob_flush();
-            @flush();
-        }, 200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
-            'Connection' => 'keep-alive',
-            'X-Accel-Buffering' => 'no',
+        if (! $data || ($data['user_id'] ?? null) !== $request->user()->id) {
+            return response()->json(['error' => 'Status tidak ditemukan.'], 404);
+        }
+
+        return response()->json([
+            'status' => $data['status'],
+            'reply' => $data['reply'] ?? null,
+            'error' => $data['error'] ?? null,
         ]);
     }
 

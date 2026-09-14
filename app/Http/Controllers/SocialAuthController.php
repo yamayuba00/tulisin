@@ -76,6 +76,8 @@ class SocialAuthController extends Controller
             $user->roles()->attach($role->id);
         }
 
+        $user->grantTrialSubscription();
+
         $this->login($request, $user);
 
         // Pengguna baru diarahkan ke halaman onboarding.

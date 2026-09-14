@@ -212,8 +212,8 @@ const steps = [
     },
 ];
 
-// Data publik homepage: harga langganan & daftar mesin AI (tenaga agent).
-const landing = ref({ monthly_price: 30000, ai_engines: ['DeepSeek'] });
+// Data publik homepage: harga langganan, trial, & daftar mesin AI (tenaga agent).
+const landing = ref({ monthly_price: 30000, trial_days: 14, ai_engines: ['DeepSeek'] });
 
 const plans = computed(() => [
     {
@@ -221,9 +221,10 @@ const plans = computed(() => [
         price: formatCurrency(landing.value.monthly_price),
         period: '/ 30 hari',
         desc: 'Akses penuh semua fitur AI, optimasi, dan ekspor.',
+        badge: landing.value.trial_days > 0 ? `${landing.value.trial_days} hari pertama gratis` : '',
         features: ['Agent Canvas & Asisten AI penuh', 'Turnitin & Plagiarism Optimizer', 'Ekspor PDF siap cetak', 'Semua template & file manager'],
         highlight: true,
-        cta: 'Berlangganan',
+        cta: landing.value.trial_days > 0 ? 'Coba Gratis' : 'Berlangganan',
     },
     {
         name: 'Koin',
@@ -238,26 +239,33 @@ const plans = computed(() => [
 
 // Tabel perbandingan paket untuk section "Paket".
 const comparisonPlans = [
-    { key: 'gratis', label: 'Gratis' },
+    { key: 'trial', label: 'Trial' },
     { key: 'bulanan', label: 'Bulanan', highlight: true },
     { key: 'koin', label: 'Koin' },
 ];
 
 const comparisonRows = [
-    { feature: 'Canvas dokumen (blok)', gratis: true, bulanan: true, koin: true },
-    { feature: 'Asisten AI Kontekstual', gratis: false, bulanan: true, koin: true },
-    { feature: 'Turnitin AI Optimizer', gratis: false, bulanan: true, koin: true },
-    { feature: 'Plagiarism Optimizer', gratis: false, bulanan: true, koin: true },
-    { feature: 'Ekspor PDF siap cetak', gratis: false, bulanan: true, koin: false },
-    { feature: 'Template & File Manager', gratis: true, bulanan: true, koin: false },
+    { feature: 'Canvas dokumen (blok)', trial: true, bulanan: true, koin: true },
+    { feature: 'Asisten AI Kontekstual', trial: true, bulanan: true, koin: true },
+    { feature: 'Turnitin AI Optimizer', trial: true, bulanan: true, koin: true },
+    { feature: 'Plagiarism Optimizer', trial: true, bulanan: true, koin: true },
+    { feature: 'Ekspor PDF siap cetak', trial: true, bulanan: true, koin: false },
+    { feature: 'Template & File Manager', trial: true, bulanan: true, koin: false },
 ];
 
-const faqs = [
-    { q: 'Apakah hasil tulisan saya terdeteksi AI atau plagiarisme?', a: `Tidak. ${appName} punya AI Optimizer dan Plagiarism Optimizer untuk membuat gaya tulisan lebih manusiawi serta menurunkan skor kemiripan sebelum kamu kirim ke Turnitin.` },
-    { q: 'Apakah formatnya sesuai standar kampus (margin, APA, IEEE, dll.)?', a: 'Ya. Margin, spasi, font, hingga gaya sitasi (APA, IEEE, Harvard) diatur otomatis dan bisa disesuaikan dengan pedoman kampusmu.' },
-    { q: 'Apakah ide & data penelitian saya aman?', a: 'Aman. Dokumen hanya bisa diakses akunmu dan tidak dipublikasikan tanpa izin. Berbagi publik (Lists Project) bersifat opsional dan read-only.' },
-    { q: 'Apakah ada opsi uji coba gratis?', a: 'Ada. Kamu bisa mulai menulis dengan paket gratis tanpa kartu kredit, lalu upgrade hanya saat butuh fitur AI & ekspor.' },
-];
+const faqs = computed(() => {
+    const items = [
+        { q: 'Apakah hasil tulisan saya terdeteksi AI atau plagiarisme?', a: `Tidak. ${appName} punya AI Optimizer dan Plagiarism Optimizer untuk membuat gaya tulisan lebih manusiawi serta menurunkan skor kemiripan sebelum kamu kirim ke Turnitin.` },
+        { q: 'Apakah formatnya sesuai standar kampus (margin, APA, IEEE, dll.)?', a: 'Ya. Margin, spasi, font, hingga gaya sitasi (APA, IEEE, Harvard) diatur otomatis dan bisa disesuaikan dengan pedoman kampusmu.' },
+        { q: 'Apakah ide & data penelitian saya aman?', a: 'Aman. Dokumen hanya bisa diakses akunmu dan tidak dipublikasikan tanpa izin. Berbagi publik (Lists Project) bersifat opsional dan read-only.' },
+    ];
+
+    if (landing.value.trial_days > 0) {
+        items.push({ q: 'Apakah ada opsi uji coba gratis?', a: `Ada. Kamu dapat ${landing.value.trial_days} hari pertama gratis tanpa kartu kredit untuk mencoba semua fitur AI & ekspor, lalu lanjut berlangganan hanya jika cocok.` });
+    }
+
+    return items;
+});
 
 // Perbandingan: cara manual vs Tulisin.
 const comparison = [
@@ -307,6 +315,7 @@ async function loadLanding() {
         const data = await getJson('/api/landing-settings');
         landing.value = {
             monthly_price: Number(data.monthly_price) || 30000,
+            trial_days: Number(data.trial_days ?? 14),
             ai_engines: Array.isArray(data.ai_engines) && data.ai_engines.length ? data.ai_engines : ['DeepSeek'],
         };
     } catch {
@@ -870,6 +879,12 @@ onBeforeUnmount(() => {
                             {{ p.price }}<span v-if="p.period" class="text-sm font-normal text-neutral-400 dark:text-neutral-500">{{ p.period }}</span>
                         </p>
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{{ p.desc }}</p>
+                        <span
+                            v-if="p.badge"
+                            class="mt-3 inline-flex w-fit items-center rounded-full bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white dark:bg-white dark:text-neutral-900"
+                        >
+                            {{ p.badge }}
+                        </span>
                         <ul class="mt-6 flex-1 space-y-3">
                             <li v-for="f in p.features" :key="f" class="flex items-center gap-3 text-sm">
                                 <Check class="h-4 w-4 shrink-0 text-neutral-900 dark:text-white" />

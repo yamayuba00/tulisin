@@ -46,6 +46,8 @@ class AuthController extends Controller
             $user->roles()->attach($role->id);
         }
 
+        $user->grantTrialSubscription();
+
         if (! empty($data['university']) || ! empty($data['interest'])) {
             UserProfile::create([
                 'user_id' => $user->id,

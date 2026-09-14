@@ -18,6 +18,7 @@ class LandingController extends Controller
         return response()->json([
             'monthly_price' => $this->resolveMonthlyPrice(),
             'ai_engines' => $this->resolveAiEngines(),
+            'trial_days' => (int) config('subscription.trial_days', 14),
         ]);
     }
 

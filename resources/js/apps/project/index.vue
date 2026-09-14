@@ -62,7 +62,7 @@ import { listReferences as listWorkspaceReferences, syncReferences as syncWorksp
 import { PROJECT_CATEGORY_OPTIONS, DEFAULT_PROJECT_CATEGORY } from '../../utils/projectCategories';
 import { touchProject } from '../../utils/projectIndex';
 import { DOCUMENT_SECTIONS, buildSectionBlocks, findSection } from '../../utils/sections';
-import { getJson, request, ensureCsrf } from '../../utils/http';
+import { getJson, request, ensureCsrf, requestAiGenerate } from '../../utils/http';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 import { buildTemplateBlocks } from '../../utils/templates';
 import { renderMarkdown } from '../../utils/markdown';
@@ -2496,14 +2496,11 @@ async function generateBlockContent() {
     if (!(await spendCredits('ai_generate'))) return;
     aiGenLoading.value = true;
     try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'copilot',
-                message: prompt,
-                context: [documentStructure.value, activeBlockContext.value].filter(Boolean).join('\n\n'),
-                uuid: projectId.value,
-            }),
+        const res = await requestAiGenerate({
+            agent: 'copilot',
+            message: prompt,
+            context: [documentStructure.value, activeBlockContext.value].filter(Boolean).join('\n\n'),
+            uuid: projectId.value,
         });
         aiGenOutput.value = res.ok
             ? (res.data?.reply || '')
@@ -2522,14 +2519,11 @@ async function generatePageContent() {
     if (!(await spendCredits('ai_generate'))) return;
     aiGenLoading.value = true;
     try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'copilot',
-                message: prompt,
-                context: [documentStructure.value, currentPageContext.value].filter(Boolean).join('\n\n'),
-                uuid: projectId.value,
-            }),
+        const res = await requestAiGenerate({
+            agent: 'copilot',
+            message: prompt,
+            context: [documentStructure.value, currentPageContext.value].filter(Boolean).join('\n\n'),
+            uuid: projectId.value,
         });
         aiGenOutput.value = res.ok
             ? (res.data?.reply || '')
@@ -2644,14 +2638,11 @@ async function runPlagiarismCheck(blockUid = null) {
         .join('\n\n');
 
     try {
-        const res = await request('/api/ai/generate', {
-            method: 'POST',
-            body: JSON.stringify({
-                agent: 'plagiarism',
-                message: 'Cek kemiripan teks berikut dan berikan saran parafrase agar di bawah 20%.',
-                context: text || 'Tidak ada teks.',
-                uuid: projectId.value,
-            }),
+        const res = await requestAiGenerate({
+            agent: 'plagiarism',
+            message: 'Cek kemiripan teks berikut dan berikan saran parafrase agar di bawah 20%.',
+            context: text || 'Tidak ada teks.',
+            uuid: projectId.value,
         });
 
         let parsed = null;
@@ -2834,14 +2825,11 @@ async function runTurnitinCheck() {
     // Jalankan animasi pemindaian + request AI secara paralel; hasil baru
     // ditampilkan setelah keduanya selesai (user tidak bisa berpindah selama ini).
     const screening = runTurnitinScreening(totalPages, totalChars);
-    const aiRequest = request('/api/ai/generate', {
-        method: 'POST',
-        body: JSON.stringify({
-            agent: 'turnitin',
-            message: 'Periksa kemiripan teks ini dengan sumber lain, lalu tulis ulang kalimat yang mirip agar skor kemiripan turun.',
-            context: text || 'Tidak ada teks.',
-            uuid: projectId.value,
-        }),
+    const aiRequest = requestAiGenerate({
+        agent: 'turnitin',
+        message: 'Periksa kemiripan teks ini dengan sumber lain, lalu tulis ulang kalimat yang mirip agar skor kemiripan turun.',
+        context: text || 'Tidak ada teks.',
+        uuid: projectId.value,
     }).catch(() => ({ ok: false, status: 0, data: { error: 'Gagal menghubungi AI. Coba lagi.' } }));
 
     const [res] = await Promise.all([aiRequest, screening]);
