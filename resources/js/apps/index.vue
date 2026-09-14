@@ -38,6 +38,7 @@ const pageTitle = computed(() => {
         projects: 'Dokumen Saya',
         lists: 'Dokumen Publik',
         topup: 'Isi Saldo',
+        invoices: 'Invoice',
         affiliate: 'Afiliasi',
         profile: 'Profil Saya',
         earn: 'Dapatkan Koin',
@@ -110,6 +111,7 @@ const userNavGroups = [
         items: [
             { label: 'Profil Saya', to: '/apps/u/profile', icon: UserRound },
             { label: 'Isi Saldo', to: '/apps/u/topup', icon: Wallet },
+            { label: 'Invoice', to: '/apps/u/invoices', icon: ReceiptText },
             { label: 'Dapatkan Koin', to: '/apps/u/earn', icon: Gift },
             { label: 'Afiliasi', to: '/apps/u/affiliate', icon: Handshake },
             { label: 'Ulasan', to: '/apps/u/reviews', icon: Star },

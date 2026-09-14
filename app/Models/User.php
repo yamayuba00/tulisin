@@ -60,6 +60,13 @@ class User extends Authenticatable implements MustVerifyEmailContract
 
     public function hasActiveSubscription(): bool
     {
+        // Role internal (super-admin & brand ambassador) dianggap selalu punya
+        // langganan aktif agar bisa memakai fitur berbayar (AI, PDF, Workspace,
+        // Media, Font) tanpa harus melakukan pembelian.
+        if ($this->hasRole('super-admin') || $this->hasRole('brand-ambassador')) {
+            return true;
+        }
+
         // Cek keberadaan langganan aktif apa pun, bukan hanya yang terbaru.
         // (Subscription "pending" hasil perpanjangan tidak boleh menutupi
         // langganan aktif yang sudah ada.)

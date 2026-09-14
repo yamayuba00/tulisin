@@ -435,28 +435,53 @@ onBeforeUnmount(() => {
     <div class="min-h-screen text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <!-- Information banner (di atas header) -->
         <div
-            v-if="infoBanner && infoBanner.enabled && infoBanner.text && !infoBannerDismissed"
-            class="relative z-50 border-b border-neutral-200 bg-neutral-900 text-neutral-100 dark:border-neutral-800 dark:bg-white dark:text-neutral-900"
+            v-if="infoBanner && infoBanner.enabled && infoBanner.messages?.length && !infoBannerDismissed"
+            class="relative z-50 border-b border-black/10"
+            :style="{ background: infoBanner.background, color: infoBanner.text_color }"
         >
-            <div class="mx-auto flex max-w-6xl items-center justify-center gap-2 px-10 py-2 text-center text-sm lg:px-6">
+            <!-- Mode tunggal -->
+            <div v-if="infoBanner.mode !== 'marquee'" class="mx-auto flex max-w-6xl items-center justify-center gap-2 px-10 py-2 text-center text-sm lg:px-6">
                 <Sparkles class="h-4 w-4 shrink-0 opacity-70" />
                 <p class="min-w-0">
-                    {{ infoBanner.text }}
+                    {{ infoBanner.messages[0].text }}
                     <a
-                        v-if="infoBanner.link_text && infoBanner.link_url"
-                        :href="infoBanner.link_url"
+                        v-if="infoBanner.messages[0].link_text && infoBanner.messages[0].link_url"
+                        :href="infoBanner.messages[0].link_url"
                         class="ml-1 font-semibold underline underline-offset-4 hover:opacity-80"
-                    >{{ infoBanner.link_text }}</a>
+                    >{{ infoBanner.messages[0].link_text }}</a>
                 </p>
-                <button
-                    type="button"
-                    class="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md opacity-70 hover:opacity-100"
-                    aria-label="Tutup"
-                    @click="infoBannerDismissed = true"
-                >
-                    <X class="h-4 w-4" />
-                </button>
             </div>
+
+            <!-- Mode marquee / banyak informasi -->
+            <div v-else class="banner-marquee overflow-hidden px-10 py-2 text-sm">
+                <div
+                    class="banner-marquee-track flex w-max items-center gap-10"
+                    :style="{ animationDuration: `${infoBanner.speed || 40}s` }"
+                >
+                    <p
+                        v-for="(m, i) in [...infoBanner.messages, ...infoBanner.messages]"
+                        :key="i"
+                        class="flex items-center gap-2 whitespace-nowrap"
+                    >
+                        <Sparkles class="h-4 w-4 shrink-0 opacity-70" />
+                        <span>{{ m.text }}</span>
+                        <a
+                            v-if="m.link_text && m.link_url"
+                            :href="m.link_url"
+                            class="font-semibold underline underline-offset-4 hover:opacity-80"
+                        >{{ m.link_text }}</a>
+                    </p>
+                </div>
+            </div>
+
+            <button
+                type="button"
+                class="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md opacity-70 hover:opacity-100"
+                aria-label="Tutup"
+                @click="infoBannerDismissed = true"
+            >
+                <X class="h-4 w-4" />
+            </button>
         </div>
 
         <!-- Navbar -->
@@ -1103,17 +1128,26 @@ onBeforeUnmount(() => {
 
         <!-- Footer -->
         <footer class="border-t border-neutral-200 py-10 dark:border-neutral-800">
-            <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-neutral-500 dark:text-neutral-400 md:flex-row lg:px-6">
-                <div class="inline-flex items-center gap-2 font-semibold text-neutral-900 dark:text-white">
-                    <PenLine class="h-4 w-4" />
-                    {{ appName }}
+            <div class="mx-auto max-w-6xl px-4 lg:px-6">
+                <div class="flex flex-col items-center justify-between gap-4 text-sm text-neutral-500 dark:text-neutral-400 md:flex-row">
+                    <div class="inline-flex items-center gap-2 font-semibold text-neutral-900 dark:text-white">
+                        <PenLine class="h-4 w-4" />
+                        {{ appName }}
+                    </div>
+                    <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                        <a href="#fitur" class="hover:text-neutral-900 dark:hover:text-white">Fitur</a>
+                        <a href="#paket" class="hover:text-neutral-900 dark:hover:text-white">Paket</a>
+                        <a href="#faq" class="hover:text-neutral-900 dark:hover:text-white">FAQ</a>
+                    </div>
                 </div>
-                <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-                    <a href="#fitur" class="hover:text-neutral-900 dark:hover:text-white">Fitur</a>
-                    <a href="#paket" class="hover:text-neutral-900 dark:hover:text-white">Paket</a>
-                    <a href="#faq" class="hover:text-neutral-900 dark:hover:text-white">FAQ</a>
+                <div class="mt-4 flex flex-col items-center justify-between gap-3 border-t border-neutral-100 pt-4 text-xs text-neutral-400 dark:border-neutral-800 dark:text-neutral-500 md:flex-row">
+                    <p>&copy; 2026 PT Kerja Tanpa Batas. Semua hak dilindungi.</p>
+                    <div class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+                        <RouterLink to="/terms" class="hover:text-neutral-900 dark:hover:text-white">Syarat & Ketentuan</RouterLink>
+                        <RouterLink to="/privacy" class="hover:text-neutral-900 dark:hover:text-white">Kebijakan Privasi</RouterLink>
+                        <RouterLink to="/contact" class="hover:text-neutral-900 dark:hover:text-white">Kontak</RouterLink>
+                    </div>
                 </div>
-                <p>&copy; 2026 {{ appName }}. Semua hak dilindungi.</p>
             </div>
         </footer>
 
@@ -1134,6 +1168,18 @@ onBeforeUnmount(() => {
 }
 .animate-float {
     animation: float 6s ease-in-out infinite;
+}
+
+@keyframes marquee {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+.banner-marquee-track {
+    animation: marquee linear infinite;
 }
 
 @keyframes blink {

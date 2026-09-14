@@ -50,6 +50,24 @@ const routes = [
         meta: { title: 'Reset Password', description: `Buat kata sandi baru untuk akun ${appName} kamu.` },
     },
     {
+        path: '/terms',
+        name: 'terms',
+        component: () => import('../pages/LegalPage.vue'),
+        meta: { title: 'Syarat & Ketentuan', description: `Syarat dan ketentuan penggunaan layanan ${appName}.` },
+    },
+    {
+        path: '/privacy',
+        name: 'privacy',
+        component: () => import('../pages/LegalPage.vue'),
+        meta: { title: 'Kebijakan Privasi', description: `Kebijakan privasi ${appName}.` },
+    },
+    {
+        path: '/contact',
+        name: 'contact',
+        component: () => import('../pages/LegalPage.vue'),
+        meta: { title: 'Kontak', description: `Hubungi tim ${appName}.` },
+    },
+    {
         path: '/boarding',
         name: 'boarding',
         component: () => import('../pages/BoardingPage.vue'),
@@ -93,6 +111,12 @@ const routes = [
                 name: 'topup',
                 component: () => import('../apps/topup/index.vue'),
                 meta: { title: 'Isi Saldo' },
+            },
+            {
+                path: 'invoices',
+                name: 'invoices',
+                component: () => import('../apps/invoices/index.vue'),
+                meta: { title: 'Invoice' },
             },
             {
                 path: 'earn',
@@ -332,7 +356,9 @@ const routes = [
     },
     {
         path: '/:pathMatch(.*)*',
-        redirect: '/',
+        name: 'not-found',
+        component: () => import('../pages/NotFoundPage.vue'),
+        meta: { title: 'Halaman Tidak Ditemukan', description: 'Halaman yang kamu cari tidak ditemukan.' },
     },
 ];
 

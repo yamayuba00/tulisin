@@ -118,7 +118,7 @@ async function submit() {
 </script>
 
 <template>
-    <AuthLayout>
+    <AuthLayout wide>
         <h2 class="text-center text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">Buat akun</h2>
         <p class="mt-1.5 text-center text-sm text-neutral-500 dark:text-neutral-400">Mulai tulis dokumen pertamamu hari ini.</p>
 
@@ -126,7 +126,7 @@ async function submit() {
             Kamu mendaftar lewat link referral <span class="font-mono">{{ referralRef }}</span>
         </p>
 
-        <form class="mt-6 space-y-4" @submit.prevent="submit">
+        <form class="mt-6 grid gap-4 sm:grid-cols-2" @submit.prevent="submit">
             <div>
                 <label class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Nama Lengkap <span class="text-red-500">*</span></label>
                 <div class="relative mt-1">
@@ -234,7 +234,7 @@ async function submit() {
                 </div>
             </div>
 
-            <div class="space-y-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800">
+            <div class="space-y-2 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 sm:col-span-2">
                 <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400">Langganan (opsional)</p>
                 <label class="flex cursor-pointer items-start gap-2 text-sm">
                     <input
@@ -254,16 +254,16 @@ async function submit() {
                 </label>
             </div>
 
-            <p class="text-xs text-neutral-400 dark:text-neutral-500">Kolom bertanda <span class="text-red-500">*</span> wajib diisi.</p>
+            <p class="text-xs text-neutral-400 dark:text-neutral-500 sm:col-span-2">Kolom bertanda <span class="text-red-500">*</span> wajib diisi.</p>
 
-            <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+            <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400 sm:col-span-2">
                 {{ error }}
             </p>
 
             <button
                 type="submit"
                 :disabled="loading"
-                class="w-full cursor-pointer rounded-xl border border-neutral-900 bg-neutral-900 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-60 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                class="w-full cursor-pointer rounded-xl border border-neutral-900 bg-neutral-900 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-neutral-800 disabled:pointer-events-none disabled:opacity-60 dark:border-white dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200 sm:col-span-2"
             >
                 {{ loading ? 'Memproses...' : 'Daftar' }}
             </button>

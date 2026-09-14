@@ -167,6 +167,7 @@ Route::middleware('auth:sanctum')->prefix('wallet')->group(function () {
 
 // ---- Pembayaran (provider: SumoPod QRIS) ----
 Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
+    Route::get('/', [PaymentController::class, 'index']);
     Route::get('/meta', [PaymentController::class, 'meta']);
     Route::get('/{uuid}', [PaymentController::class, 'show']);
 });

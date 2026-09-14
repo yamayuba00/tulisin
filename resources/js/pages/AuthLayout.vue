@@ -1,7 +1,14 @@
 <script setup>
+import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { PenLine, ArrowLeft, Check } from 'lucide-vue-next';
 import appName from '../utils/appName';
+
+const props = defineProps({
+    wide: { type: Boolean, default: false },
+});
+
+const containerClass = computed(() => (props.wide ? 'max-w-2xl' : 'max-w-md'));
 </script>
 
 <template>
@@ -12,7 +19,7 @@ import appName from '../utils/appName';
             <div class="absolute bottom-0 right-0 h-72 w-72 rounded-full bg-neutral-200/40 blur-3xl dark:bg-neutral-800/30"></div>
         </div>
 
-        <div class="relative w-full max-w-md">
+        <div class="relative w-full" :class="containerClass">
             <!-- Logo -->
             <RouterLink to="/" class="mb-8 flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">
                 <PenLine class="h-6 w-6" />
