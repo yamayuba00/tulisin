@@ -140,6 +140,17 @@ class WalletController extends Controller
             'pages' => ['sometimes', 'integer', 'min:0', 'max:100000'],
         ]);
 
+        // Role internal (super-admin & brand ambassador) tidak dipotong koin.
+        if ($request->user()->isInternalRole()) {
+            $wallet = $this->walletFor($request);
+
+            return response()->json([
+                'message' => 'Akses gratis (role internal).',
+                'balance' => $wallet->balance,
+                'cost' => 0,
+            ]);
+        }
+
         $cost = CreditPricing::cost(
             (string) $data['reason'],
             (int) ($data['quantity'] ?? 1),

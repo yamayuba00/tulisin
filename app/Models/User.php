@@ -63,7 +63,7 @@ class User extends Authenticatable implements MustVerifyEmailContract
         // Role internal (super-admin & brand ambassador) dianggap selalu punya
         // langganan aktif agar bisa memakai fitur berbayar (AI, PDF, Workspace,
         // Media, Font) tanpa harus melakukan pembelian.
-        if ($this->hasRole('super-admin') || $this->hasRole('brand-ambassador')) {
+        if ($this->isInternalRole()) {
             return true;
         }
 
@@ -90,6 +90,15 @@ class User extends Authenticatable implements MustVerifyEmailContract
     public function isSuperAdmin(): bool
     {
         return $this->hasRole('super-admin');
+    }
+
+    /**
+     * Role internal (super-admin & brand ambassador) mendapat akses gratis
+     * ke fitur berbayar tanpa perlu berlangganan ataupun memotong koin.
+     */
+    public function isInternalRole(): bool
+    {
+        return $this->isSuperAdmin() || $this->hasRole('brand-ambassador');
     }
 
     public function hasPermission(string $permission): bool

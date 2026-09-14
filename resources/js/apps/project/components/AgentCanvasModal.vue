@@ -186,7 +186,7 @@ async function send(text) {
     }
 
     // Potong koin sesuai tarif admin (agent_generate) sebelum memproses.
-    if (props.spendCredits && !(await props.spendCredits(costPerMessage.value, 'agent_generate'))) {
+    if (props.spendCredits && !(await props.spendCredits('agent_generate'))) {
         messages.value.push({ role: 'assistant', text: 'Saldo koin kamu tidak cukup untuk prompt berikutnya. Silakan top up terlebih dahulu.' });
         scrollBottom();
         return;

@@ -2614,7 +2614,7 @@ async function confirmPlagiarismCheck() {
     const blockUid = plagiarismPendingBlockUid.value;
     plagiarismConfirmOpen.value = false;
     plagiarismPendingBlockUid.value = null;
-    if (!(await spendCredits(creditPricing.value.ai_plagiarism, 'plagiarism_check'))) return;
+    if (!(await spendCredits('plagiarism_check'))) return;
     await runPlagiarismCheck(blockUid);
 }
 
@@ -2715,7 +2715,7 @@ function recalcSimilarity(result) {
 async function applyPlagiarismFix(match) {
     if (!match || match.applied || match.rejected) return;
     // Setiap parafrase yang diterapkan memotong 1 koin.
-    if (!(await spendCredits(creditPricing.value.ai_plagiarism, 'plagiarism_paraphrase'))) return;
+    if (!(await spendCredits('plagiarism_paraphrase'))) return;
     const b = canvasBlocks.value.find((x) => x.uid === match.blockUid);
     if (!b) return;
     const plain = (b.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -2767,7 +2767,7 @@ function cancelTurnitinCheck() {
 
 async function confirmTurnitinCheck() {
     turnitinConfirmOpen.value = false;
-    if (!(await spendCredits(creditPricing.value.ai_turnitin, 'turnitin_optimize'))) return;
+    if (!(await spendCredits('turnitin_optimize'))) return;
     await runTurnitinCheck();
 }
 
@@ -3112,7 +3112,7 @@ async function onFontFileChange(e) {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
     if (!files.length) return;
-    if (!(await spendCredits(files.length * creditPricing.value.font, 'font_upload'))) return;
+    if (!(await spendCredits('font_upload', { quantity: files.length }))) return;
     for (const file of files) {
         const font = await addCustomFont(file);
         registerFontFace(font);
