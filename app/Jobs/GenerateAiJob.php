@@ -9,6 +9,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Jalankan permintaan AI (DeepSeek) di belakang layar supaya request HTTP tidak
@@ -42,21 +43,30 @@ class GenerateAiJob implements ShouldQueue
     {
         $this->setStatus('processing');
 
-        $reply = $deepSeek->chat(
-            $this->system,
-            $this->user,
-            $this->json,
-            $this->temperature,
-            $this->history,
-        );
+        try {
+            $reply = $deepSeek->chat(
+                $this->system,
+                $this->user,
+                $this->json,
+                $this->temperature,
+                $this->history,
+            );
 
-        if ($reply === null) {
+            if ($reply === null) {
+                $this->setStatus('failed', 'Gagal menghubungi AI. Coba lagi.');
+
+                return;
+            }
+
+            $this->setStatus('done', null, $reply);
+        } catch (\Throwable $e) {
+            Log::error('GenerateAiJob gagal', [
+                'token' => $this->token,
+                'error' => $e->getMessage(),
+            ]);
+
             $this->setStatus('failed', 'Gagal menghubungi AI. Coba lagi.');
-
-            return;
         }
-
-        $this->setStatus('done', null, $reply);
     }
 
     private function setStatus(string $status, ?string $error = null, ?string $reply = null): void

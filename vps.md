@@ -30,8 +30,8 @@ Buat file `/etc/supervisor/conf.d/tulissin-ai.conf`:
 ```ini
 [program:tulissin-ai-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/tulissin/artisan queue:work --queue=ai --sleep=3 --tries=1 --max-time=3600
-directory=/var/www/tulissin
+command=php /var/www/tulisin/artisan queue:work --queue=ai --sleep=3 --tries=1 --max-time=3600
+directory=/var/www/tulisin
 autostart=true
 autorestart=true
 stopasgroup=true
@@ -39,7 +39,7 @@ killasgroup=true
 numprocs=5
 user=www-data
 redirect_stderr=true
-stdout_logfile=/var/www/tulissin/storage/logs/worker.log
+stdout_logfile=/var/www/tulisin/storage/logs/worker.log
 ```
 
 Penjelasan penting:
@@ -77,7 +77,7 @@ sudo supervisorctl restart tulissin-ai-worker:*
 sudo supervisorctl stop tulissin-ai-worker:*
 
 # Lihat log
-tail -f /var/www/tulissin/storage/logs/worker.log
+tail -f /var/www/tulisin/storage/logs/worker.log
 ```
 
 ## 6. Setelah deploy kode

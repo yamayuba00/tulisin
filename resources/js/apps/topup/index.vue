@@ -71,6 +71,13 @@ const canSubmit = computed(() => effectiveAmount.value >= MIN_AMOUNT && !submitt
 
 const isSubscribed = computed(() => !!sub.value?.active);
 const subEndsAt = computed(() => sub.value?.subscription?.ends_at || null);
+const isTrial = computed(() => sub.value?.subscription?.payment_method === 'trial');
+const trialDaysLeft = computed(() => {
+    if (!subEndsAt.value) return 0;
+    const ends = new Date(subEndsAt.value).getTime();
+    if (Number.isNaN(ends)) return 0;
+    return Math.max(0, Math.ceil((ends - Date.now()) / (24 * 60 * 60 * 1000)));
+});
 
 // Perpanjangan hanya bisa dilakukan mulai 5 hari sebelum masa aktif berakhir.
 const RENEW_WINDOW_DAYS = 5;
@@ -429,7 +436,24 @@ onBeforeUnmount(() => {
                         Langganan Bulanan
                     </div>
 
-                    <div v-if="isSubscribed" class="mt-3">
+                    <div v-if="isTrial" class="mt-3">
+                        <StatusBadge label="Trial" tone="info" />
+                        <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                            Kamu sedang dalam masa trial gratis. Berlaku sampai
+                            <span class="font-medium">{{ formatDate(subEndsAt, { withTime: true }) }}</span>
+                            (sisa {{ trialDaysLeft }} hari).
+                        </p>
+                        <p class="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                            Semua fitur aktif selama trial. Berlangganan kapan saja untuk lanjut setelah masa trial habis.
+                        </p>
+                        <p class="mt-2 text-lg font-bold">{{ formatCurrency(sub?.monthly_price || 30000) }} <span class="text-xs font-normal text-neutral-400">/ 30 hari</span></p>
+                        <AppButton block class="mt-3" :disabled="subscribing" @click="subscribe">
+                            <Loader2 v-if="subscribing" class="h-4 w-4 animate-spin" />
+                            {{ subscribing ? 'Memproses…' : 'Berlangganan Sekarang' }}
+                        </AppButton>
+                    </div>
+
+                    <div v-else-if="isSubscribed" class="mt-3">
                         <StatusBadge label="Aktif" tone="success" />
                         <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
                             Berlaku sampai <span class="font-medium">{{ formatDate(subEndsAt, { withTime: true }) }}</span>.

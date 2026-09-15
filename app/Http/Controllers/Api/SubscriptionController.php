@@ -36,6 +36,7 @@ class SubscriptionController extends Controller
                 'starts_at' => $subscription->starts_at?->toISOString(),
                 'ends_at' => $subscription->ends_at?->toISOString(),
                 'price' => (int) $subscription->price,
+                'payment_method' => $subscription->payment_method,
             ] : null,
         ]);
     }

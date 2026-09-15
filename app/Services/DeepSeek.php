@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class DeepSeek
 {
@@ -26,9 +27,16 @@ class DeepSeek
             $payload['response_format'] = ['type' => 'json_object'];
         }
 
-        $response = Http::timeout(90)
-            ->withToken((string) config('services.deepseek.api_key'))
-            ->post(rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions', $payload);
+        try {
+            $response = Http::timeout(90)
+                ->connectTimeout(30)
+                ->withToken((string) config('services.deepseek.api_key'))
+                ->post(rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions', $payload);
+        } catch (\Throwable $e) {
+            Log::error('DeepSeek request gagal', ['error' => $e->getMessage()]);
+
+            return null;
+        }
 
         if (! $response->successful()) {
             return null;
