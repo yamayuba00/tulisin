@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3, Megaphone, UserCog, UserRound, Info } from 'lucide-vue-next';
+import { Home, FolderKanban, Wallet, Handshake, Menu, LogOut, LayoutTemplate, FileText, FolderOpen, Type, Gift, Users, ShieldCheck, BadgeCheck, ReceiptText, MessageSquare, ScrollText, Sparkles, Library, Coins, ScanSearch, Share2, CreditCard, FileDown, Ticket, Mail, Star, Cpu, Send, Activity, BarChart3, Megaphone, UserCog, UserRound, Info, Image as ImageIcon } from 'lucide-vue-next';
 import SidebarLink from '../components/SidebarLink.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import TourGuide from '../components/TourGuide.vue';
@@ -140,6 +140,7 @@ const adminNavGroups = [
             { label: 'Mesin AI', to: '/apps/u/admin/ai-settings', icon: Cpu },
             { label: 'Dokumen Dibagikan', to: '/apps/u/admin/shared', icon: Share2 },
             { label: 'Banner Informasi', to: '/apps/u/admin/banner', icon: Info },
+            { label: 'Tampilan Homepage', to: '/apps/u/admin/showcase', icon: ImageIcon },
         ],
     },
     {

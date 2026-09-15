@@ -269,6 +269,12 @@ const routes = [
                 meta: { title: 'Banner Informasi' },
             },
             {
+                path: 'admin/showcase',
+                name: 'admin-showcase',
+                component: () => import('../apps/admin/showcase/index.vue'),
+                meta: { title: 'Tampilan Homepage' },
+            },
+            {
                 path: 'admin/notifications',
                 name: 'admin-notifications',
                 component: () => import('../apps/admin/notifications/index.vue'),

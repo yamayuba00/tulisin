@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\ProjectAiResultController;
 use App\Http\Controllers\Api\PromoController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SharedDocumentController;
+use App\Http\Controllers\Api\ShowcaseController;
 use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TemplateController;
 use App\Http\Controllers\Api\WalletController;
@@ -46,6 +47,7 @@ Route::get('/promo', [PromoController::class, 'show']);
 
 // ---- Banner informasi (di atas header homepage, publik) ----
 Route::get('/information-banner', [InformationBannerController::class, 'show']);
+Route::get('/showcase/{uuid}', [ShowcaseController::class, 'show']);
 
 // ---- Auth (Sanctum) ----
 Route::prefix('auth')->group(function () {
@@ -124,6 +126,11 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
 
     Route::get('/information-banner-settings', [InformationBannerController::class, 'settings'])->middleware('permission:notifications.manage');
     Route::put('/information-banner-settings', [InformationBannerController::class, 'update'])->middleware('permission:notifications.manage');
+
+    Route::get('/showcase-settings', [ShowcaseController::class, 'index'])->middleware('permission:notifications.manage');
+    Route::post('/showcase-settings', [ShowcaseController::class, 'store'])->middleware('permission:notifications.manage');
+    Route::put('/showcase-settings', [ShowcaseController::class, 'update'])->middleware('permission:notifications.manage');
+    Route::delete('/showcase-settings/{showcase}', [ShowcaseController::class, 'destroy'])->middleware('permission:notifications.manage');
 
     Route::post('/email-blast', [NotificationController::class, 'emailBlast'])->middleware('permission:notifications.manage');
     Route::get('/email-broadcasts', [NotificationController::class, 'emailBroadcasts'])->middleware('permission:notifications.manage');

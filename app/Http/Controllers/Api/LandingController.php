@@ -19,6 +19,7 @@ class LandingController extends Controller
             'monthly_price' => $this->resolveMonthlyPrice(),
             'ai_engines' => $this->resolveAiEngines(),
             'trial_days' => (int) config('subscription.trial_days', 14),
+            'screenshots' => ShowcaseController::resolve(),
         ]);
     }
 

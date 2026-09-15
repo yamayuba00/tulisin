@@ -215,6 +215,41 @@ const steps = [
 // Data publik homepage: harga langganan, trial, & daftar mesin AI (tenaga agent).
 const landing = ref({ monthly_price: 30000, trial_days: 14, ai_engines: ['DeepSeek'] });
 
+// Screenshot antarmuka (default; diganti dari admin via API).
+const screenshots = ref([
+    { src: '/img/Builder.PNG', alt: 'Editor blok Tulissin', caption: 'Susun bab dengan blok' },
+    { src: '/img/Builder-canvas.PNG', alt: 'Canvas dokumen Tulissin', caption: 'Tulis di canvas dengan format otomatis' },
+    { src: '/img/Workspace.PNG', alt: 'Workspace Tulissin', caption: 'Kelola semua dokumen di satu tempat' },
+]);
+
+const carousel = ref(null);
+const activeSlide = ref(0);
+
+function onCarouselScroll() {
+    const el = carousel.value;
+    if (!el) return;
+    const center = el.scrollLeft + el.clientWidth / 2;
+    let best = 0;
+    let bestDist = Infinity;
+    Array.from(el.children).forEach((child, i) => {
+        const childCenter = child.offsetLeft + child.clientWidth / 2;
+        const dist = Math.abs(childCenter - center);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = i;
+        }
+    });
+    activeSlide.value = best;
+}
+
+function goToSlide(i) {
+    const el = carousel.value;
+    if (!el) return;
+    const slide = el.children[i];
+    if (!slide) return;
+    el.scrollTo({ left: slide.offsetLeft - (el.clientWidth - slide.clientWidth) / 2, behavior: 'smooth' });
+}
+
 const plans = computed(() => [
     {
         name: 'Langganan Bulanan',
@@ -318,6 +353,9 @@ async function loadLanding() {
             trial_days: Number(data.trial_days ?? 14),
             ai_engines: Array.isArray(data.ai_engines) && data.ai_engines.length ? data.ai_engines : ['DeepSeek'],
         };
+        if (Array.isArray(data.screenshots)) {
+            screenshots.value = data.screenshots;
+        }
     } catch {
         // pakai nilai default bila API gagal dimuat
     }
@@ -803,6 +841,47 @@ onBeforeUnmount(() => {
             </div>
         </section>
 
+        <!-- Showcase: Antarmuka Builder -->
+        <section v-if="screenshots.length" id="tampilan" class="border-t border-neutral-200 bg-neutral-50 py-20 dark:border-neutral-800 dark:bg-neutral-900/40">
+            <div class="mx-auto max-w-6xl px-4 lg:px-6">
+                <div class="text-center">
+                    <span class="text-sm font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Tampilan</span>
+                    <h2 class="mt-3 font-serif text-3xl font-bold tracking-tight">Satu kanvas untuk seluruh karya ilmiahmu</h2>
+                    <p class="mx-auto mt-3 max-w-xl text-neutral-500 dark:text-neutral-400">Tulis, susun bab, dan rapikan format langsung dari editor — tanpa pindah aplikasi.</p>
+                </div>
+                <div class="relative mt-10">
+                    <div
+                        ref="carousel"
+                        class="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        @scroll.passive="onCarouselScroll"
+                    >
+                        <div
+                            v-for="(shot, i) in screenshots"
+                            :key="shot.src"
+                            class="w-[85%] shrink-0 snap-center overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-lg sm:w-[58%] lg:w-[52%] dark:border-neutral-800 dark:bg-neutral-900"
+                        >
+                            <img :src="shot.src" :alt="shot.alt" class="h-auto w-full" loading="lazy" />
+                            <p v-if="shot.caption" class="border-t border-neutral-100 px-4 py-3 text-center text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                                {{ shot.caption }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 flex justify-center gap-2">
+                        <button
+                            v-for="(shot, i) in screenshots"
+                            :key="i"
+                            type="button"
+                            class="h-2 rounded-full transition-all duration-200"
+                            :class="i === activeSlide ? 'w-6 bg-neutral-900 dark:bg-white' : 'w-2 bg-neutral-300 hover:bg-neutral-400 dark:bg-neutral-700'"
+                            :aria-label="'Ke slide ' + (i + 1)"
+                            @click="goToSlide(i)"
+                        ></button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Before / After: Optimizer -->
         <section id="optimizer" class="border-t border-neutral-200 py-20 dark:border-neutral-800">
             <div class="mx-auto max-w-6xl px-4 lg:px-6">
@@ -1250,5 +1329,13 @@ onBeforeUnmount(() => {
 .chat-leave-to {
     opacity: 0;
     transform: translateY(8px);
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
 }
 </style>
