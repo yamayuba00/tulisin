@@ -120,7 +120,8 @@ export async function streamJson(url, options = {}, onEvent) {
 // Mengembalikan bentuk yang sama dengan request(): { ok, status, data }.
 // - sukses  : { ok: true,  status: 200, data: { reply } }
 // - gagal   : { ok: false, status: <code>, data: { error } }
-export async function requestAiGenerate(body, { pollInterval = 1000, timeoutMs = 150000 } = {}) {
+// `onStatus` dipanggil tiap perubahan status agar UI bisa menampilkan "menunggu antrean" vs "menulis".
+export async function requestAiGenerate(body, { pollInterval = 1000, timeoutMs = 130000, onStatus = null } = {}) {
     const created = await request('/api/ai/generate', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -136,22 +137,35 @@ export async function requestAiGenerate(body, { pollInterval = 1000, timeoutMs =
     }
 
     const startedAt = Date.now();
+    let lastStatus = '';
+    let emptyPolls = 0;
 
     while (true) {
         const res = await request(`/api/ai/generate/${encodeURIComponent(token)}`, { method: 'GET' });
 
+        // Error jaringan sesaat pada polling tidak boleh langsung menggagalkan:
+        // cukup hitung sebagai poll kosong dan coba lagi sampai deadline.
         if (!res.ok) {
-            return { ok: false, status: res.status, data: res.data || { error: 'Gagal memeriksa status AI.' } };
-        }
+            emptyPolls += 1;
+            if (emptyPolls >= 5) {
+                return { ok: false, status: res.status, data: res.data || { error: 'Gagal memeriksa status AI.' } };
+            }
+        } else {
+            emptyPolls = 0;
+            const status = res.data?.status;
 
-        const status = res.data?.status;
+            if (status && status !== lastStatus) {
+                lastStatus = status;
+                if (typeof onStatus === 'function') onStatus(status);
+            }
 
-        if (status === 'done') {
-            return { ok: true, status: 200, data: { reply: res.data.reply } };
-        }
+            if (status === 'done') {
+                return { ok: true, status: 200, data: { reply: res.data.reply } };
+            }
 
-        if (status === 'failed') {
-            return { ok: false, status: 502, data: { error: res.data.error || 'Gagal menghubungi AI.' } };
+            if (status === 'failed') {
+                return { ok: false, status: 502, data: { error: res.data.error || 'Gagal menghubungi AI.' } };
+            }
         }
 
         if (Date.now() - startedAt > timeoutMs) {

@@ -16,6 +16,7 @@ import {
 } from 'lucide-vue-next';
 import PageHeader from '../../../components/PageHeader.vue';
 import StatCard from '../../../components/StatCard.vue';
+import Skeleton from '../../../components/Skeleton.vue';
 import { formatDate } from '../../../utils/format';
 import { getJson } from '../../../utils/http';
 
@@ -232,7 +233,12 @@ onBeforeUnmount(() => {
                         </thead>
                         <tbody>
                             <tr v-if="topLoading">
-                                <td colspan="2" class="px-4 py-10 text-center text-neutral-400 dark:text-neutral-500">Memuat…</td>
+                                <td colspan="2" class="p-0">
+                                    <div v-for="i in 5" :key="i" class="flex items-center justify-between gap-4 border-b border-neutral-100 px-4 py-3 last:border-0 dark:border-neutral-900">
+                                        <Skeleton class="h-4 w-2/3" />
+                                        <Skeleton class="h-4 w-10 shrink-0 text-right" />
+                                    </div>
+                                </td>
                             </tr>
                             <tr v-else-if="topPagesData.length === 0">
                                 <td colspan="2" class="px-4 py-10 text-center text-neutral-400 dark:text-neutral-500">Belum ada kunjungan.</td>
@@ -328,7 +334,13 @@ onBeforeUnmount(() => {
                 </div>
             </div>
 
-            <div v-if="activityLoading" class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">Memuat…</div>
+            <div v-if="activityLoading" class="space-y-3 p-4">
+                <div v-for="i in 5" :key="i" class="flex items-center gap-3">
+                    <Skeleton class="h-4 w-4 shrink-0" />
+                    <Skeleton class="h-4 flex-1" />
+                    <Skeleton class="h-3 w-24 shrink-0" />
+                </div>
+            </div>
             <div v-else-if="activityData.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
                 <div v-for="(item, i) in activityData" :key="i" class="flex items-start gap-3 px-4 py-3">
                     <component :is="typeMeta[item.type]?.icon || Activity" class="mt-0.5 h-4 w-4 shrink-0" :class="typeMeta[item.type]?.color || 'text-neutral-400'" />

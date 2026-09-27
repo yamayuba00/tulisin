@@ -36,6 +36,9 @@ import {
     ChevronDown,
     Replace,
     GripHorizontal,
+    Star,
+    MessageSquare,
+    Loader2,
 } from 'lucide-vue-next';
 import HeaderBuilder from './components/HeaderBuilder.vue';
 import DownloadModal from './components/DownloadModal.vue';
@@ -44,7 +47,7 @@ import InspectorPanel from './components/InspectorPanel.vue';
 import PageCanvas from './components/PageCanvas.vue';
 import PrintView from './components/PrintView.vue';
 import SetupModal from './components/SetupModal.vue';
-import DeleteConfirmModal from './components/DeleteConfirmModal.vue';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal.vue';
 import PreviewModal from './components/PreviewModal.vue';
 import PlagiarismModal from './components/PlagiarismModal.vue';
 import TurnitinModal from './components/TurnitinModal.vue';
@@ -67,6 +70,42 @@ import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 import { buildTemplateBlocks } from '../../utils/templates';
 import { renderMarkdown } from '../../utils/markdown';
 import { toast } from '../../utils/toast';
+import { useAuth } from '../../utils/auth';
+const { currentUser } = useAuth();
+
+// Fungsi generate HTML template cover standar akademik otomatis (center align),
+// membaca data dari currentUser (nama, NIM) + UserProfile (universitas, kota).
+// Format standar: SKRIPSI/JUDUL/syarat gelar/logo/disusun oleh/program studi/fakultas/kota/tahun.
+function generateCoverHtml(titleText, logoUrl = null) {
+    const name = String(currentUser.value?.name || '').trim() || '[isi nama lengkap]';
+    const nim = String(currentUser.value?.profile?.nim || '').trim();
+    const university = String(currentUser.value?.profile?.university || '').trim();
+    const city = (currentUser.value?.profile?.city || 'Bekasi').trim();
+    const year = new Date().getFullYear();
+    const faculty = (currentUser.value?.profile?.faculty || 'Fakultas Teknik').trim();
+    const studyProgram = (currentUser.value?.profile?.major || 'Teknik Informatika').trim();
+    
+    const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-width:120px;margin:1em 0">` : '';
+    const nimLine = nim ? `<p>NIM: <strong>${nim}</strong></p>` : '<p>NIM: [isi NIM]</p>';
+    
+    return `
+<div class="cover-content" style="display:flex;flex-direction:column;height:100%;justify-content:center;align-items:center;text-align:center;font-family:${fontChoice.value || 'Times New Roman'};">
+    ${titleText ? `<h1 style="margin-bottom:.5em;text-transform:uppercase;font-size:18pt;line-height:1.3">${escHtml(titleText)}</h1>` : ''}
+    <p style="margin:.5em 0;">SKRIPSI</p>
+    <p style="margin:.75em 0;">Diajukan untuk memenuhi salah satu syarat<br>memperoleh Gelar Sarjana Komputer</p>
+    ${logoHtml}
+    <p style="margin:.75em 0;">Disusun Oleh:</p>
+    <p style="margin:.5em 0;"><strong>${escHtml(name)}</strong></p>
+    ${nimLine}
+    <div style="margin-top:2em;">
+        <p style="margin:.25em 0;"><strong>${escHtml(studyProgram)}</strong></p>
+        <p style="margin:.25em 0;"><strong>${escHtml(faculty)}</strong></p>
+        <p style="margin:.25em 0;"><strong>${escHtml(university || 'UNIVERSITAS')}${university && city ? ', ' : ''}${escHtml(city)}</strong></p>
+        <p style="margin:.25em 0;"><strong>${year}</strong></p>
+    </div>
+</div>
+    `.replace(/\s+/g, (m) => m.length > 1 ? ' ' : m);
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -204,6 +243,8 @@ const documentTabs = computed(() => {
     });
 });
 const selectedUid = ref(null);
+const selectedUids = ref([]); // Multi-selection: list uid blok yang terseleksi
+let lastSelectedUid = null;  // untuk shift-click range selection
 const dropIndex = ref(null);
 const deleteConfirmOpen = ref(false);
 
@@ -347,13 +388,25 @@ function openShare() {
     shareOpen.value = true;
 }
 
-// ---- Publikasikan project ke Lists Project ----
+// ---- Publikasikan project ke Lists Project (wajib sertakan testimoni) ----
 const publishOpen = ref(false);
 const publishDescription = ref('');
 const publishing = ref(false);
+const publishRating = ref(0);
+const publishComment = ref('');
+const MAX_COMMENT = 150;
+
+const canPublish = computed(() =>
+    !publishing.value &&
+    publishRating.value >= 1 &&
+    publishRating.value <= 5 &&
+    publishComment.value.trim().length > 0,
+);
 
 function openPublish() {
     publishDescription.value = '';
+    publishRating.value = 0;
+    publishComment.value = '';
     publishOpen.value = true;
 }
 
@@ -362,20 +415,32 @@ function closePublish() {
     publishOpen.value = false;
 }
 
+function setPublishRating(value) {
+    if (!publishing.value) publishRating.value = value;
+}
+
 async function confirmPublish() {
     if (!projectId.value) {
         showToast('Simpan project dulu sebelum dipublikasikan.');
+        return;
+    }
+    if (!canPublish.value) {
+        showToast('Rating dan komentar wajib diisi untuk mempublikasikan.', 'warning');
         return;
     }
     publishing.value = true;
     try {
         const res = await request(`/api/projects/${encodeURIComponent(projectId.value)}/publish`, {
             method: 'POST',
-            body: JSON.stringify({ description: publishDescription.value.trim() }),
+            body: JSON.stringify({
+                description: publishDescription.value.trim(),
+                rating: publishRating.value,
+                comment: publishComment.value.trim(),
+            }),
         });
         if (res.ok) {
             publishOpen.value = false;
-            showToast('Project berhasil dipublikasikan ke Lists Project.');
+            showToast('Project berhasil dipublikasikan. Testimoni kamu juga ikut terkirim.', 'success');
         } else {
             showToast(res.data?.error || 'Gagal mempublikasikan project.');
         }
@@ -785,6 +850,74 @@ function selectReferenceFromBrowser(ref) {
     closeCitationBrowser();
 }
 
+// Tempel beberapa sitasi sekaligus dari Agent AI Canvas (RAG): sitasi
+// ditempel di posisi blok terpilih/kursor dan otomatis dicatat ke Daftar
+// Pustaka agar posisinya tidak perlu diatur manual.
+function insertAgentCitations(payload) {
+    const refs = Array.isArray(payload?.refs) ? payload.refs : [];
+    if (!refs.length) return;
+    const el = document.activeElement;
+    const atCaret = el && el.isContentEditable;
+    const parts = [];
+
+    for (const raw of refs) {
+        // Cocokkan ke referensi Workspace yang sudah tersimpan agar gaya
+        // sitasi mengikuti citation style dokumen dan ikut ke Daftar Pustaka.
+        const match = allReferences.value.find((r) => {
+            const doi = String(r.DOI || r.doi || '').toLowerCase();
+            const title = String(r.title || '').toLowerCase();
+            return (raw.doi && doi === String(raw.doi).toLowerCase()) || (raw.title && title === String(raw.title).toLowerCase());
+        });
+        if (match) {
+            parts.push(citeReference(match));
+        } else if (raw.label) {
+            // Belum tersimpan: pakai label ringkas (Penulis, Tahun) tanpa
+            // mengarang data sumber lain.
+            parts.push(`(${raw.label})`);
+        }
+    }
+
+    if (!parts.length) {
+        showToast('Belum ada sitasi yang bisa ditempel. Simpan referensinya dulu.');
+        return;
+    }
+
+    const html = parts.join(' ');
+    if (atCaret) {
+        document.execCommand('insertHTML', false, html);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+        const b = canvasBlocks.value.find((x) => x.uid === selectedUid.value);
+        if (b) {
+            b.content = (b.content || '') + html;
+        } else {
+            // Belum ada blok terpilih: buat paragraf baru di akhir dokumen.
+            pushHistory();
+            const uid = crypto.randomUUID();
+            canvasBlocks.value.push({
+                uid,
+                type: 'paragraph',
+                content: html,
+                indent: 0,
+                align: 'justify',
+                width: 100,
+                spacing: 24,
+                fontFamily: '',
+                fontSize: 0,
+                lineHeight: 0,
+                color: '',
+                caption: '',
+                captionPosition: 'below',
+                showCaption: true,
+                customNumber: '',
+                pageTitle: '',
+            });
+            selectedUid.value = uid;
+        }
+    }
+    showToast(`${parts.length} sitasi ditempel ke canvas dan dicatat di Daftar Pustaka.`);
+}
+
 const effectiveFontFamily = computed(() =>
     fontChoice.value === '__custom__'
         ? (customFont.value.trim() || 'Times New Roman')
@@ -905,8 +1038,94 @@ const canStyleText = computed(() => {
 watch(selectedUid, (val) => {
     if (val) {
         inspectorOpen.value = true;
+        // Jaga konsistensi: pilihan tunggal selalu ada di daftar multi.
+        if (!selectedUids.value.includes(val)) selectedUids.value = [val];
+        lastSelectedUid = val;
+    } else {
+        selectedUids.value = [];
+        lastSelectedUid = null;
     }
 });
+
+// Pilih blok: klik biasa = satu blok; Ctrl/Cmd+klik = tambah/kurangi satu
+// blok; Shift+klik = rentang dari blok terakhir ke blok ini. Perlu karena
+// tiap paragraf adalah contenteditable terpisah sehingga seleksi teks biru
+// browser tidak bisa melintasi dua paragraf sekaligus.
+function handleBlockSelect(uid, e) {
+    if (!uid) return;
+    if (e && e.shiftKey && lastSelectedUid && lastSelectedUid !== uid) {
+        const order = contentBlocks.value.map((b) => b.uid);
+        const a = order.indexOf(lastSelectedUid);
+        const b = order.indexOf(uid);
+        if (a !== -1 && b !== -1) {
+            const range = order.slice(Math.min(a, b), Math.max(a, b) + 1);
+            selectedUids.value = [...new Set([...selectedUids.value, ...range])];
+            selectedUid.value = uid;
+            lastSelectedUid = uid;
+            return;
+        }
+    }
+    if (e && (e.ctrlKey || e.metaKey)) {
+        if (selectedUids.value.includes(uid)) {
+            selectedUids.value = selectedUids.value.filter((x) => x !== uid);
+            if (selectedUid.value === uid) {
+                selectedUid.value = selectedUids.value[selectedUids.value.length - 1] || null;
+            }
+        } else {
+            selectedUids.value = [...selectedUids.value, uid];
+            selectedUid.value = uid;
+        }
+        lastSelectedUid = uid;
+        return;
+    }
+    selectedUid.value = uid;
+}
+
+function clearMultiSelection() {
+    selectedUid.value = null;
+}
+
+// Blok terpilih berurutan sesuai urutan dokumen (untuk gabung/hapus massal).
+const selectedBlocksOrdered = computed(() => {
+    const set = new Set(selectedUids.value);
+    return canvasBlocks.value.filter((b) => set.has(b.uid));
+});
+
+// Tipe yang bisa digabung menjadi satu blok teks (paragraf/kutipan).
+const MERGEABLE_TEXT_TYPES = new Set(['paragraph', 'quote']);
+
+const canMergeSelected = computed(() =>
+    selectedBlocksOrdered.value.length > 1 &&
+    selectedBlocksOrdered.value.every((b) => MERGEABLE_TEXT_TYPES.has(b.type)),
+);
+
+// Gabungkan blok teks terpilih menjadi satu blok agar seleksi biru bisa
+// mencakup seluruh teks sekaligus (satu contenteditable).
+function mergeSelectedBlocks() {
+    const ordered = selectedBlocksOrdered.value;
+    if (ordered.length < 2) return;
+    pushHistory();
+    const kept = ordered[0];
+    kept.content = ordered
+        .map((b) => String(b.content || '').trim())
+        .filter(Boolean)
+        .join(' ');
+    const removeSet = new Set(ordered.slice(1).map((b) => b.uid));
+    canvasBlocks.value = canvasBlocks.value.filter((b) => !removeSet.has(b.uid));
+    selectedUid.value = kept.uid;
+    showToast(`${ordered.length} paragraf digabung menjadi satu.`);
+}
+
+// Hapus semua blok yang terpilih sekaligus.
+function removeSelectedBlocks() {
+    const ordered = selectedBlocksOrdered.value;
+    if (!ordered.length) return;
+    pushHistory();
+    const removeSet = new Set(ordered.map((b) => b.uid));
+    canvasBlocks.value = canvasBlocks.value.filter((b) => !removeSet.has(b.uid));
+    selectedUid.value = null;
+    showToast(`${ordered.length} blok dihapus.`);
+}
 
 // Penanda saat memuat data dari server/localStorage agar tidak memicu simpan/timestamp
 // ulang. Bersifat reaktif supaya bisa menampilkan skeleton "memuat" di canvas.
@@ -1426,23 +1645,192 @@ function measureAndPaginate() {
             }
         }
 
+        // Paragraf/kutipan yang melebihi sisa ruang halaman dipecah per karakter
+        // agar mengisi halaman sampai batas ruler, lalu lanjut di halaman berikutnya
+        // (bukan melompatkan seluruh blok ke halaman baru yang menyisakan ruang kosong).
+        // Potongan selalu mundur ke batas kata agar tidak memotong tengah kata/kalimat.
+        if (splittableTextTypes.includes(block.type) && !forceBreak && h > 0 && acc + h > contentHeightPx.value) {
+            const text = htmlToPlainText(block.content);
+            const total = text.length;
+            if (total > 0) {
+                const cpp = total / h; // karakter per piksel (rata-rata)
+                const lineH = pageFontSize.value * 96 / 72 * pageLineHeight.value;
+                let start = 0;
+                let idx = 0;
+                while (start < total) {
+                    let avail = contentHeightPx.value - acc;
+                    // Sisa kurang dari 1 baris: tutup halaman agar tidak membuat remah.
+                    if (avail < lineH) {
+                        if (current.length) {
+                            result.push(current);
+                            current = [];
+                            acc = 0;
+                        }
+                        avail = contentHeightPx.value;
+                    }
+                    // Buffer satu baris agar potongan tidak meluber melewati ruler.
+                    const usable = Math.max(lineH, avail - lineH);
+                    let end = Math.min(total, start + Math.max(1, Math.floor(usable * cpp)));
+
+                    // Jangan potong di tengah kata: mundurkan ke spasi/titik terdekat
+                    // (maksimal 40 karakter ke belakang) agar kalimat tidak terbelah aneh.
+                    if (end < total) {
+                        const windowStart = Math.max(start + 1, end - 40);
+                        const windowText = text.slice(windowStart, end);
+                        const boundary = windowText.search(/[\s.]+[^\s.]*$/);
+                        if (boundary >= 0) {
+                            const adjusted = windowStart + boundary + windowText.slice(boundary).match(/^[\s.]+/)[0].length;
+                            if (adjusted > start) end = adjusted;
+                        }
+                    }
+
+                    current.push({
+                        ...block,
+                        chunkKey: `${block.uid}#${start}`,
+                        sliceStart: start,
+                        sliceEnd: end,
+                    });
+                    acc += (end - start) / cpp;
+                    start = end;
+                    idx += 1;
+                    if (start < total) {
+                        result.push(current);
+                        current = [];
+                        acc = 0;
+                    }
+                }
+                continue;
+            }
+        }
+
         if (forceBreak && current.length) {
             result.push(current);
             current = [];
             acc = 0;
         } else if (current.length && acc + h > contentHeightPx.value) {
-            result.push(current);
-            current = [];
-            acc = 0;
+            // Cegah judul yatim: bila blok terakhir di halaman berjalan adalah
+            // heading dan blok berikutnya adalah isi bagiannya, pindahkan heading
+            // tersebut ikut ke halaman baru (seperti "keep with next" di Word).
+            const last = current[current.length - 1];
+            if (last && isHeadingType(last.type) && !isPageBreakType(block.type)) {
+                const moved = current.pop();
+                acc -= blockHeights[moved.uid] || 0;
+                if (current.length) {
+                    result.push(current);
+                    current = [moved];
+                    acc = blockHeights[moved.uid] || 0;
+                } else {
+                    current = [moved];
+                }
+            } else {
+                result.push(current);
+                current = [];
+                acc = 0;
+            }
         }
+
         current.push(block);
         acc += h;
     }
     if (current.length) result.push(current);
     pages.value = result;
+
+    // Pengaman: blok yang baru ditambahkan (mis. hasil generate AI) bisa belum
+    // terukur (tinggi 0) karena mirror-nya belum ter-render saat pengukuran
+    // berjalan. Jadwalkan ulang agar blok tidak menumpuk di satu halaman lalu
+    // tembus melebihi ukuran halaman.
+    const hasUnmeasured = canvasBlocks.value.some(
+        (b) => !blockHeights[b.uid] && String(b.content || '').trim(),
+    );
+    if (hasUnmeasured && remeasureRetry < 3) {
+        remeasureRetry += 1;
+        refreshPages();
+    } else {
+        remeasureRetry = 0;
+        nextTick(restoreCaret);
+    }
+}
+
+// ---- Pelacakan kursor: pertahankan fokus saat blok dipecah antar halaman ----
+const focusedBlockUid = ref(null);
+const focusedCaretOffset = ref(0);
+
+function caretOffsetIn(el) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return 0;
+    const range = sel.getRangeAt(0);
+    const pre = document.createRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.startContainer, range.startOffset);
+    return pre.toString().length;
+}
+
+// Rekam blok yang sedang difokus + offset kursor (relatif terhadap teks penuh blok).
+function trackCaret() {
+    const el = document.activeElement;
+    if (!el || !el.isContentEditable) {
+        focusedBlockUid.value = null;
+        return;
+    }
+    const host = el.closest ? el.closest('[data-block-uid]') : null;
+    if (!host) {
+        focusedBlockUid.value = null;
+        return;
+    }
+    focusedBlockUid.value = host.getAttribute('data-block-uid');
+    const sliceStart = Number(host.getAttribute('data-slice-start') || 0);
+    focusedCaretOffset.value = sliceStart + caretOffsetIn(el);
+}
+
+function setCaretAt(el, offset) {
+    if (!el) return;
+    el.focus();
+    const sel = window.getSelection();
+    if (!sel) return;
+    const range = document.createRange();
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let remaining = offset;
+    let node;
+    while ((node = walker.nextNode())) {
+        if (node.length >= remaining) {
+            range.setStart(node, remaining);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            return;
+        }
+        remaining -= node.length;
+    }
+    range.selectNodeContents(el);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+}
+
+// Setelah pagination memecah blok, arahkan kembali fokus ke chunk yang memuat kursor.
+function restoreCaret() {
+    const uid = focusedBlockUid.value;
+    if (!uid) return;
+    const offset = focusedCaretOffset.value;
+    const block = canvasBlocks.value.find((b) => b.uid === uid);
+    if (!block) return;
+    if (splittableTextTypes.includes(block.type)) {
+        for (const page of pages.value) {
+            for (const b of page) {
+                if (b.uid === uid && b.sliceStart != null && b.sliceStart <= offset && offset < b.sliceEnd) {
+                    const el = document.querySelector(`[data-block-uid="${uid}"][data-slice-start="${b.sliceStart}"] [contenteditable="true"]`);
+                    setCaretAt(el, offset - b.sliceStart);
+                    return;
+                }
+            }
+        }
+    }
+    const el = document.querySelector(`[data-block-uid="${uid}"] [contenteditable="true"]`);
+    if (el) el.focus();
 }
 
 let refreshFrame = null;
+let remeasureRetry = 0;
 function refreshPages() {
     if (refreshFrame) return;
     refreshFrame = requestAnimationFrame(() => {
@@ -1506,9 +1894,11 @@ function onGlobalKeydown(e) {
     }
 
     // Ctrl/Cmd + Z → undo; Ctrl/Cmd + Shift + Z atau Ctrl/Cmd + Y → redo.
-    // Jangan ganggu undo bawaan di input/textarea/select (mis. kotak cari).
+    // Jangan ganggu undo bawaan di kolom input & area tulis (contenteditable),
+    // karena undo teks harus mengembalikan ketikan per karakter, bukan mengganti
+    // seluruh snapshot blok (yang dulu membuat teks yang diketik ikut hilang).
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-        const inFormField = el && el.closest && el.closest('input, textarea, select');
+        const inFormField = el && el.closest && (el.closest('input, textarea, select') || el.closest('[contenteditable="true"]'));
         if (inFormField) return;
         e.preventDefault();
         if (e.shiftKey) {
@@ -1520,7 +1910,7 @@ function onGlobalKeydown(e) {
     }
 
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
-        const inFormField = el && el.closest && el.closest('input, textarea, select');
+        const inFormField = el && el.closest && (el.closest('input, textarea, select') || el.closest('[contenteditable="true"]'));
         if (inFormField) return;
         e.preventDefault();
         redo();
@@ -1586,6 +1976,7 @@ onMounted(async () => {
     window.addEventListener('resize', onWindowResize);
     window.addEventListener('beforeunload', flushSave);
     document.addEventListener('keydown', onGlobalKeydown);
+    document.addEventListener('selectionchange', trackCaret);
 
     // Database adalah sumber kebenaran. Muat dari server dulu; localStorage
     // hanya dipakai sebagai cadangan bila server tidak bisa dihubungi (offline).
@@ -1603,6 +1994,7 @@ onBeforeUnmount(() => {
     window.removeEventListener('resize', onWindowResize);
     window.removeEventListener('beforeunload', flushSave);
     document.removeEventListener('keydown', onGlobalKeydown);
+    document.removeEventListener('selectionchange', trackCaret);
     onFindDragEnd();
 });
 
@@ -1688,6 +2080,7 @@ const tocEntriesAll = computed(() => {
                 number: isFront ? '' : (numberingMap.value[b.uid] || ''),
                 text: isFront ? sectionTitleForToc(b) : strip(b.content),
                 pageLabel: pageIndex >= 0 ? pageNumberLabel(pageIndex) : '',
+                page: pageIndex + 1, // halaman 1-based untuk link
                 hidden: hiddenTocUids.value.includes(b.uid),
             };
         });
@@ -1764,6 +2157,8 @@ const referenceEntries = computed(() =>
 const splittableListTypes = ['toc', 'listTables', 'listFigures', 'references', 'bullet', 'number'];
 // Jenis daftar "bagian" yang punya judul (mis. "DAFTAR ISI") pada chunk pertama.
 const sectionListTypes = ['toc', 'listTables', 'listFigures', 'references'];
+// Blok teks mengalir (paragraf & kutipan) yang dipecah per karakter antar halaman.
+const splittableTextTypes = ['paragraph', 'quote'];
 
 // Hitung jumlah <li> level-atas pada list poin/nomor (dipakai untuk memecah list panjang).
 function countTopLevelListItems(html) {
@@ -1774,6 +2169,12 @@ function countTopLevelListItems(html) {
         if (child.tagName === 'LI') count += 1;
     }
     return count;
+}
+
+// Ambil teks polos dari HTML blok (dipakai untuk memecah paragraf panjang antar halaman).
+function htmlToPlainText(html) {
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    return doc.body.textContent || '';
 }
 
 // Estimasi tinggi judul bagian (mis. "DAFTAR ISI") untuk menghitung kapasitas halaman.
@@ -1820,11 +2221,13 @@ function defaultAlign(type) {
     return 'left';
 }
 
+// Sisipkan blok baru ke canvas (dengan uid unik dan formatting default).
+// Khusus cover: generate HTML otomatis dari template standar akademik.
 function insertBlock(type, index) {
     const block = {
         uid: crypto.randomUUID(),
         type: type.id,
-        content: defaultContent(type.id),
+        content: '',
         indent: 0,
         align: defaultAlign(type.id),
         width: 100,
@@ -1834,11 +2237,25 @@ function insertBlock(type, index) {
         lineHeight: 0,
         color: '',
         caption: '',
-    captionPosition: type.id === 'table' ? 'above' : 'below',
-    showCaption: true,
-    customNumber: '',
-    pageTitle: type.id === 'blankPage' ? 'HALAMAN' : '',
-};
+        captionPosition: type.id === 'table' ? 'above' : 'below',
+        showCaption: true,
+        customNumber: '',
+        pageTitle: type.id === 'blankPage' ? 'HALAMAN' : '',
+    };
+    
+    if (type.id === 'cover') {
+        // Template cover otomatis menggunakan data user + judul dokumen
+        block.content = generateCoverHtml(projectName.value || null);
+    } else if (type.id === 'table') {
+        block.content = defaultContent('table');
+    } else if (type.id === 'bullet' || type.id === 'number') {
+        block.content = '<li><br></li>';
+    } else if (type.id === 'formula') {
+        block.content = 'x^2 + y^2 = r^2';
+    } else if (type.id === 'code') {
+        block.content = '// Tempel kode kamu di sini\nprint("Hello, World!");';
+    }
+    
     pushHistory();
     canvasBlocks.value.splice(index, 0, block);
     selectedUid.value = block.uid;
@@ -1953,12 +2370,22 @@ function parseAgentToBlocks(text) {
     let quote = [];    // baris kutipan `>`
     let table = [];    // baris tabel markdown `|`
     let code = null;   // { lines: [] } untuk fenced code block
+    // Penanda halaman khusus yang berdiri sendiri (`@cover` / `@abstract` tanpa
+    // isi inline): hanya baris isi TUNGGAL berikutnya yang menjadi blok
+    // abstract. Baris setelahnya kembali menjadi paragraf normal agar
+    // generate bab biasa tidak ikut berubah menjadi ABSTRACT semua.
+    let pendingPageType = null; // 'abstract' | null (cover tidak pakai ini lagi)
 
     const flushPara = () => {
         if (para.length) {
+            // Satu paragraf = satu blok. Pagination yang memecah blok ini antar
+            // halaman (per karakter) agar mengisi halaman sampai batas ruler.
             blocks.push({ type: 'paragraph', content: renderMarkdown(para.join(' ')) });
             para = [];
         }
+    };
+    const flushPendingPage = () => {
+        pendingPageType = null;
     };
     const flushList = () => {
         if (list && list.items.length) {
@@ -2004,7 +2431,7 @@ function parseAgentToBlocks(text) {
             continue;
         }
 
-        // Baris kosong
+        // Baris kosong: tutup paragraf/list/table yang terbuka.
         if (!line) {
             flushPara(); flushList(); flushQuote(); flushTable();
             continue;
@@ -2024,6 +2451,41 @@ function parseAgentToBlocks(text) {
             continue;
         }
 
+        // Halaman khusus (cover / halaman kosong / abstrak / daftar isi / daftar
+        // pustaka): `@cover`, `@page`, `@abstract`, `@toc`, `@references`.
+        // Hanya penanda ini yang menjadi blok Page; baris lain tetap
+        // paragraf normal seperti sebelumnya. Cover sekarang otomatis generate
+        // HTML template standar akademik dari user data (nama, NIM, universitas).
+        const pageMark = line.match(/^@(cover|page|abstract|toc|references)\b\s*(.*)$/i);
+        if (pageMark) {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            const kind = pageMark[1].toLowerCase();
+            const content = stripInlineMarkdown(pageMark[2].trim());
+            if (kind === 'cover') {
+                // @cover atau @cover Judul -> generate template akademik otomatis
+                blocks.push({ type: 'cover', content: generateCoverHtml(content || null) });
+            } else if (kind === 'abstract') {
+                if (content) blocks.push({ type: 'abstract', content: renderMarkdown(content) });
+                else pendingPageType = 'abstract';
+            } else if (kind === 'toc') {
+                blocks.push({ type: 'toc', content: '' });
+            } else if (kind === 'references') {
+                blocks.push({ type: 'references', content: '' });
+            } else {
+                blocks.push({ type: 'blankPage', pageTitle: content, content: '' });
+            }
+            continue;
+        }
+
+        // Satu baris isi tepat setelah `@abstract` tanpa isi inline.
+        if (pendingPageType) {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            const t = pendingPageType;
+            pendingPageType = null;
+            blocks.push({ type: t, content: renderMarkdown(line) });
+            continue;
+        }
+
         // Gambar ![caption](url)
         const img = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
         if (img) {
@@ -2039,12 +2501,23 @@ function parseAgentToBlocks(text) {
             continue;
         }
 
-        // Heading: `#` = chapter, `##`..`###########` = h1..h10
+        // Heading: `#` = chapter, `##`..`###########` = h1..h10.
+        // Pengecualian: "DAFTAR PUSTAKA" selalu menjadi blok Daftar Pustaka
+        // (bukan BAB) dan "DAFTAR ISI" menjadi blok Daftar Isi.
         const heading = line.match(/^(#{1,11})\s+(.*)$/);
         if (heading) {
             flushPara(); flushList(); flushQuote(); flushTable();
             const level = heading[1].length;
             let content = stripInlineMarkdown(heading[2].trim());
+            const normHead = content.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+            if (normHead === 'daftar pustaka' || normHead === 'references' || normHead === 'bibliography') {
+                blocks.push({ type: 'references', content: '' });
+                continue;
+            }
+            if (normHead === 'daftar isi' || normHead === 'table of contents') {
+                blocks.push({ type: 'toc', content: '' });
+                continue;
+            }
             if (level === 1) {
                 // Nomor bab sudah otomatis; buang awalan "BAB ..." dari AI agar tidak dobel.
                 content = content.replace(/^BAB\s+[IVXLCDM0-9]+\s*[:.·\-–—]?\s*/i, '');
@@ -2085,6 +2558,19 @@ function parseAgentToBlocks(text) {
             list.items[list.items.length - 1] += ' ' + line;
             continue;
         }
+        // Pengaman teks polos: baris yang tepat "Daftar Pustaka"/"Daftar Isi"
+        // (tanpa #) tetap menjadi blok Page yang benar, bukan paragraf.
+        const normLine = line.toLowerCase().replace(/[^a-z\s]/g, '').replace(/\s+/g, ' ').trim();
+        if (normLine === 'daftar pustaka' || normLine === 'references' || normLine === 'bibliography') {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            blocks.push({ type: 'references', content: '' });
+            continue;
+        }
+        if (normLine === 'daftar isi' || normLine === 'table of contents') {
+            flushPara(); flushList(); flushQuote(); flushTable();
+            blocks.push({ type: 'toc', content: '' });
+            continue;
+        }
         flushList(); flushQuote(); flushTable();
         para.push(line);
     }
@@ -2094,6 +2580,7 @@ function parseAgentToBlocks(text) {
     flushQuote();
     flushTable();
     flushCode();
+    flushPendingPage();
 
     return blocks;
 }
@@ -2111,6 +2598,15 @@ function applyAgentToCanvas(payload) {
     blocks.forEach((b) => {
         if (b.type === 'paragraph') b.firstLineIndent = true;
     });
+
+    // Mode 'pick' (default chat): setiap bagian (bab) disisipkan satu per satu.
+    // Bab yang sudah ada di canvas digantikan, sisanya ditambahkan.
+    if (mode === 'pick') {
+        agentStructureSections.value = groupBlocksBySection(blocks);
+        agentStructureTarget.value = payload.target || '';
+        agentStructureOpen.value = true;
+        return;
+    }
 
     let index;
     let replace = false;
@@ -2139,6 +2635,206 @@ function applyAgentToCanvas(payload) {
     selectedUid.value = blocks[0].uid;
     showToast(replace ? 'Blok terpilih diganti dengan konten agent.' : 'Konten agent ditambahkan ke canvas.');
     agentModalOpen.value = false;
+}
+
+// ---- Struktur balasan agent: sisipkan per bagian (bab) ----
+// Hasil agent dipecah menjadi beberapa bagian; bagian yang cocok dengan heading
+// di canvas digantikan (bukan ditumpuk), sisanya ditambahkan sebagai bab baru.
+const agentStructureOpen = ref(false);
+const agentStructureSections = ref([]);
+// UID tujuan penulisan dari Agent AI (bab/abstrak yang dituju user),
+// dipakai untuk menandai baris yang cocok di panel struktur.
+const agentStructureTarget = ref('');
+
+function groupBlocksBySection(blocks) {
+    const sections = [];
+    let current = null;
+    for (const b of blocks) {
+        // Blok halaman khusus (cover/abstract/blankPage/daftar isi/daftar
+        // pustaka) selalu menjadi seksi sendiri agar tidak tercampur dan
+        // Daftar Pustaka tidak digantikan dengan paragraf/bab.
+        if (b.type === 'cover' || b.type === 'abstract' || b.type === 'blankPage' || b.type === 'toc' || b.type === 'references') {
+            sections.push({ blocks: [b] });
+            current = null;
+            continue;
+        }
+        if (b.type === 'chapter' || current === null) {
+            current = { blocks: [] };
+            sections.push(current);
+        }
+        current.blocks.push(b);
+    }
+    return sections;
+}
+
+function sectionMatches(section) {
+    const first = section.blocks[0];
+    if (!first) return { match: false, index: -1, end: -1 };
+
+    // Halaman khusus (cover/abstract/blankPage/daftar isi/daftar pustaka):
+    // cari halaman dengan tipe yang sama.
+    if (first.type === 'cover' || first.type === 'abstract' || first.type === 'blankPage' || first.type === 'toc' || first.type === 'references') {
+        const idx = canvasBlocks.value.findIndex((b) => b.type === first.type);
+        if (idx === -1) return { match: false, index: -1, end: -1 };
+        return { match: true, index: idx, end: idx + 1 };
+    }
+
+    if (first.type !== 'chapter') return { match: false, index: -1, end: -1 };
+
+    const title = normalizeTitle(first.content);
+    const chapters = [];
+    canvasBlocks.value.forEach((b, i) => {
+        if (b.type === 'chapter') chapters.push({ uid: b.uid, index: i, title: normalizeTitle(b.content) });
+    });
+
+    const exact = chapters.find((c) => c.title !== '' && c.title === title);
+    if (exact) {
+        const next = chapters.find((c) => c.index > exact.index);
+        return { match: true, index: exact.index, end: next ? next.index : canvasBlocks.value.length };
+    }
+
+    // Fallback: kemiripan judul (mengandung salah satu kata kunci utama).
+    const words = title.split(' ').filter((w) => w.length > 3);
+    const similar = chapters.find((c) => words.length && words.some((w) => c.title.includes(w)));
+    if (similar) {
+        const next = chapters.find((c) => c.index > similar.index);
+        return { match: true, index: similar.index, end: next ? next.index : canvasBlocks.value.length };
+    }
+
+    return { match: false, index: -1, end: -1 };
+}
+
+function normalizeTitle(text) {
+    return String(text || '')
+        .toLowerCase()
+        .replace(/^(bab|bagian)\s+[ivxlcdm0-9]+\s*[:.\-]?\s*/i, '')
+        .replace(/[^a-z0-9\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function structureRows() {
+    // Samakan tujuan penulisan dengan judul bagian (tanpa nomor/awalan BAB)
+    // agar baris yang dituju user bisa ditandai di panel.
+    const targetOpt = agentTargets.value.find((t) => t.id === agentStructureTarget.value);
+    const targetNorm = targetOpt && targetOpt.kind !== 'new' ? normalizeTitle(targetOpt.label) : '';
+    return agentStructureSections.value.map((section, i) => {
+        const first = section.blocks[0] || {};
+        const isPageSection = first.type === 'cover' || first.type === 'abstract' || first.type === 'blankPage' || first.type === 'toc' || first.type === 'references';
+        const title = isPageSection
+            ? (first.type === 'cover' ? 'Cover' : first.type === 'abstract' ? 'Abstrak' : first.type === 'toc' ? 'Daftar Isi' : first.type === 'references' ? 'Daftar Pustaka' : (first.pageTitle || 'Halaman baru').trim() || 'Halaman baru')
+            : String(first.content || 'Bagian').trim();
+        const info = sectionMatches(section);
+        const norm = normalizeTitle(title);
+        return {
+            index: i,
+            title,
+            count: section.blocks.length,
+            matched: info.match,
+            action: info.match ? 'replace' : 'add',
+            index0: info.index,
+            end0: info.end,
+            targeted: targetNorm !== '' && norm !== '' && (norm === targetNorm || norm.includes(targetNorm) || targetNorm.includes(norm)),
+        };
+    });
+}
+
+// Terapkan satu bagian ke canvas (satu per satu agar mudah dikontrol).
+// Halaman khusus (cover/abstract/blankPage) selalu disisipkan pada halaman
+// sendiri: satu pemecah halaman di depan (kecuali di posisi paling awal) dan
+// satu di belakang (kecuali tidak ada blok sesudahnya), mengikuti standar blok Page.
+function pageBreakBlock() {
+    return { type: 'pageBreak', uid: crypto.randomUUID(), content: '' };
+}
+
+function wrapPageSection(blocks) {
+    const out = [];
+    const firstIsPageBreak = canvasBlocks.value.length === 0;
+    if (!firstIsPageBreak) {
+        const last = canvasBlocks.value[canvasBlocks.value.length - 1];
+        if (!last || last.type !== 'pageBreak') out.push(pageBreakBlock());
+    }
+    out.push(...blocks);
+    out.push(pageBreakBlock());
+    return out;
+}
+
+function applyStructureSection(i) {
+    const section = agentStructureSections.value[i];
+    if (!section) return;
+    const info = sectionMatches(section);
+    const first = section.blocks[0] || {};
+    const isPageSection = first.type === 'cover' || first.type === 'abstract' || first.type === 'blankPage';
+    const title = isPageSection
+        ? (first.type === 'cover' ? 'Cover' : first.type === 'abstract' ? 'Abstrak' : (first.pageTitle || 'Halaman').trim() || 'Halaman')
+        : String(first.content || 'Bagian').trim();
+
+    pushHistory();
+    if (info.match) {
+        if (isPageSection) {
+            // Gantikan halaman lama (bersihkan pemecah halaman yang menempel).
+            let start = info.index;
+            let end = info.end;
+            if (start > 0 && canvasBlocks.value[start - 1]?.type === 'pageBreak') start -= 1;
+            if (end < canvasBlocks.value.length && canvasBlocks.value[end]?.type === 'pageBreak') end += 1;
+            canvasBlocks.value.splice(start, end - start, ...wrapPageSection(section.blocks));
+        } else {
+            canvasBlocks.value.splice(info.index, info.end - info.index, ...section.blocks);
+        }
+    } else if (isPageSection) {
+        // Tambahkan sebagai halaman terpisah di akhir dokumen.
+        canvasBlocks.value.push(...wrapPageSection(section.blocks));
+    } else {
+        canvasBlocks.value.push(...section.blocks);
+    }
+    selectedUid.value = section.blocks[0].uid;
+    showToast(info.match ? `Bagian "${title}" digantikan.` : `Bagian "${title}" ditambahkan.`);
+    agentStructureSections.value.splice(i, 1);
+
+    if (!agentStructureSections.value.length) {
+        agentStructureOpen.value = false;
+        agentStructureTarget.value = '';
+        agentModalOpen.value = false;
+    }
+}
+
+// Terapkan seluruh bagian sekaligus (dari bagian bawah agar indeks tetap valid).
+function applyAllStructureSections() {
+    const rows = structureRows().slice().sort((a, b) => b.index0 - a.index0);
+    pushHistory();
+    for (const row of rows) {
+        const section = agentStructureSections.value[row.index];
+        if (!section) continue;
+        const first = section.blocks[0] || {};
+        const isPageSection = first.type === 'cover' || first.type === 'abstract' || first.type === 'blankPage';
+        const info = sectionMatches(section);
+        if (info.match) {
+            if (isPageSection) {
+                let start = info.index;
+                let end = info.end;
+                if (start > 0 && canvasBlocks.value[start - 1]?.type === 'pageBreak') start -= 1;
+                if (end < canvasBlocks.value.length && canvasBlocks.value[end]?.type === 'pageBreak') end += 1;
+                canvasBlocks.value.splice(start, end - start, ...wrapPageSection(section.blocks));
+            } else {
+                canvasBlocks.value.splice(info.index, info.end - info.index, ...section.blocks);
+            }
+        } else if (isPageSection) {
+            canvasBlocks.value.push(...wrapPageSection(section.blocks));
+        } else {
+            canvasBlocks.value.push(...section.blocks);
+        }
+    }
+    agentStructureSections.value = [];
+    agentStructureOpen.value = false;
+    agentStructureTarget.value = '';
+    agentModalOpen.value = false;
+    showToast('Seluruh bagian diterapkan ke canvas.');
+}
+
+function closeAgentStructure() {
+    agentStructureOpen.value = false;
+    agentStructureSections.value = [];
+    agentStructureTarget.value = '';
 }
 
 // Sisipkan pemecah halaman tepat sebelum blok, sehingga blok tersebut pindah ke halaman baru.
@@ -2389,18 +3085,77 @@ async function spendCredits(reason, { quantity = 1, pages = 0 } = {}) {
 }
 
 // ---- AI (asisten umum + generate per blok) ----
-// Ringkasan isi canvas untuk dikirim ke backend AI.
+// Ringkasan isi canvas untuk dikirim ke backend AI. Versi penuh hanya dipakai
+// saat canvas masih kecil; untuk dokumen besar dipakai ringkasan struktur agar
+// prompt tidak membengkak dan AI tidak timeout.
 const canvasSummary = computed(() => {
     const total = contentBlocks.value.length;
     if (total === 0) return 'Canvas masih kosong.';
-    return contentBlocks.value
-        .map((b, i) => `${i + 1}. [${typeLabel(b.type)}] ${blockPreview(b) || '(kosong)'}`)
-        .join('\n');
+
+    // Di bawah 40 blok: kirim daftar ringkas (aman & hemat).
+    if (total <= 40) {
+        return contentBlocks.value
+            .map((b, i) => `${i + 1}. [${typeLabel(b.type)}] ${blockPreview(b) || '(kosong)'}`)
+            .join('\n');
+    }
+
+    // Dokumen besar: struktur (heading/bagian) + bagian yang sedang aktif saja.
+    return [
+        `Dokumen memiliki ${total} blok. Ringkasan struktur:`,
+        documentStructure.value,
+        'Bagian yang sedang dikerjakan:',
+        activeBlockContext.value,
+    ].filter(Boolean).join('\n\n');
 });
 
 // Agent AI Canvas: kondisi kosong + daftar komponen blok (sidebar kiri).
 const agentEmpty = computed(() => contentBlocks.value.length === 0);
 const agentBlockTypes = computed(() => blockTypes.map(({ id, label }) => ({ id, label })));
+
+// Daftar tujuan penulisan untuk Agent AI Canvas (parameter thinking: user
+// sedang bertanya untuk bagian mana). Diisi dari struktur dokumen yang ada.
+const agentTargets = computed(() => {
+    const list = [];
+    for (const b of contentBlocks.value) {
+        if (b.type === 'abstract') {
+            list.push({ id: b.uid, label: 'Abstrak', kind: 'abstract' });
+        } else if (b.type === 'chapter') {
+            const num = numberingMap.value[b.uid] || '';
+            const text = blockPlainText(b) || 'Bab tanpa judul';
+            list.push({ id: b.uid, label: `${num ? num + ' ' : ''}${text}`.trim(), kind: 'chapter' });
+        }
+    }
+    list.push({ id: 'new', label: 'Bagian baru', kind: 'new' });
+    return list;
+});
+
+// Teks penuh isi canvas (judul, bab, abstrak, paragraf) untuk ekstraksi kata
+// kunci pada fitur "Cari dari isi dokumen" di Agent AI Canvas. Memakai teks
+// utuh (bukan pratinjau 24 karakter) agar kata kunci lebih kaya.
+const agentCanvasText = computed(() =>
+    contentBlocks.value
+        .map((b) => {
+            const raw = String(b.content || b.caption || '').replace(/<[^>]*>/g, ' ');
+            return [b.pageTitle, raw].filter(Boolean).join(' ');
+        })
+        .filter((t) => t.trim())
+        .join('\n'),
+);
+
+// Tujuan bawaan saat modal dibuka: ikuti posisi blok yang sedang dipilih
+// (blok abstrak, atau bab terdekat di atasnya), agar user langsung tahu
+// sedang bertanya untuk bagian mana.
+const agentDefaultTarget = computed(() => {
+    const b = selectedBlock.value;
+    if (!b) return '';
+    if (b.type === 'abstract') return b.uid;
+    const all = contentBlocks.value;
+    const idx = all.findIndex((x) => x.uid === b.uid);
+    for (let i = idx; i >= 0; i--) {
+        if (all[i].type === 'chapter') return all[i].uid;
+    }
+    return '';
+});
 
 function openAgent() {
     closePageSettings();
@@ -2489,26 +3244,59 @@ const pageAiPrompts = computed(() => {
     return ['Tulis paragraf untuk bagian ini', 'Kembangkan judul ini menjadi paragraf', 'Buat kalimat pembuka untuk bagian ini'];
 });
 
-// Kirim instruksi user + struktur dokumen + blok aktif ke AI copilot.
+// Referensi Workspace dalam bentuk ringkas untuk konteks sitasi AI
+// (label disalin apa adanya agar AI tidak mengubah ejaan/tahun).
+function agentReferencePayload() {
+    return allReferences.value.slice(0, 50).map((r) => {
+        const authors = Array.isArray(r.author)
+            ? r.author.map((a) => a?.family).filter(Boolean).join(', ')
+            : String(r.author || '');
+        const year = r.issued?.['date-parts']?.[0]?.[0] || r.year || '';
+        const title = String(r.title || '').trim();
+        const label = [authors && `${authors} (${year})`, title].filter(Boolean).join('. ');
+        const doi = r.DOI || r.doi || '';
+        const link = r.URL || r.url || (doi ? `https://doi.org/${doi}` : '') || r._fileUrl || '';
+        // id (ref_id) dikirim agar server bisa mencocokkan hasil pencarian
+        // relevansi (RAG) ke referensi ini, tanpa mengirim seluruh isi/abstrak.
+        return { id: String(r.id || ''), label, link: String(link || '').trim() };
+    }).filter((r) => r.label);
+}
+
+// Dipanggil saat referensi baru disimpan lewat panel "Cari referensi" di
+// Agent Canvas. Sinkronkan ulang pustaka Workspace agar referensi tersebut
+// langsung tersedia sebagai sumber terverifikasi untuk AI.
+function onReferenceSaved() {
+    syncWorkspaceReferences();
+    showToast('Referensi berhasil disimpan ke Workspace.');
+}
+
+// Generate konten blok: pakai agent canvas agar hasil terstruktur (heading/
+// paragraf/list) lalu langsung menggantikan blok terpilih dengan format yang sesuai.
 async function generateBlockContent() {
     const prompt = aiGenInput.value.trim();
-    if (!prompt) return;
+    const block = selectedBlock.value;
+    if (!prompt || !block) return;
     if (!(await spendCredits('ai_generate'))) return;
     aiGenLoading.value = true;
     try {
         const res = await requestAiGenerate({
-            agent: 'copilot',
+            agent: 'canvas',
             message: prompt,
             context: [documentStructure.value, activeBlockContext.value].filter(Boolean).join('\n\n'),
             uuid: projectId.value,
+            blockTypes: [block.type],
+            references: agentReferencePayload(),
         });
-        aiGenOutput.value = res.ok
-            ? (res.data?.reply || '')
-            : (res.data?.error || 'Gagal menghubungi AI.');
+        if (res.ok) {
+            applyAgentToCanvas({ text: res.data?.reply || '', mode: 'replace' });
+        } else {
+            showToast(res.data?.error || 'Gagal menghubungi AI.');
+        }
     } catch {
-        aiGenOutput.value = 'Gagal menghubungi AI. Coba lagi.';
+        showToast('Gagal menghubungi AI. Coba lagi.');
     } finally {
         aiGenLoading.value = false;
+        aiGenInput.value = '';
     }
 }
 
@@ -2533,13 +3321,6 @@ async function generatePageContent() {
     } finally {
         aiGenLoading.value = false;
     }
-}
-
-function insertGeneratedContent() {
-    if (!selectedBlock.value || !aiGenOutput.value) return;
-    selectedBlock.value.content = ((selectedBlock.value.content || '') + aiGenOutput.value).trim();
-    aiGenOutput.value = '';
-    aiGenInput.value = '';
 }
 
 // Sisipkan hasil generate halaman (markdown) sebagai blok baru di halaman aktif.
@@ -2972,6 +3753,12 @@ function deselectBlock() {
     selectedUid.value = null;
 }
 
+// Handle navigasi dari Daftar Isi: scroll ke bagian yang dipilih (heading/chapter).
+function handleTocNavigate(uid) {
+    if (!uid) return;
+    nextTick(() => scrollToBlock(uid));
+}
+
 function blockHasContent(b) {
     if (!b) return false;
     if (b.type === 'spacer' || b.type === 'divider') return false;
@@ -2981,6 +3768,14 @@ function blockHasContent(b) {
 }
 
 function requestDeleteBlock() {
+    if (selectedBlocksOrdered.value.length > 1) {
+        if (selectedBlocksOrdered.value.some((b) => blockHasContent(b))) {
+            deleteConfirmOpen.value = true;
+        } else {
+            removeSelectedBlocks();
+        }
+        return;
+    }
     if (!selectedBlock.value) return;
     if (blockHasContent(selectedBlock.value)) {
         deleteConfirmOpen.value = true;
@@ -2991,6 +3786,10 @@ function requestDeleteBlock() {
 
 function confirmDeleteBlock() {
     deleteConfirmOpen.value = false;
+    if (selectedBlocksOrdered.value.length > 1) {
+        removeSelectedBlocks();
+        return;
+    }
     removeBlock();
 }
 
@@ -3014,7 +3813,8 @@ function removeBlockByUid(uid) {
         pushHistory();
         canvasBlocks.value.splice(index, 1);
     }
-    if (selectedUid.value === uid) selectedUid.value = null;
+    selectedUids.value = selectedUids.value.filter((x) => x !== uid);
+    if (selectedUid.value === uid) selectedUid.value = selectedUids.value[selectedUids.value.length - 1] || null;
 }
 
 function scrollToBlock(uid) {
@@ -3140,8 +3940,8 @@ function closeCodeEditor() {
 }
 
 // Toast notifikasi (top center) untuk status simpan.
-function showToast(message) {
-    toast(message);
+function showToast(message, type = 'info') {
+    toast(message, type);
 }
 
 function save() {
@@ -3922,6 +4722,7 @@ const horizontalMarks = computed(() => {
         <HeaderBuilder
             :project-name="projectName"
             :project-id="projectId"
+            :project-category="projectCategory"
             :last-edited-label="lastEditedLabel"
             :total-credits="totalCredits"
             v-model:show-guides="showGuides"
@@ -3962,6 +4763,7 @@ const horizontalMarks = computed(() => {
                 :canvas-blocks="canvasBlocks"
                 :pages="pages"
                 :selected-uid="selectedUid"
+                :selected-uids="selectedUids"
                 :drop-index="dropIndex"
                 :page-box-style="pageBoxStyle"
                 :mirror-style="mirrorStyle"
@@ -3994,7 +4796,7 @@ const horizontalMarks = computed(() => {
                 :page-number-label="pageNumberLabel"
                 v-model:current-page="currentPage"
                 v-model:page-jump="pageJump"
-                @select="selectedUid = $event"
+                @select="handleBlockSelect"
                 @update-content="updateContent"
                 @update-indent="updateIndent"
                 @update-page-title="updatePageTitle"
@@ -4013,8 +4815,44 @@ const horizontalMarks = computed(() => {
                 @set-font-family="setBlockFont"
                 @set-font-size="setBlockFontSize"
                 @edit-code="openCodeEditor"
+                @toc-navigate="handleTocNavigate"
             />
 
+            <!-- Bar aksi multi-blok: muncul saat >1 blok terpilih -->
+            <div
+                v-if="selectedUids.length > 1"
+                class="pointer-events-none fixed bottom-6 left-1/2 z-[70] -translate-x-1/2 print:hidden"
+            >
+                <div class="pointer-events-auto flex items-center gap-2 rounded-full border border-neutral-200 bg-white/95 px-4 py-2 shadow-xl backdrop-blur dark:border-neutral-700 dark:bg-neutral-900/95">
+                    <span class="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                        {{ selectedUids.length }} blok dipilih
+                    </span>
+                    <span class="text-[11px] text-neutral-400 dark:text-neutral-500">Ctrl+klik / Shift+klik</span>
+                    <button
+                        v-if="canMergeSelected"
+                        type="button"
+                        class="cursor-pointer rounded-full bg-neutral-900 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                        title="Gabungkan paragraf terpilih menjadi satu blok agar seleksi teks bisa sekaligus"
+                        @click="mergeSelectedBlocks"
+                    >
+                        Gabungkan
+                    </button>
+                    <button
+                        type="button"
+                        class="cursor-pointer rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
+                        @click="requestDeleteBlock"
+                    >
+                        Hapus
+                    </button>
+                    <button
+                        type="button"
+                        class="cursor-pointer rounded-full border border-neutral-200 px-3 py-1 text-xs font-medium text-neutral-600 transition-colors hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-300 dark:hover:text-white"
+                        @click="clearMultiSelection"
+                    >
+                        Batal
+                    </button>
+                </div>
+            </div>
 
             <!-- Pengaturan -->
             <InspectorPanel
@@ -4088,7 +4926,6 @@ const horizontalMarks = computed(() => {
                 @move-block-by="moveBlockBy"
                 @remove-block="removeBlock"
                 @generate-block-content="generateBlockContent"
-                @insert-generated-content="insertGeneratedContent"
                 @generate-page-content="generatePageContent"
                 @insert-page-content="insertPageContent"
                 @run-plagiarism="openPlagiarismCheck"
@@ -4151,6 +4988,8 @@ const horizontalMarks = computed(() => {
     <!-- Konfirmasi hapus blok (saat blok memiliki isi) -->
     <DeleteConfirmModal
         v-model:open="deleteConfirmOpen"
+        title="Hapus blok?"
+        message="Blok ini masih memiliki isi. Konten yang sudah ditulis akan ikut terhapus."
         @confirm="confirmDeleteBlock"
         @cancel="cancelDeleteBlock"
     />
@@ -4320,10 +5159,85 @@ const horizontalMarks = computed(() => {
         :block-types="agentBlockTypes"
         :has-selection="!!selectedUid"
         :spend-credits="spendCredits"
+        :references="allReferences"
+        :targets="agentTargets"
+        :default-target="agentDefaultTarget"
+        :canvas-text="agentCanvasText"
         v-model:open="agentModalOpen"
         @close="agentModalOpen = false"
         @apply="applyAgentToCanvas"
+        @reference-saved="onReferenceSaved"
+        @insert-citations="insertAgentCitations"
     />
+
+    <!-- Panel struktur: sisipkan hasil agent per bagian (bab) -->
+    <div
+        v-if="agentStructureOpen"
+        class="fixed inset-0 z-[85] flex items-center justify-center p-4 print:hidden"
+        role="dialog"
+        aria-modal="true"
+    >
+        <div class="absolute inset-0 bg-black/50" @click="closeAgentStructure"></div>
+        <div class="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+            <div class="border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+                <h2 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">Terapkan ke Canvas</h2>
+                <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    Hasil agent dipecah per bagian. Bab yang sudah ada digantikan, yang belum ada ditambahkan.
+                </p>
+            </div>
+
+            <div class="flex-1 space-y-2 overflow-y-auto p-4">
+                <div
+                    v-for="row in structureRows()"
+                    :key="row.index"
+                    class="flex items-start gap-3 rounded-lg border p-3"
+                    :class="row.targeted
+                        ? 'border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-900/60'
+                        : 'border-neutral-200 dark:border-neutral-800'"
+                >
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                            {{ row.title }}
+                            <span
+                                v-if="row.targeted"
+                                class="ml-1.5 rounded-md bg-neutral-900 px-1.5 py-0.5 text-[10px] font-medium text-white dark:bg-white dark:text-neutral-950"
+                            >tujuan</span>
+                        </p>
+                        <p class="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                            {{ row.count }} blok ·
+                            <span :class="row.matched ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'">
+                                {{ row.matched ? 'akan digantikan' : 'akan ditambahkan' }}
+                            </span>
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="shrink-0 cursor-pointer rounded-lg border border-neutral-900 px-3 py-1.5 text-xs font-medium text-neutral-900 transition-colors hover:bg-neutral-900 hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-neutral-950"
+                        @click="applyStructureSection(row.index)"
+                    >
+                        {{ row.matched ? 'Gantikan' : 'Tambahkan' }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-neutral-200 px-5 py-3 dark:border-neutral-800">
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    @click="closeAgentStructure"
+                >
+                    Batal
+                </button>
+                <button
+                    type="button"
+                    class="cursor-pointer rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-700 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200"
+                    @click="applyAllStructureSections"
+                >
+                    Terapkan Semua
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal editor blok kode -->
     <CodeBlockModal
@@ -4381,12 +5295,56 @@ const horizontalMarks = computed(() => {
                 <span class="mb-1 block text-xs font-medium text-neutral-500 dark:text-neutral-400">Deskripsi singkat (opsional)</span>
                 <textarea
                     v-model="publishDescription"
-                    rows="3"
+                    rows="2"
                     maxlength="500"
                     placeholder="Tuliskan ringkasan singkat tentang project ini…"
                     class="w-full resize-none rounded-lg border border-neutral-200 bg-transparent px-3 py-2 text-sm outline-none transition-colors focus:border-neutral-500 dark:border-neutral-800 dark:bg-neutral-950 dark:focus:border-neutral-400"
                 ></textarea>
             </label>
+
+            <!-- Testimoni wajib: rating & komentar (terinsert otomatis) -->
+            <div class="mt-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                <div class="flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                    <MessageSquare class="h-4 w-4" />
+                    Testimoni (wajib)
+                </div>
+                <p class="mt-0.5 text-xs text-emerald-600/90 dark:text-emerald-400/80">
+                    Rating dan komentarmu otomatis terkirim sebagai testimoni yang tampil di beranda.
+                </p>
+
+                <div class="mt-3">
+                    <p class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Rating</p>
+                    <div class="mt-1.5 flex gap-1">
+                        <button
+                            v-for="i in 5"
+                            :key="i"
+                            type="button"
+                            class="cursor-pointer transition-transform hover:scale-110 disabled:cursor-not-allowed"
+                            :aria-label="`Berikan ${i} bintang`"
+                            :disabled="publishing"
+                            @click="setPublishRating(i)"
+                        >
+                            <Star
+                                class="h-7 w-7 transition-colors"
+                                :class="i <= publishRating ? 'fill-amber-400 text-amber-400' : 'fill-transparent text-neutral-300 dark:text-neutral-600'"
+                            />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="text-xs font-medium text-emerald-700 dark:text-emerald-300">Komentar / ulasan</label>
+                    <textarea
+                        v-model="publishComment"
+                        rows="3"
+                        :maxlength="MAX_COMMENT"
+                        placeholder="Tulis pengalaman menggunakan platform ini…"
+                        :disabled="publishing"
+                        class="mt-1 w-full resize-none rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-emerald-500 dark:border-emerald-900/60 dark:bg-neutral-950 dark:focus:border-emerald-400"
+                    ></textarea>
+                    <p class="mt-1 text-right text-[11px] text-emerald-600/80 dark:text-emerald-400/70">{{ MAX_COMMENT - publishComment.length }} karakter tersisa</p>
+                </div>
+            </div>
 
             <div class="mt-5 flex justify-end gap-2">
                 <button
@@ -4399,10 +5357,12 @@ const horizontalMarks = computed(() => {
                 <button
                     type="button"
                     class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    :disabled="publishing"
+                    :disabled="!canPublish || publishing"
                     @click="confirmPublish"
                 >
-                    {{ publishing ? 'Memublikasikan…' : 'Publish' }}
+                    <Loader2 v-if="publishing" class="h-4 w-4 animate-spin" />
+                    <Star v-else class="h-4 w-4" />
+                    {{ publishing ? 'Memublikasikan…' : 'Publish + Testimoni' }}
                 </button>
             </div>
         </div>

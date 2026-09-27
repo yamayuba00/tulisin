@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { Link2, Clock, Gift, Eye, AlertCircle, CheckCircle2 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
+import Skeleton from '../../components/Skeleton.vue';
 import StatusBadge from '../../components/StatusBadge.vue';
 import { getJson, request } from '../../utils/http';
 import { toast } from '../../utils/toast';
@@ -191,8 +192,15 @@ onMounted(load);
         <div class="mt-8">
             <h2 class="mb-4 font-semibold">Kiriman Saya</h2>
 
-            <div v-if="loading" class="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">
-                <p class="text-sm text-neutral-500 dark:text-neutral-400">Memuat…</p>
+            <div v-if="loading" class="space-y-3">
+                <div v-for="i in 3" :key="i" class="flex items-center gap-4 rounded-lg border border-neutral-200 px-4 py-3.5 dark:border-neutral-800">
+                    <Skeleton class="h-9 w-9 shrink-0" circle />
+                    <div class="min-w-0 flex-1 space-y-2">
+                        <Skeleton class="h-4 w-2/3" />
+                        <Skeleton class="h-3 w-1/3" />
+                    </div>
+                    <Skeleton class="h-6 w-20 shrink-0" />
+                </div>
             </div>
 
             <div v-else-if="submissions.length === 0" class="rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-center dark:border-neutral-700">

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Send, Users, Search, Mail, PenLine, Eye, History, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import PageHeader from '../../../components/PageHeader.vue';
 import AppButton from '../../../components/AppButton.vue';
+import Skeleton from '../../../components/Skeleton.vue';
 import RichTextEditor from './components/RichTextEditor.vue';
 import { getJson, request } from '../../../utils/http';
 import { toast } from '../../../utils/toast';
@@ -278,7 +279,12 @@ function stopPolling() {
                                 </div>
 
                                 <div class="mt-2 max-h-52 overflow-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
-                                    <p v-if="loadingRecipients" class="px-3 py-5 text-center text-xs text-neutral-400">Memuat…</p>
+                                    <div v-if="loadingRecipients" class="space-y-2 px-3 py-3">
+                                        <div v-for="i in 4" :key="i" class="flex items-center gap-3">
+                                            <Skeleton class="h-4 w-4 shrink-0" />
+                                            <Skeleton class="h-3 w-2/3" />
+                                        </div>
+                                    </div>
                                     <p v-else-if="filteredRecipients.length === 0" class="px-3 py-5 text-center text-xs text-neutral-400">
                                         Tidak ada pengguna.
                                     </p>
@@ -405,7 +411,13 @@ function stopPolling() {
                         </thead>
                         <tbody class="divide-y divide-neutral-100 dark:divide-neutral-800">
                             <tr v-if="broadcastLoading && broadcasts.length === 0">
-                                <td colspan="7" class="px-4 py-10 text-center text-neutral-400">Memuat…</td>
+                                <td colspan="7" class="p-0">
+                                    <div v-for="i in 5" :key="i" class="flex items-center gap-4 border-b border-neutral-100 px-4 py-3.5 last:border-0 dark:border-neutral-800">
+                                        <Skeleton class="h-4 w-8 shrink-0" />
+                                        <Skeleton class="h-4 flex-1" />
+                                        <Skeleton class="h-4 w-24 shrink-0" />
+                                    </div>
+                                </td>
                             </tr>
                             <tr v-else-if="broadcasts.length === 0">
                                 <td colspan="7" class="px-4 py-10 text-center text-neutral-400">Belum ada email yang dikirim.</td>

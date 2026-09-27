@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { Upload, Trash2, Image as ImageIcon, Coins, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import EmptyState from '../../components/EmptyState.vue';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal.vue';
 import AppButton from '../../components/AppButton.vue';
 import {
     listImages,
@@ -25,6 +26,7 @@ const usage = ref({ used: 0, creditsSpent: 0 });
 const uploading = ref(false);
 const fileInput = ref(null);
 const deleteTarget = ref(null);
+const deleting = ref(false);
 const subscribed = ref(false);
 
 async function refresh() {
@@ -96,18 +98,22 @@ function remove(id) {
 }
 
 async function confirmDelete() {
-    if (!deleteTarget.value) return;
+    if (!deleteTarget.value || deleting.value) return;
     const id = deleteTarget.value;
-    deleteTarget.value = null;
+    deleting.value = true;
     try {
         await removeImage(id);
         await refresh();
+        deleteTarget.value = null;
     } catch (err) {
         toast(err?.message || 'Gagal menghapus gambar.', 'error');
+    } finally {
+        deleting.value = false;
     }
 }
 
 function cancelDelete() {
+    if (deleting.value) return;
     deleteTarget.value = null;
 }
 
@@ -190,34 +196,16 @@ function formatSize(bytes) {
         <input ref="fileInput" type="file" accept="image/*" multiple class="hidden" @change="onFileChange" />
 
         <!-- Konfirmasi hapus gambar -->
-        <div v-if="deleteTarget" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/50" @click="cancelDelete"></div>
-            <div class="relative z-10 w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
-                <div class="flex items-start gap-3">
-                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400">
-                        <Trash2 class="h-5 w-5" />
-                    </span>
-                    <div>
-                        <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Hapus gambar ini?</h2>
-                        <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Gambar akan dihapus dari file manager dan cloud storage. Koin yang sudah terpakai tidak dikembalikan.
-                        </p>
-                    </div>
-                </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button
-                        type="button"
-                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                        @click="cancelDelete"
-                    >
-                        Batal
-                    </button>
-                    <AppButton @click="confirmDelete">
-                        <Trash2 class="h-4 w-4" />
-                        Hapus
-                    </AppButton>
-                </div>
-            </div>
-        </div>
+        <DeleteConfirmModal
+            :open="!!deleteTarget"
+            title="Hapus gambar ini?"
+            message="Gambar akan dihapus dari file manager dan cloud storage. Koin yang sudah terpakai tidak dikembalikan."
+            :busy="deleting"
+            @confirm="confirmDelete"
+            @cancel="cancelDelete"
+        >
+            <template #icon><Trash2 class="h-5 w-5" /></template>
+            <template #confirm-icon><Trash2 class="h-4 w-4" /></template>
+        </DeleteConfirmModal>
     </div>
 </template>

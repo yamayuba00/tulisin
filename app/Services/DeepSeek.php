@@ -7,8 +7,17 @@ use Illuminate\Support\Facades\Log;
 
 class DeepSeek
 {
+    /** Percobaan maksimum (1 percobaan awal + 2 ulang) untuk error sementara. */
+    private const MAX_ATTEMPTS = 3;
+
+    /** Jeda antar percobaan (milidetik). */
+    private const RETRY_DELAY_MS = 1200;
+
     /**
      * Kirim percakapan ke DeepSeek (OpenAI-compatible) dan kembalikan isi balasan.
+     *
+     * Error sementara (jaringan, 429, 5xx) diulang otomatis dengan backoff agar
+     * user tidak melihat kegagalan hanya karena gangguan sesaat.
      *
      * @param  bool  $json  aktifkan mode JSON (response_format json_object).
      * @param  float  $temperature  kreativitas balasan (0 = deterministik, 1 = bebas).
@@ -21,28 +30,89 @@ class DeepSeek
             'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
             'messages' => $this->messages($system, $user, $history),
             'temperature' => $json ? 0 : $temperature,
+            // Batasi panjang balasan agar tidak menggantung lama (jaga waktu, cegah timeout).
+            'max_tokens' => $json ? 2000 : 4096,
         ];
 
         if ($json) {
             $payload['response_format'] = ['type' => 'json_object'];
         }
 
-        try {
-            $response = Http::timeout(90)
-                ->connectTimeout(30)
-                ->withToken((string) config('services.deepseek.api_key'))
-                ->post(rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions', $payload);
-        } catch (\Throwable $e) {
-            Log::error('DeepSeek request gagal', ['error' => $e->getMessage()]);
+        $url = rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions';
+        $token = (string) config('services.deepseek.api_key');
 
-            return null;
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            try {
+                $response = Http::timeout(60)
+                    ->connectTimeout(15)
+                    ->withToken($token)
+                    ->post($url, $payload);
+            } catch (\Throwable $e) {
+                Log::warning('DeepSeek request gagal (jaringan)', [
+                    'attempt' => $attempt,
+                    'error' => $e->getMessage(),
+                ]);
+                $this->waitBeforeRetry($attempt);
+
+                continue;
+            }
+
+            if ($response->successful()) {
+                $content = (string) $response->json('choices.0.message.content', '');
+
+                // Balasan kosong dianggap gagal sementara; coba lagi.
+                if (trim($content) !== '') {
+                    return $content;
+                }
+
+                Log::warning('DeepSeek balasan kosong', ['attempt' => $attempt]);
+                $this->waitBeforeRetry($attempt);
+
+                continue;
+            }
+
+            // Error yang tidak akan berubah walau diulang: jangan buang waktu.
+            if (! $this->isRetryableStatus($response->status())) {
+                Log::warning('DeepSeek gagal permanen', [
+                    'status' => $response->status(),
+                    'body' => mb_substr($response->body(), 0, 500),
+                ]);
+
+                return null;
+            }
+
+            Log::warning('DeepSeek gagal sementara', [
+                'status' => $response->status(),
+                'attempt' => $attempt,
+                'body' => mb_substr($response->body(), 0, 300),
+            ]);
+
+            // Hormati Retry-After bila provider mengirimkannya.
+            $retryAfter = (int) ($response->header('Retry-After') ?: 0);
+            if ($retryAfter > 0) {
+                usleep(min($retryAfter, 5) * 1_000_000);
+            } else {
+                $this->waitBeforeRetry($attempt);
+            }
         }
 
-        if (! $response->successful()) {
-            return null;
-        }
+        Log::error('DeepSeek gagal setelah semua percobaan', ['attempts' => self::MAX_ATTEMPTS]);
 
-        return (string) $response->json('choices.0.message.content', '');
+        return null;
+    }
+
+    /** Status HTTP yang layak diulang (gangguan sementara provider). */
+    private function isRetryableStatus(int $status): bool
+    {
+        return in_array($status, [408, 409, 425, 429, 500, 502, 503, 504, 522, 524], true);
+    }
+
+    /** Backoff bertingkat sebelum percobaan berikutnya. */
+    private function waitBeforeRetry(int $attempt): void
+    {
+        if ($attempt < self::MAX_ATTEMPTS) {
+            usleep(self::RETRY_DELAY_MS * $attempt * 1000);
+        }
     }
 
     /**

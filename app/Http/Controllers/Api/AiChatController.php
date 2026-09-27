@@ -28,6 +28,8 @@ class AiChatController extends Controller
             ->map(fn (AiChatSession $s) => [
                 'id' => $s->id,
                 'title' => $s->title,
+                'format' => $s->format,
+                'insert_mode' => $s->insert_mode,
                 'preview' => $s->messages->first()?->content ?? '',
                 'created_at' => $s->created_at?->toIso8601String(),
                 'updated_at' => $s->updated_at?->toIso8601String(),
@@ -48,15 +50,21 @@ class AiChatController extends Controller
 
         $data = $request->validate([
             'title' => ['nullable', 'string', 'max:200'],
+            'format' => ['nullable', 'string', 'in:skripsi,tesis,disertasi,makalah,jurnal,laporan,proposal,esai'],
+            'insert_mode' => ['nullable', 'string', 'in:after,replace'],
         ]);
 
         $session = $project->aiChatSessions()->create([
             'title' => trim((string) ($data['title'] ?? '')) ?: 'Chat baru',
+            'format' => $data['format'] ?? null,
+            'insert_mode' => $data['insert_mode'] ?? 'replace',
         ]);
 
         return response()->json([
             'id' => $session->id,
             'title' => $session->title,
+            'format' => $session->format,
+            'insert_mode' => $session->insert_mode,
             'preview' => '',
             'created_at' => $session->created_at?->toIso8601String(),
             'updated_at' => $session->updated_at?->toIso8601String(),
@@ -84,8 +92,46 @@ class AiChatController extends Controller
             ]);
 
         return response()->json([
-            'session' => ['id' => $session->id, 'title' => $session->title],
+            'session' => [
+                'id' => $session->id,
+                'title' => $session->title,
+                'format' => $session->format,
+                'insert_mode' => $session->insert_mode,
+            ],
             'messages' => $messages,
+        ]);
+    }
+
+    /**
+     * Kunci format & gaya sisip pada sesi yang belum punya (sesi lama).
+     * Hanya bisa diisi sekali; setelah terisi tidak bisa diubah lagi.
+     */
+    public function update(Request $request, string $uuid, AiChatSession $session): JsonResponse
+    {
+        $project = $this->ownedProject($request, $uuid);
+        if (! $project || $session->project_id !== $project->id) {
+            return response()->json(['error' => 'Chat tidak ditemukan.'], 404);
+        }
+
+        if ($session->format) {
+            return response()->json(['error' => 'Format chat ini sudah terkunci dan tidak bisa diubah.'], 422);
+        }
+
+        $data = $request->validate([
+            'format' => ['required', 'string', 'in:skripsi,tesis,disertasi,makalah,jurnal,laporan,proposal,esai'],
+            'insert_mode' => ['nullable', 'string', 'in:after,replace,pick'],
+        ]);
+
+        $session->update([
+            'format' => $data['format'],
+            'insert_mode' => $data['insert_mode'] ?? 'replace',
+        ]);
+
+        return response()->json([
+            'id' => $session->id,
+            'title' => $session->title,
+            'format' => $session->format,
+            'insert_mode' => $session->insert_mode,
         ]);
     }
 

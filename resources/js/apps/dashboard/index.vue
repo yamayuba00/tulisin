@@ -18,6 +18,8 @@ import {
 } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import StatCard from '../../components/StatCard.vue';
+import Skeleton from '../../components/Skeleton.vue';
+import SkeletonTable from '../../components/SkeletonTable.vue';
 import AppButton from '../../components/AppButton.vue';
 import GettingStarted from './GettingStarted.vue';
 import { getJson } from '../../utils/http';
@@ -30,6 +32,7 @@ const { currentUser } = useAuth();
 const balance = ref(null);
 const transactions = ref([]);
 const projects = ref([]);
+const loading = ref(true);
 const aiResults = ref([]);
 const aiResultsLoading = ref(false);
 const historyTab = ref('turnitin'); // 'turnitin' | 'plagiarism'
@@ -118,29 +121,38 @@ function reasonLabel(reason) {
 }
 
 async function loadData() {
+    loading.value = true;
+    aiResultsLoading.value = true;
     try {
-        const data = await getJson('/api/projects');
-        projects.value = Array.isArray(data?.projects) ? data.projects : [];
-    } catch {
-        projects.value = [];
-    }
-    try {
-        const data = await getJson('/api/wallet');
-        balance.value = data.balance ?? 0;
-    } catch {
-        balance.value = 0;
-    }
-    try {
-        const tx = await getJson('/api/wallet/transactions');
-        transactions.value = tx.transactions || [];
-    } catch {
-        transactions.value = [];
-    }
-    try {
-        const data = await getJson('/api/ai/results');
-        aiResults.value = Array.isArray(data?.results) ? data.results : [];
-    } catch {
-        aiResults.value = [];
+        try {
+            const data = await getJson('/api/projects');
+            projects.value = Array.isArray(data?.projects) ? data.projects : [];
+        } catch {
+            projects.value = [];
+        }
+        try {
+            const data = await getJson('/api/wallet');
+            balance.value = data.balance ?? 0;
+        } catch {
+            balance.value = 0;
+        }
+        try {
+            const tx = await getJson('/api/wallet/transactions');
+            transactions.value = tx.transactions || [];
+        } catch {
+            transactions.value = [];
+        }
+        loading.value = false;
+
+        try {
+            const data = await getJson('/api/ai/results');
+            aiResults.value = Array.isArray(data?.results) ? data.results : [];
+        } catch {
+            aiResults.value = [];
+        }
+    } finally {
+        loading.value = false;
+        aiResultsLoading.value = false;
     }
 }
 
@@ -180,19 +192,28 @@ const features = [
         <GettingStarted :project-count="projects.length" class="mb-6" />
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <RouterLink to="/apps/u/topup" class="block">
-                <StatCard
-                    label="Saldo Koin"
-                    :value="balance === null ? '—' : balance"
-                    hint="Top-up untuk menambah"
-                />
-            </RouterLink>
-            <RouterLink to="/apps/u/projects" class="block">
-                <StatCard label="Total Project" :value="projects.length" hint="Project dokumen kamu" />
-            </RouterLink>
-            <RouterLink to="/apps/u/projects" class="block">
-                <StatCard label="Project Aktif" :value="activeCount" hint="Diedit 7 hari terakhir" />
-            </RouterLink>
+            <template v-if="loading">
+                <div v-for="i in 3" :key="i" class="rounded-lg border border-neutral-200 p-5 dark:border-neutral-800">
+                    <Skeleton class="h-4 w-24" />
+                    <Skeleton class="mt-3 h-7 w-20" />
+                    <Skeleton class="mt-2 h-3 w-28" />
+                </div>
+            </template>
+            <template v-else>
+                <RouterLink to="/apps/u/topup" class="block">
+                    <StatCard
+                        label="Saldo Koin"
+                        :value="balance === null ? '—' : balance"
+                        hint="Top-up untuk menambah"
+                    />
+                </RouterLink>
+                <RouterLink to="/apps/u/projects" class="block">
+                    <StatCard label="Total Project" :value="projects.length" hint="Project dokumen kamu" />
+                </RouterLink>
+                <RouterLink to="/apps/u/projects" class="block">
+                    <StatCard label="Project Aktif" :value="activeCount" hint="Diedit 7 hari terakhir" />
+                </RouterLink>
+            </template>
         </div>
 
         <div class="mt-6 flex flex-col gap-4 rounded-lg border border-neutral-200 p-6 dark:border-neutral-800 sm:flex-row sm:items-center sm:justify-between">
@@ -229,7 +250,9 @@ const features = [
                     </RouterLink>
                 </div>
 
-                <div v-if="recentProjects.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
+                <SkeletonTable v-if="loading" :rows="4" :columns="3" :actions="false" />
+
+                <div v-else-if="recentProjects.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
                     <button
                         v-for="p in recentProjects"
                         :key="p.id"
@@ -270,7 +293,9 @@ const features = [
                     </RouterLink>
                 </div>
 
-                <div v-if="recentTransactions.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
+                <SkeletonTable v-if="loading" :rows="4" :columns="3" :actions="false" />
+
+                <div v-else-if="recentTransactions.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
                     <div v-for="t in recentTransactions" :key="t.id" class="flex items-center gap-3 px-4 py-3">
                         <div
                             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
@@ -320,10 +345,7 @@ const features = [
                 </div>
             </div>
 
-            <div v-if="aiResultsLoading" class="flex items-center gap-2 p-6 text-sm text-neutral-500 dark:text-neutral-400">
-                <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
-                Memuat riwayat…
-            </div>
+            <SkeletonTable v-if="aiResultsLoading" :rows="4" :columns="3" :actions="true" />
 
             <div v-else-if="filteredAiResults.length" class="divide-y divide-neutral-100 dark:divide-neutral-800">
                 <div v-for="e in filteredAiResults" :key="e.id">

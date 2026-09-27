@@ -1,8 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Eye, Search, Lock, Loader2 } from 'lucide-vue-next';
+import { Eye, Search, Lock } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
+import SkeletonCard from '../../components/SkeletonCard.vue';
 import { PROJECT_CATEGORIES } from '../../utils/projectCategories';
 import { getJson } from '../../utils/http';
 import { formatDate } from '../../utils/format';
@@ -88,10 +89,7 @@ onMounted(loadProjects);
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="mt-6 flex items-center justify-center rounded-lg border border-dashed border-neutral-300 px-6 py-12 text-neutral-400 dark:border-neutral-700">
-            <Loader2 class="h-5 w-5 animate-spin" />
-            <span class="ml-2 text-sm">Memuat dokumen publik…</span>
-        </div>
+        <SkeletonCard v-if="loading" :count="6" class="mt-6" columns-class="sm:grid-cols-2 lg:grid-cols-3" />
 
         <!-- Grid -->
         <div v-else-if="filtered.length > 0" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

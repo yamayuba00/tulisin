@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\Review;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,6 +24,8 @@ class ProjectController extends Controller
                 'category' => $p->category,
                 'lastEdited' => $p->updated_at ? (int) $p->updated_at->valueOf() : null,
                 'blocks' => data_get($p->payload, 'blocks', []),
+                'published' => $p->is_public && $p->status === 'published',
+                'publishedAt' => $p->published_at ? $p->published_at->toISOString() : null,
             ]);
 
         return response()->json(['projects' => $projects]);
@@ -201,6 +204,10 @@ class ProjectController extends Controller
     /**
      * Publikasikan project milik pengguna agar muncul di Lists Project (public).
      * Bisa disertai deskripsi singkat yang ditampilkan di kartu Lists.
+     *
+     * Sejak fitur "publish = testimoni", pengguna diwajibkan mengirim rating dan
+     * komentar. Rating & komentar ini otomatis diinsert sebagai record Review
+     * (testimoni) atas nama pengguna yang sama dan langsung dipublikasikan.
      */
     public function publish(Request $request, string $uuid): JsonResponse
     {
@@ -214,6 +221,8 @@ class ProjectController extends Controller
 
         $data = $request->validate([
             'description' => ['nullable', 'string', 'max:500'],
+            'rating' => ['required', 'integer', 'min:1', 'max:5'],
+            'comment' => ['required', 'string', 'max:150'],
         ]);
 
         $project->update([
@@ -223,9 +232,23 @@ class ProjectController extends Controller
             'published_at' => $project->published_at ?? now(),
         ]);
 
+        // Insert testimoni otomatis (review) atas nama user yang mempublikasikan.
+        $review = Review::create([
+            'user_id' => $request->user()->id,
+            'rating' => (int) $data['rating'],
+            'text' => trim((string) $data['comment']),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
         return response()->json([
             'message' => 'Project berhasil dipublikasikan.',
             'published_at' => $project->published_at?->toISOString(),
+            'review' => [
+                'id' => $review->uuid,
+                'rating' => $review->rating,
+                'text' => $review->text,
+            ],
         ]);
     }
 }

@@ -124,13 +124,12 @@ export function addReferences(items) {
     }
     persistLocal(store.items);
 
-    // Kirim ke server (tidak memblokir UI).
-    request('/api/workspace/references', {
+    // Kirim ke server dan kembalikan promise-nya agar caller bisa menunggu &
+    // memastikan penyimpanan server berhasil (bukan cuma cache lokal).
+    return request('/api/workspace/references', {
         method: 'POST',
         body: JSON.stringify({ items }),
-    }).catch(() => {});
-
-    return store.items;
+    });
 }
 
 export function updateReference(id, patch) {

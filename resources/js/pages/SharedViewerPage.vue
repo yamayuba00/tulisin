@@ -1,10 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
-import { FileQuestion, Loader2, Link2, ListTree, X } from 'lucide-vue-next';
+import { FileQuestion, Link2, ListTree, X } from 'lucide-vue-next';
 import { getJson } from '../utils/http';
 import { cslFormatter } from '../utils/csl-formatter';
 import CanvasBlock from '../components/CanvasBlock.vue';
+import Skeleton from '../components/Skeleton.vue';
 import TableBlock from '../components/TableBlock.vue';
 import ImageBlock from '../components/ImageBlock.vue';
 import FormulaBlock from '../components/FormulaBlock.vue';
@@ -470,6 +471,7 @@ const tocEntries = computed(() => {
                 number: isFront ? '' : (numberingMap.value[b.uid] || ''),
                 text: isFront ? sectionTitleForToc(b) : stripHtml(b.content),
                 pageLabel: pageIndex >= 0 ? pageNumberLabel(pageIndex) : '',
+                page: pageIndex + 1, // halaman 1-based untuk link PDF export
                 hidden: hidden.includes(b.uid),
             };
         })
@@ -595,9 +597,21 @@ onBeforeUnmount(() => {
             <!-- Konten dokumen -->
             <div class="flex min-w-0 flex-1 flex-col items-center">
                 <!-- Status loading / error -->
-                <div v-if="loading" class="flex items-center justify-center py-24 text-neutral-500">
-                    <Loader2 class="h-5 w-5 animate-spin" />
-                    <span class="ml-2">Memuat dokumen…</span>
+                <div v-if="loading" class="w-full max-w-[210mm] space-y-4 py-12">
+                    <Skeleton class="mx-auto h-8 w-2/3" />
+                    <Skeleton class="mx-auto h-4 w-1/2" />
+                    <div class="mt-8 space-y-3">
+                        <Skeleton class="h-4 w-full" />
+                        <Skeleton class="h-4 w-full" />
+                        <Skeleton class="h-4 w-11/12" />
+                        <Skeleton class="h-4 w-full" />
+                        <Skeleton class="h-4 w-4/5" />
+                    </div>
+                    <div class="space-y-3 pt-4">
+                        <Skeleton class="h-4 w-full" />
+                        <Skeleton class="h-4 w-full" />
+                        <Skeleton class="h-4 w-10/12" />
+                    </div>
                 </div>
 
                 <div v-else-if="error" class="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-8 text-center shadow-sm">
@@ -664,6 +678,7 @@ onBeforeUnmount(() => {
                                 :reference-entries="referenceEntries"
                                 :citation-style="citationStyle"
                                 :entry-slice="block.sliceStart == null ? null : [block.sliceStart, block.sliceEnd]"
+                                @toc-navigate="scrollToBlock"
                             />
                         </template>
 

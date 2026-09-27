@@ -17,7 +17,7 @@ const props = defineProps({
     minHeight: { type: Number, default: 0 }, // tinggi minimum (px) untuk editor, mis. blankPage satu halaman penuh
 });
 
-const emit = defineEmits(['select', 'update:content', 'update:indent', 'update:page-title', 'dragstart', 'dragend', 'edit-code']);
+const emit = defineEmits(['select', 'update:content', 'update:indent', 'update:page-title', 'dragstart', 'dragend', 'edit-code', 'toc-navigate']);
 
 const contentEl = ref(null);
 const titleEl = ref(null);
@@ -97,6 +97,34 @@ const slicedTableEntries = computed(() => sliceEntries(props.tableEntries));
 const slicedFigureEntries = computed(() => sliceEntries(props.figureEntries));
 const slicedReferenceEntries = computed(() => sliceEntries(props.referenceEntries));
 
+// Paragraf/kutipan yang dipecah per karakter antar halaman: tampilkan hanya
+// potongan teks polos [sliceStart, sliceEnd]. Format inline (bold/italic/link)
+// dipertahankan pada konten data, tetapi tampilan potongan memakai teks polos.
+const isTextSlice = computed(() =>
+    ['paragraph', 'quote'].includes(props.block.type) && !!entrySlice.value,
+);
+const isFullTextSlice = computed(() =>
+    isTextSlice.value && entrySlice.value[0] === 0 && entrySlice.value[1] >= plainText(props.block.content).length,
+);
+
+function plainText(html) {
+    const doc = new DOMParser().parseFromString(html || '', 'text/html');
+    return doc.body.textContent || '';
+}
+
+function escapeHtml(text) {
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+const slicedText = computed(() => {
+    if (!isTextSlice.value) return '';
+    return plainText(props.block.content).slice(entrySlice.value[0], entrySlice.value[1]);
+});
+
+
 const rootStyle = computed(() => {
     const style = { marginLeft: `${(props.block.indent || 0) * 1.5}em` };
     // Font kustom diterapkan ke seluruh blok (termasuk angka heading) agar nomor & isi konsisten.
@@ -126,7 +154,10 @@ const contentClass = computed(() =>
 const contentStyle = computed(() => {
     const style = {};
     // Baris pertama menjorok (seperti Tab di awal paragraf, ala Google Docs).
-    if (props.block.firstLineIndent) style.textIndent = '1.27cm';
+    // Untuk paragraf yang dipecah antar halaman, hanya chunk pertama yang menjorok.
+    if (props.block.firstLineIndent && (!entrySlice.value || entrySlice.value[0] === 0)) {
+        style.textIndent = '1.27cm';
+    }
     // Spasi baris khusus untuk blok ini (0 = ikuti dokumen).
     if (props.block.lineHeight) style.lineHeight = props.block.lineHeight;
     // Kolom teks (1/2/3): konten mengalir seperti kolom Google Docs.
@@ -179,6 +210,17 @@ function onInput() {
         const edited = parseTopLevelListItems(contentEl.value ? contentEl.value.innerHTML : '');
         full.splice(entrySlice.value[0], entrySlice.value[1] - entrySlice.value[0], ...edited);
         emit('update:content', full.join(''));
+        return;
+    }
+    // Paragraf/kutipan yang dipecah antar halaman: gabungkan kembali teks chunk
+    // yang diedit ke teks penuh blok sumber (sebagai teks polos).
+    // Pengecualian: chunk yang memuat SELURUH teks berarti blok muat penuh di
+    // satu halaman, sehingga bisa diedit kaya (bold/italic/link) seperti biasa.
+    if (isTextSlice.value && !isFullTextSlice.value) {
+        const full = plainText(props.block.content);
+        const edited = contentEl.value ? (contentEl.value.innerText || '') : '';
+        const merged = full.slice(0, entrySlice.value[0]) + edited + full.slice(entrySlice.value[1]);
+        emit('update:content', merged);
         return;
     }
     emit('update:content', contentEl.value.innerHTML);
@@ -355,6 +397,9 @@ function syncContent() {
     // List poin/nomor yang dipecah antar halaman hanya menampilkan potongan <li>-nya.
     if (entrySlice.value && (props.block.type === 'bullet' || props.block.type === 'number')) {
         html = parseTopLevelListItems(html).slice(entrySlice.value[0], entrySlice.value[1]).join('');
+    } else if (isTextSlice.value && !isFullTextSlice.value) {
+        // Paragraf/kutipan yang dipecah antar halaman menampilkan potongan teks polos.
+        html = escapeHtml(slicedText.value);
     }
     if (contentEl.value.innerHTML !== html) {
         contentEl.value.innerHTML = html;
@@ -387,10 +432,11 @@ onMounted(() => {
 <template>
     <div
         :data-block-uid="block.uid"
+        :data-slice-start="entrySlice ? entrySlice[0] : 0"
         class="group relative rounded-sm"
         :class="[measure ? '' : 'cursor-pointer', isListType ? 'py-0' : 'py-0.5']"
         :style="rootStyle"
-        @click="$emit('select')"
+        @click="$emit('select', $event)"
     >
         <div
             v-if="!measure"
@@ -460,8 +506,13 @@ onMounted(() => {
                     <div
                         v-for="entry in slicedTocEntries"
                         :key="entry.uid"
-                        class="toc-entry"
+                        class="toc-entry toc-link"
                         :class="`toc-level-${entry.level}`"
+                        role="link"
+                        tabindex="0"
+                        title="Klik untuk menuju ke bagian ini"
+                        @click.stop="$emit('toc-navigate', entry.uid)"
+                        @keydown.enter.prevent="$emit('toc-navigate', entry.uid)"
                     >
                         <span v-if="entry.number" class="toc-label">{{ entry.number }}</span>
                         <span class="toc-text">{{ entry.text || '(Tanpa judul)' }}</span>
@@ -667,6 +718,10 @@ onMounted(() => {
 
 .toc-list { margin-top: 0.5rem; }
 .toc-entry { display: flex; align-items: baseline; margin: 0.25rem 0; line-height: var(--block-line-height, 1.5); }
+.toc-link { cursor: pointer; border-radius: 0.375rem; padding: 0.125rem 0.375rem; margin-left: -0.375rem; margin-right: -0.375rem; transition: background-color 0.15s ease, color 0.15s ease; }
+.toc-link:hover { background-color: rgb(245 245 245); }
+.toc-link:hover .toc-text { color: rgb(23 23 23); text-decoration: underline; text-underline-offset: 3px; }
+.toc-link:focus-visible { outline: 2px solid rgb(82 82 82); outline-offset: 2px; }
 .toc-level-1 { padding-left: 1rem; }
 .toc-level-2 { padding-left: 2rem; }
 .toc-level-3 { padding-left: 3rem; }

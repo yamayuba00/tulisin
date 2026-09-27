@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { X, ArrowLeft, Printer, RotateCcw, History, Trash2 } from 'lucide-vue-next';
+import Skeleton from '../../../components/Skeleton.vue';
 
 const props = defineProps({
     loading: { type: Boolean, default: false },
@@ -109,9 +110,14 @@ function printReport(entry) {
 
             <!-- Body -->
             <div class="flex-1 overflow-y-auto px-5 py-4">
-                <div v-if="loading" class="flex items-center gap-2 py-10 text-sm text-neutral-500 dark:text-neutral-400">
-                    <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
-                    Memuat riwayat…
+                <div v-if="loading" class="space-y-2 py-2">
+                    <div v-for="i in 4" :key="i" class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                        <div class="flex items-center justify-between">
+                            <Skeleton class="h-3.5 w-1/3" />
+                            <Skeleton class="h-3 w-16" />
+                        </div>
+                        <Skeleton class="mt-2 h-3 w-2/3" />
+                    </div>
                 </div>
 
                 <!-- Daftar riwayat -->

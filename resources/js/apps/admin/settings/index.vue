@@ -26,6 +26,12 @@ const fields = [
         min: 0,
     },
     {
+        key: 'reference_save',
+        label: 'Simpan Referensi (Agent Canvas)',
+        hint: 'Koin per referensi yang disimpan dari panel Cari Referensi.',
+        min: 0,
+    },
+    {
         key: 'ai_plagiarism',
         label: 'AI Plagiarism Check',
         hint: 'Koin per sekali pengecekan plagiarisme.',

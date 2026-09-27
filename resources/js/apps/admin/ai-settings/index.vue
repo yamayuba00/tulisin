@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 import { Save, Plus, Trash2, Sparkles } from 'lucide-vue-next';
 import PageHeader from '../../../components/PageHeader.vue';
 import AppButton from '../../../components/AppButton.vue';
+import Skeleton from '../../../components/Skeleton.vue';
 import { getJson, request } from '../../../utils/http';
 import { toast } from '../../../utils/toast';
 import appName from '../../../utils/appName';
@@ -93,7 +94,12 @@ onMounted(load);
                     Daftar Mesin AI
                 </div>
 
-                <div v-if="loading" class="mt-4 text-sm text-neutral-400 dark:text-neutral-500">Memuat…</div>
+                <div v-if="loading" class="mt-4 space-y-2">
+                    <div v-for="i in 4" :key="i" class="flex items-center justify-between rounded-lg border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                        <Skeleton class="h-4 w-32" />
+                        <Skeleton class="h-8 w-20" />
+                    </div>
+                </div>
 
                 <ul v-else class="mt-4 space-y-2">
                     <li

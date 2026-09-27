@@ -57,6 +57,17 @@ return [
         'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
     ],
 
+    // Embedding untuk RAG. DeepSeek belum menyediakan endpoint /v1/embeddings
+    // per Sept 2026 (terverifikasi 404), jadi provider default tetap deepseek
+    // agar saat resmi dirilis otomatis aktif; fallback lexical sudah jalan tanpa ini.
+    'embedding' => [
+        'provider' => env('EMBEDDING_PROVIDER', 'deepseek'),
+        'api_key' => env('EMBEDDING_API_KEY', env('DEEPSEEK_API_KEY')),
+        'base_url' => env('EMBEDDING_BASE_URL', env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')),
+        'model' => env('EMBEDDING_MODEL', 'deepseek-embedding'),
+        'dimensions' => (int) env('EMBEDDING_DIMENSIONS', 1536),
+    ],
+
     'google_tag_manager_id' => env('GOOGLE_TAG_MANAGER_ID'),
 
 ];

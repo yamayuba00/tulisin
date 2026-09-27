@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\WorkspaceReference;
+use App\Services\ReferenceIndexer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -132,7 +135,7 @@ class WorkspaceController extends Controller
     {
         $items = WorkspaceReference::query()
             ->where('user_id', $request->user()->id)
-            ->orderBy('created_at')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (WorkspaceReference $r) => array_merge(
                 ['id' => $r->ref_id],
@@ -148,23 +151,34 @@ class WorkspaceController extends Controller
      * Simpan (upsert) satu atau banyak referensi Workspace milik user.
      * Body: { items: [{ id, ...csl }] }. `id` adalah identitas client (ws_xxx).
      */
-    public function storeReferences(Request $request): JsonResponse
+    public function storeReferences(Request $request, ReferenceIndexer $indexer): JsonResponse
     {
-        $data = $request->validate([
+        $payload = $request->validate([
             'items' => ['required', 'array', 'max:200'],
             'items.*.id' => ['required', 'string', 'max:64'],
-            'items.*.type' => ['nullable', 'string', 'max:40'],
-            'items.*.title' => ['nullable', 'string'],
         ]);
 
-        foreach ($data['items'] as $item) {
+        // Gunakan item mentah asli (`$request->input('items')`), bukan hasil
+        // `validate`. Validasi Laravel hanya mengembalikan field yang
+        // dideklarasikan dalam rules sehingga menyusun ulang data di sini akan
+        // MEMBUANG author, year, journal, dll. yang juga dibutuhkan untuk
+        // sitasi. Rules di atas tetap memvalidasi keberadaan `id`, lalu kita
+        // simpan seluruh objek CSL apa adanya tanpa memotong field.
+        $rawItems = $request->input('items', []);
+        foreach ($rawItems as $item) {
+            $itemId = (string) ($item['id'] ?? '');
             WorkspaceReference::updateOrCreate(
                 [
                     'user_id' => $request->user()->id,
-                    'ref_id' => (string) $item['id'],
+                    'ref_id' => $itemId,
                 ],
                 ['data' => $item],
             );
+
+            // Indeks untuk retrieval (RAG): dipecah jadi chunks + tsvector agar
+            // Agent AI Canvas bisa mencari referensi relevan tanpa mengirim
+            // seluruh daftar referensi ke prompt.
+            $indexer->indexReference($request->user()->id, $itemId, $item);
         }
 
         return $this->references($request);
@@ -176,6 +190,12 @@ class WorkspaceController extends Controller
     public function deleteReference(Request $request, string $id): JsonResponse
     {
         $deleted = WorkspaceReference::query()
+            ->where('user_id', $request->user()->id)
+            ->where('ref_id', $id)
+            ->delete();
+
+        // Ikut hapus chunks index-nya agar retrieval tidak menemukan data mati.
+        DB::table('reference_chunks')
             ->where('user_id', $request->user()->id)
             ->where('ref_id', $id)
             ->delete();
@@ -341,7 +361,8 @@ Aturan:
 - Jika suatu field tidak ditemukan, isi dengan string kosong atau array kosong.
 PROMPT;
 
-        $response = Http::timeout(90)
+        $response = Http::timeout(60)
+            ->connectTimeout(15)
             ->withToken((string) config('services.deepseek.api_key'))
             ->post(rtrim((string) config('services.deepseek.base_url'), '/').'/chat/completions', [
                 'model' => (string) config('services.deepseek.model', 'deepseek-v4-flash'),
@@ -354,6 +375,8 @@ PROMPT;
             ]);
 
         if (! $response->successful()) {
+            Log::warning('Workspace metadata AI gagal', ['status' => $response->status()]);
+
             return null;
         }
 

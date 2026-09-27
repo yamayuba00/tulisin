@@ -168,7 +168,24 @@ const adminNavGroups = [
     },
 ];
 
-const navGroups = computed(() => (isSuperAdmin.value ? adminNavGroups : userNavGroups));
+// Afiliasi hanya untuk Brand Ambassador (atau super-admin yang punya semua izin).
+const canAffiliate = computed(() => {
+    const user = currentUser.value;
+    if (!user) return false;
+    if (user.is_super_admin) return true;
+    if (Array.isArray(user.roles) && user.roles.includes('brand-ambassador')) return true;
+    return Array.isArray(user.permissions) && user.permissions.includes('affiliates.view');
+});
+
+const navGroups = computed(() => {
+    if (isSuperAdmin.value) return adminNavGroups;
+    if (canAffiliate.value) return userNavGroups;
+    // Pengguna biasa tidak melihat menu Afiliasi.
+    return userNavGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.to !== '/apps/u/affiliate'),
+    }));
+});
 
 async function handleLogout() {
     await logout();

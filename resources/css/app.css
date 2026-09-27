@@ -41,6 +41,24 @@
     background-color: rgb(115 115 115 / 0.6);
 }
 
+/* Tautan sumber pada balasan AI (renderMarkdown): Tailwind preflight
+   menghilangkan gaya default <a>, jadi diberi gaya eksplisit di sini. */
+.ai-link {
+    color: #2563eb;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    overflow-wrap: anywhere;
+}
+.ai-link:hover {
+    color: #1d4ed8;
+}
+.dark .ai-link {
+    color: #93c5fd;
+}
+.dark .ai-link:hover {
+    color: #bfdbfe;
+}
+
 /* Warna skema native (form control, caret, scrollbar) agar sinkron dengan tema. */
 :root {
     color-scheme: light;

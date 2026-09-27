@@ -1,14 +1,28 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { Link2, Copy, Check, Users, Coins, Landmark, Download, Banknote, Wallet, Gift } from 'lucide-vue-next';
+import { ref, onMounted, watch, computed } from 'vue';
+import { Link2, Copy, Check, Users, Coins, Landmark, Download, Banknote, Wallet, Gift, Lock, Sparkles } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import DataTable from '../../components/DataTable.vue';
+import Skeleton from '../../components/Skeleton.vue';
 import StatusBadge from '../../components/StatusBadge.vue';
 import { getJson, request, ensureCsrf } from '../../utils/http';
+import { useAuth } from '../../utils/auth';
 import { toast } from '../../utils/toast';
 import { formatDate, formatCurrency } from '../../utils/format';
 import appName from '../../utils/appName';
+
+const { currentUser } = useAuth();
+
+// Afiliasi hanya untuk Brand Ambassador (atau super-admin yang punya semua izin).
+// Pengguna biasa tidak dapat memakai fitur ini.
+const canAffiliate = computed(() => {
+    const user = currentUser.value;
+    if (!user) return false;
+    if (user.is_super_admin) return true;
+    if (Array.isArray(user.roles) && user.roles.includes('brand-ambassador')) return true;
+    return Array.isArray(user.permissions) && user.permissions.includes('affiliates.view');
+});
 
 const loading = ref(true);
 const code = ref('');
@@ -85,6 +99,12 @@ function methodLabel(method) {
 }
 
 async function loadData() {
+    // Bukan Brand Ambassador → jangan panggil API; tampilkan halaman akses ditolak.
+    if (!canAffiliate.value) {
+        loading.value = false;
+        return;
+    }
+
     try {
         const data = await getJson('/api/affiliate');
         code.value = data.code || '';
@@ -113,6 +133,12 @@ async function loadData() {
 }
 
 onMounted(loadData);
+
+// Saat status Brand Ambassador baru diketahui (currentUser dimuat async),
+// muat ulang datanya.
+watch(canAffiliate, (allowed) => {
+    if (allowed) loadData();
+});
 
 async function saveCode() {
     const value = draftCode.value.trim().toUpperCase();
@@ -279,8 +305,44 @@ async function downloadPromo() {
     <div class="p-6 lg:p-8">
         <PageHeader title="Afiliasi" description="Ajak teman berlangganan, kumpulkan komisi, dan tukarkan jadi koin atau uang." />
 
-        <div v-if="loading" class="flex items-center justify-center py-16 text-sm text-neutral-500 dark:text-neutral-400">
-            Memuat…
+        <div v-if="loading" class="space-y-6" aria-busy="true">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div v-for="i in 4" :key="i" class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+                    <Skeleton class="h-3 w-24" />
+                    <Skeleton class="mt-3 h-7 w-20" />
+                </div>
+            </div>
+            <div class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+                <Skeleton class="h-4 w-40" />
+                <Skeleton class="mt-2 h-3 w-2/3" />
+                <Skeleton class="mt-3 h-11 w-full" />
+            </div>
+            <div class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+                <Skeleton class="h-4 w-32" />
+                <div class="mt-4 space-y-3">
+                    <Skeleton v-for="i in 3" :key="i" class="h-4 w-full" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Akses terbatas: hanya Brand Ambassador yang dapat memakai afiliasi -->
+        <div
+            v-else-if="!canAffiliate"
+            class="mx flex max-w-lg flex-col items-center rounded-xl border border-neutral-200 p-8 text-center dark:border-neutral-800"
+        >
+            <div class="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
+                <Lock class="h-7 w-7" />
+            </div>
+            <h2 class="mt-4 text-lg font-semibold">Khusus Brand Ambassador</h2>
+            <p class="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+                Fitur Afiliasi &amp; referral hanya tersedia untuk pengguna yang ditunjuk sebagai
+                Brand Ambassador. Akun pengguna biasa tidak dapat membuat kode referral maupun
+                menerima komisi.
+            </p>
+            <p class="mt-4 inline-flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <Sparkles class="h-4 w-4" />
+                Tertarik menjadi Brand Ambassador? Hubungi admin kami.
+            </p>
         </div>
 
         <template v-else>

@@ -29,6 +29,13 @@ export function renderMarkdown(text) {
     // Inline code `...`
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
+    // Tautan markdown [label](https://...) — hanya http/https, dibuka di tab baru.
+    // Lookbehind (?<![!]) agar sintaks gambar ![...](...) tidak ikut termakan.
+    html = html.replace(/(?<![!])\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_, label, url) => {
+        const safeUrl = String(url).replace(/"/g, '&quot;');
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="ai-link">${label}</a>`;
+    });
+
     // Heading ### / ## / #
     html = html.replace(/^#{1,3}\s+(.*)$/gm, '<strong>$1</strong>');
 

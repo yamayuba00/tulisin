@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Files, ChevronUp, ChevronDown, Trash2 } from 'lucide-vue-next';
 import FormatterToolbar from '../../../components/FormatterToolbar.vue';
 import CanvasBlock from '../../../components/CanvasBlock.vue';
+import Skeleton from '../../../components/Skeleton.vue';
 import TableBlock from '../../../components/TableBlock.vue';
 import ImageBlock from '../../../components/ImageBlock.vue';
 import FormulaBlock from '../../../components/FormulaBlock.vue';
@@ -12,6 +13,7 @@ const props = defineProps({
     canvasBlocks: { type: Array, default: () => [] },
     pages: { type: Array, default: () => [] },
     selectedUid: { type: String, default: null },
+    selectedUids: { type: Array, default: () => [] },
     dropIndex: { type: Number, default: null },
     pageBoxStyle: { type: Object, default: () => ({}) },
     mirrorStyle: { type: Object, default: () => ({}) },
@@ -67,6 +69,7 @@ const emit = defineEmits([
     'set-font-family',
     'set-font-size',
     'edit-code',
+    'toc-navigate',
 ]);
 
 const scrollEl = ref(null);
@@ -346,9 +349,9 @@ defineExpose({ scrollToPage });
                 class="absolute inset-0 z-30 flex flex-col items-center justify-center gap-6 overflow-hidden bg-neutral-200/70 p-8 dark:bg-neutral-950"
                 aria-hidden="true"
             >
-                <div class="flex flex-col items-center gap-3">
-                    <span class="inline-block h-8 w-8 animate-spin rounded-full border-[3px] border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
-                    <p class="text-sm font-medium text-neutral-500 dark:text-neutral-400">Memuat dokumen…</p>
+                <div class="flex w-full max-w-xl flex-col items-center gap-2">
+                    <Skeleton class="h-6 w-1/2" />
+                    <Skeleton class="h-4 w-1/3" />
                 </div>
                 <div class="flex w-full max-w-xl flex-col gap-5">
                     <div
@@ -450,9 +453,9 @@ defineExpose({ scrollToPage });
                                 <TableBlock
                                     v-if="block.type === 'table'"
                                     :block="block"
-                                    :selected="block.uid === selectedUid"
+                                    :selected="block.uid === selectedUid || (selectedUids || []).includes(block.uid)"
                                     :caption-prefix="captionNumbers[block.uid] || ''"
-                                    @select="emit('select', block.uid)"
+                                    @select="emit('select', block.uid, $event)"
                                     @update:content="emit('update-content', block.uid, $event)"
                                     @update:indent="emit('update-indent', block.uid, $event)"
                                     @delete="emit('remove-block-by-uid', block.uid)"
@@ -462,10 +465,10 @@ defineExpose({ scrollToPage });
                                 <ImageBlock
                                     v-else-if="block.type === 'image'"
                                     :block="block"
-                                    :selected="block.uid === selectedUid"
+                                    :selected="block.uid === selectedUid || (selectedUids || []).includes(block.uid)"
                                     :caption-prefix="captionNumbers[block.uid] || ''"
                                     :max-height="contentHeightPx"
-                                    @select="emit('select', block.uid)"
+                                    @select="emit('select', block.uid, $event)"
                                     @update:width="emit('update-width', block.uid, $event)"
                                     @update:indent="emit('update-indent', block.uid, $event)"
                                     @contextmenu.prevent.stop="emit('contextmenu-block', $event, block.uid)"
@@ -475,8 +478,8 @@ defineExpose({ scrollToPage });
                                 <FormulaBlock
                                     v-else-if="block.type === 'formula'"
                                     :block="block"
-                                    :selected="block.uid === selectedUid"
-                                    @select="emit('select', block.uid)"
+                                    :selected="block.uid === selectedUid || (selectedUids || []).includes(block.uid)"
+                                    @select="emit('select', block.uid, $event)"
                                     @update:content="emit('update-content', block.uid, $event)"
                                     @update:font-size="emit('set-block-font-size', block.uid, $event)"
                                     @contextmenu.prevent.stop="emit('contextmenu-block', $event, block.uid)"
@@ -487,7 +490,7 @@ defineExpose({ scrollToPage });
                                 <CanvasBlock
                                     v-else
                                     :block="block"
-                                    :selected="block.uid === selectedUid"
+                                    :selected="block.uid === selectedUid || (selectedUids || []).includes(block.uid)"
                                     :prefix="numberingMap[block.uid] || ''"
                                     :toc-entries="tocEntries"
                                     :table-entries="tableEntries"
@@ -496,7 +499,7 @@ defineExpose({ scrollToPage });
                                     :citation-style="citationStyle"
                                     :entry-slice="block.sliceStart == null ? null : [block.sliceStart, block.sliceEnd]"
                                     :min-height="0"
-                                    @select="emit('select', block.uid)"
+                                    @select="emit('select', block.uid, $event)"
                                     @update:content="emit('update-content', block.uid, $event)"
                                     @update:indent="emit('update-indent', block.uid, $event)"
                                     @update:page-title="emit('update-page-title', block.uid, $event)"
@@ -504,6 +507,7 @@ defineExpose({ scrollToPage });
                                     @dragstart="emit('block-dragstart', $event, block.uid)"
                                     @dragend="emit('dragend')"
                                     @edit-code="emit('edit-code', block.uid)"
+                                    @toc-navigate="emit('toc-navigate', $event)"
                                 />
                             </template>
 

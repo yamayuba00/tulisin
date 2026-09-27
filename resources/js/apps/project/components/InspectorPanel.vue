@@ -17,6 +17,7 @@ import {
     History,
 } from 'lucide-vue-next';
 import FilterSelect from '../../../components/FilterSelect.vue';
+import Skeleton from '../../../components/Skeleton.vue';
 import { authorYearLabel } from '../../../utils/csl-formatter';
 import { renderMarkdown } from '../../../utils/markdown';
 import appName from '../../../utils/appName';
@@ -95,7 +96,6 @@ const emit = defineEmits([
     'move-block-by',
     'remove-block',
     'generate-block-content',
-    'insert-generated-content',
     'generate-page-content',
     'insert-page-content',
     'run-plagiarism',
@@ -578,9 +578,11 @@ function historyTypeLabel() {
                         >Plagiarism</button>
                     </div>
 
-                    <div v-if="aiHistoryLoading" class="flex items-center gap-2 py-8 text-sm text-neutral-400 dark:text-neutral-500">
-                        <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-neutral-300 border-t-neutral-900 dark:border-neutral-700 dark:border-t-white"></span>
-                        Memuat riwayat…
+                    <div v-if="aiHistoryLoading" class="mt-3 space-y-2">
+                        <div v-for="i in 3" :key="i" class="rounded-lg border border-neutral-200 p-3 dark:border-neutral-800">
+                            <Skeleton class="h-3.5 w-2/3" />
+                            <Skeleton class="mt-2 h-3 w-1/2" />
+                        </div>
                     </div>
 
                     <div v-else-if="filteredHistory.length" class="mt-3 space-y-2">
@@ -720,7 +722,7 @@ function historyTypeLabel() {
                             <Sparkles class="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
                             <p class="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Generate dengan AI</p>
                         </div>
-                        <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">AI membaca seluruh canvas lalu menulis ke blok ini.</p>
+                        <p class="mt-1 text-xs text-neutral-400 dark:text-neutral-500">AI membaca struktur dokumen &amp; blok di sekitarnya, lalu langsung menggantikan blok ini dengan format yang sesuai.</p>
 
                         <div class="mt-2 flex flex-wrap gap-1.5">
                             <button
@@ -748,18 +750,6 @@ function historyTypeLabel() {
                             <Sparkles class="h-4 w-4" />
                             {{ aiGenLoading ? 'Menyiapkan...' : 'Generate' }}
                         </button>
-
-                        <div v-if="aiGenOutput" class="mt-3 rounded-lg border border-neutral-200 p-2 dark:border-neutral-800">
-                            <p class="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">Hasil</p>
-                            <p class="mt-1 whitespace-pre-wrap text-sm text-neutral-700 dark:text-neutral-200" v-html="renderMarkdown(aiGenOutput)"></p>
-                            <button
-                                type="button"
-                                class="mt-2 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                                @click="emit('insert-generated-content')"
-                            >
-                                Sisipkan ke Blok
-                            </button>
-                        </div>
                     </div>
 
                     <!-- Sisipkan Sitasi (blok teks) -->

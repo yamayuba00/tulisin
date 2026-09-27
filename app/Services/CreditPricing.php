@@ -38,6 +38,9 @@ class CreditPricing
                 return (int) $p['ai_generate'];
             case 'agent_generate':
                 return (int) $p['agent_generate'];
+            case 'reference_save':
+                // Simpan massal dihitung per referensi (5 koin x jumlah).
+                return (int) ($p['reference_save'] ?? 5) * $quantity;
             case 'plagiarism_check':
             case 'plagiarism_paraphrase':
                 return (int) $p['ai_plagiarism'];

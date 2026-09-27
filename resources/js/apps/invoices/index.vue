@@ -4,6 +4,7 @@ import { ReceiptText, Printer, X } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
 import DataTable from '../../components/DataTable.vue';
+import Skeleton from '../../components/Skeleton.vue';
 import StatusBadge from '../../components/StatusBadge.vue';
 import { getJson } from '../../utils/http';
 import { formatCurrency, formatDate } from '../../utils/format';
@@ -200,7 +201,15 @@ onMounted(loadInvoices);
     <Teleport to="body">
         <div v-if="selected || detailLoading" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click.self="closeDetail">
             <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 text-neutral-900 shadow-xl dark:bg-neutral-900 dark:text-neutral-100">
-                <div v-if="detailLoading" class="py-10 text-center text-sm text-neutral-500">Memuat invoice…</div>
+                <div v-if="detailLoading" class="space-y-3 p-2">
+                    <Skeleton class="h-6 w-2/3" />
+                    <Skeleton class="h-4 w-1/2" />
+                    <div class="my-4 h-px w-full bg-neutral-200 dark:bg-neutral-800" />
+                    <Skeleton class="h-4 w-full" />
+                    <Skeleton class="h-4 w-3/4" />
+                    <Skeleton class="h-4 w-5/6" />
+                    <Skeleton class="h-4 w-2/3" />
+                </div>
 
                 <template v-else>
                     <div class="flex items-center justify-between">

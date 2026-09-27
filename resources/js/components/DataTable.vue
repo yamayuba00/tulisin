@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch, useSlots } from 'vue';
-import { Loader2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import Skeleton from './Skeleton.vue';
 
 const props = defineProps({
     // [{ key, label, align?, width? }]
@@ -73,8 +74,16 @@ const totalCols = () => props.columns.length + (slots.actions ? 1 : 0);
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td :colspan="totalCols()" class="px-4 py-14 text-center text-neutral-400 dark:text-neutral-500">
-                            <Loader2 class="mx-auto h-5 w-5 animate-spin" />
+                        <td :colspan="totalCols()" class="p-0">
+                            <div v-for="r in 5" :key="r" class="flex items-center gap-4 border-b border-neutral-100 px-4 py-3.5 last:border-0 dark:border-neutral-900">
+                                <Skeleton
+                                    v-for="col in columns"
+                                    :key="col.key"
+                                    class="h-4"
+                                    :class="col.align === 'right' ? 'w-20 shrink-0' : 'flex-1'"
+                                />
+                                <Skeleton v-if="$slots.actions" class="h-8 w-20 shrink-0" />
+                            </div>
                         </td>
                     </tr>
 

@@ -1,12 +1,13 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Upload, FileText, Loader2, Trash2, BookMarked, Quote, Library, Eye, Coins, Lock } from 'lucide-vue-next';
+import { Upload, FileText, Loader2, Trash2, BookMarked, Quote, Library, Eye, Coins, Lock, Copy, Check, X } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal.vue';
 import { pdfToCSL, listReferences, addReferences, removeReference, syncReferences } from '../../utils/workspaceLibrary';
 import { parseCSLItem, formatBibliography, authorYearLabel } from '../../utils/csl-formatter';
-import { request, getJson } from '../../utils/http';
+import { request, getJson, ensureCsrf } from '../../utils/http';
 import { toast } from '../../utils/toast';
 import { creditPricing, loadCreditPricing } from '../../utils/creditPricing';
 import appName from '../../utils/appName';
@@ -34,12 +35,55 @@ const draft = ref(null);
 // Perpustakaan referensi tersimpan.
 const library = ref([]);
 
+// Pagination perpustakaan: tampilkan maksimal 8 per halaman.
+const PER_PAGE = 8;
+const page = ref(1);
+const totalPages = computed(() => Math.max(1, Math.ceil(library.value.length / PER_PAGE)));
+const paged = computed(() => library.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE));
+const pageButtons = computed(() => {
+    const total = totalPages.value;
+    const current = page.value;
+    const start = Math.max(1, Math.min(current - 2, total - 4));
+    const end = Math.min(total, start + 4);
+    const buttons = [];
+    for (let i = start; i <= end; i += 1) buttons.push(i);
+    return buttons;
+});
+function goPage(p) {
+    if (p < 1 || p > totalPages.value) return;
+    page.value = p;
+}
+function refreshLibrary() {
+    library.value = listReferences();
+    // Bila halaman aktif melewati batas setelah penghapusan, kembali ke halaman valid.
+    if (page.value > totalPages.value) page.value = totalPages.value;
+}
+
+// Konfirmasi hapus referensi sebelum benar-benar menghapus.
+const deleteTarget = ref(null);
+const deletingRef = ref(false);
+const confirmDeleteRef = computed(() => library.value.find((r) => r.id === deleteTarget.value) || null);
+function askDelete(id) {
+    deleteTarget.value = id;
+}
+function cancelDelete() {
+    if (deletingRef.value) return;
+    deleteTarget.value = null;
+}
+
 // Konfirmasi sebelum unggah + generate (memotong koin + kuota storage).
 const confirmGenerateOpen = ref(false);
-const pendingFile = ref(null);
+const pendingFiles = ref([]);
 const subscribed = ref(false);
 
 onMounted(async () => {
+    // Pastikan cookie CSRF sudah ada sebelum request state-changing (POST),
+    // supaya penyimpanan referensi tidak gagal diam-diam dengan status 419.
+    try {
+        await ensureCsrf();
+    } catch {
+        // Abaikan; GET di bawah ini akan tetap berjalan.
+    }
     library.value = listReferences();
     loadCreditPricing();
     loadSubscription();
@@ -61,65 +105,114 @@ function openPicker() {
 }
 
 function onInputChange(e) {
-    const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    const files = Array.from(e.target.files || []);
+    if (files.length) handleFiles(files);
     e.target.value = '';
 }
 
 function onDrop(e) {
     dragActive.value = false;
-    const file = e.dataTransfer?.files?.[0];
-    if (file) handleFile(file);
+    const files = Array.from(e.dataTransfer?.files || []);
+    if (files.length) handleFiles(files);
 }
 
-async function handleFile(file) {
-    if (!file) return;
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-        toast('Hanya file PDF yang didukung saat ini.', 'warning');
-        return;
-    }
+async function handleFiles(files) {
+    if (!files.length) return;
     if (!subscribed.value) {
         toast('Fitur Workspace memerlukan langganan aktif.', 'warning');
         router.push('/apps/u/topup');
         return;
     }
+    const pdfs = files.filter((f) => f.name.toLowerCase().endsWith('.pdf'));
+    if (!pdfs.length) {
+        toast('Hanya file PDF yang didukung saat ini.', 'warning');
+        return;
+    }
+    if (pdfs.length !== files.length) {
+        toast('Sebagian file dilewati karena bukan PDF.', 'warning');
+    }
     // Tahan dulu; minta konfirmasi sebelum unggah & generate
     // supaya file tidak terkirim ke object storage sebelum user setuju.
-    pendingFile.value = file;
+    pendingFiles.value = pdfs;
     confirmGenerateOpen.value = true;
 }
 
 // Setuju generate: potong koin, unggah ke object storage, lalu generate metadata AI.
 async function confirmGenerate() {
-    if (!pendingFile.value) return;
-    const file = pendingFile.value;
-    pendingFile.value = null;
+    const files = pendingFiles.value;
+    pendingFiles.value = [];
     confirmGenerateOpen.value = false;
+    if (!files.length) return;
 
-    if (!(await spendCredits('ai_generate'))) return;
+    if (files.length === 1) {
+        // Satu file: unggah + generate dulu tanpa memotong koin. Koin dipotong
+        // HANYA saat user benar-benar menekan "Simpan ke Perpustakaan", supaya
+        // tidak ada koin terbuang bila user membatalkan atau gagal mengatur ulang.
+        const file = files[0];
 
-    processing.value = true;
-    processingMsg.value = 'Mengunggah & membaca PDF…';
-    draft.value = null;
+        processing.value = true;
+        processingMsg.value = 'Mengunggah & menganalisis PDF…';
+        draft.value = null;
 
-    let fileInfo = null;
-    let text = '';
-    try {
-        const fd = new FormData();
-        fd.append('file', file);
-        const up = await request('/api/workspace/upload', { method: 'POST', body: fd });
-        if (!up.ok) {
-            throw new Error(up.data?.error || 'Gagal mengunggah file.');
+        try {
+            const { fileInfo, text, ai } = await uploadAndParse(file);
+            draft.value = buildDraftData(fileInfo, text, ai);
+        } catch (e) {
+            toast(e?.message || 'Gagal memproses file PDF.', 'error');
+        } finally {
+            processing.value = false;
         }
-        fileInfo = up.data;
-        text = fileInfo.text || '';
-    } catch (e) {
-        toast(e?.message || 'Gagal membaca file PDF.', 'error');
-        processing.value = false;
         return;
     }
 
-    processingMsg.value = 'Menganalisis dengan AI…';
+    // Banyak file: proses langsung ke perpustakaan.
+    await processBatch(files);
+}
+
+async function processBatch(files) {
+    processing.value = true;
+    let success = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        processingMsg.value = `Memproses ${i + 1}/${files.length}: ${file.name}`;
+
+        if (!(await spendCredits('ai_generate'))) {
+            break;
+        }
+
+        try {
+            const { fileInfo, text, ai } = await uploadAndParse(file);
+            const data = buildDraftData(fileInfo, text, ai);
+            addReferences([pdfToCSL(data, data.filename)]);
+            success += 1;
+        } catch (e) {
+            toast(`Gagal memproses ${file.name}: ${e?.message || 'kesalahan tak dikenal'}`, 'error');
+        }
+    }
+
+    library.value = listReferences();
+    processing.value = false;
+
+    if (success === files.length) {
+        toast(`${success} PDF berhasil ditambahkan ke perpustakaan.`, 'success');
+    } else if (success > 0) {
+        toast(`${success} dari ${files.length} PDF ditambahkan.`, 'success');
+    } else {
+        toast('Tidak ada PDF yang berhasil diproses.', 'error');
+    }
+}
+
+async function uploadAndParse(file) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const up = await request('/api/workspace/upload', { method: 'POST', body: fd });
+    if (!up.ok) {
+        throw new Error(up.data?.error || 'Gagal mengunggah file.');
+    }
+    const fileInfo = up.data;
+    const text = fileInfo.text || '';
+
     let ai = null;
     try {
         const pr = await request('/api/workspace/parse', {
@@ -129,21 +222,19 @@ async function confirmGenerate() {
         if (pr.ok) ai = pr.data;
     } catch {
         ai = null;
-    } finally {
-        processing.value = false;
     }
 
-    buildDraft(fileInfo, text, ai);
+    return { fileInfo, text, ai };
 }
 
 // Batal: jangan unggah/generate sama sekali.
 function cancelGenerate() {
-    pendingFile.value = null;
+    pendingFiles.value = [];
     confirmGenerateOpen.value = false;
 }
 
-function buildDraft(fileInfo, text, ai) {
-    draft.value = {
+function buildDraftData(fileInfo, text, ai) {
+    return {
         type: ai?.type || 'article-journal',
         title: ai?.title || '',
         author: Array.isArray(ai?.authors) ? ai.authors.join('; ') : '',
@@ -183,36 +274,93 @@ function showToast(message) {
     toast(message);
 }
 
-function saveDraft() {
-    if (!draft.value) return;
-    addReferences([pdfToCSL(draft.value, draft.value.filename)]);
+// Simpan referensi: koin dipotong di sini (hanya saat benar-benar menyimpan),
+// lalu tambah ke pustaka lokal dan kirim ke server. `addReferences` menambah
+// lokal secara sinkron dan mengembalikan promise POST.
+const savingDraft = ref(false);
+
+async function saveDraft() {
+    if (!draft.value || savingDraft.value) return;
+
+    // Potong koin HANYA saat menyimpan. Kalau gagal, jangan lanjut simpan
+    // agar user tidak kehilangan koin tanpa referensi tersimpan.
+    if (!(await spendCredits('ai_generate'))) return;
+
+    savingDraft.value = true;
+    const item = pdfToCSL(draft.value, draft.value.filename);
+    try {
+        await addReferences([item]);
+    } catch {
+        // Cache lokal tetap ada; sinkronisasi berikutnya akan mengulang ke server.
+    } finally {
+        savingDraft.value = false;
+    }
     library.value = listReferences();
+    // Item terbaru ada di paling atas; kembali ke halaman pertama agar terlihat.
+    page.value = 1;
     draft.value = null;
+    toast('Referensi tersimpan ke perpustakaan.', 'success');
 }
 
 function resetDraft() {
     draft.value = null;
 }
 
+// Salin sitasi APA (in-text) ke clipboard untuk dipakai di builder/Word.
+const copiedId = ref('');
+
+async function copyCitation(ref) {
+    const label = `${authorYearLabel(ref)}`.trim() || 'Anonim';
+    const year = ref.issued?.['date-parts']?.[0]?.[0] || '';
+    const text = year ? `${label.replace(new RegExp(`\\s*\\(${year}\\)$`), '')} (${year})` : label;
+    try {
+        await navigator.clipboard.writeText(text);
+        copiedId.value = ref.id;
+        setTimeout(() => {
+            if (copiedId.value === ref.id) copiedId.value = '';
+        }, 1500);
+    } catch {
+        toast('Gagal menyalin. Coba lagi.', 'error');
+    }
+}
+
+// Salin entri daftar pustaka (APA, hasil formatter) ke clipboard.
+async function copyBibliography(ref) {
+    const html = formatBibliography(parseCSLItem(ref), 'APA', 1);
+    // Ubah <i>/<b> menjadi teks polos (tanpa markup) agar aman ditempel di mana saja.
+    const plain = html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    try {
+        await navigator.clipboard.writeText(plain);
+        toast('Sitasi daftar pustaka (APA) disalin ke clipboard.', 'success');
+    } catch {
+        toast('Gagal menyalin. Coba lagi.', 'error');
+    }
+}
+
 async function deleteRef(id) {
     const ref = library.value.find((r) => r.id === id);
+    if (!ref || deletingRef.value) return;
 
-    // Hapus file PDF dari object storage terlebih dahulu (hanya file ini).
-    if (ref?._fileId) {
-        try {
+    deletingRef.value = true;
+    try {
+        // Hapus file PDF dari object storage terlebih dahulu (hanya file ini).
+        if (ref?._fileId) {
             const res = await request(`/api/workspace/files/${ref._fileId}`, { method: 'DELETE' });
             if (!res.ok) {
                 showToast(res.data?.error || 'Gagal menghapus file di cloud.');
                 return;
             }
-        } catch {
-            showToast('Gagal menghapus file di cloud. Coba lagi.');
-            return;
         }
-    }
 
-    removeReference(id);
-    library.value = listReferences();
+        removeReference(id);
+        refreshLibrary();
+        deleteTarget.value = null;
+        toast('Referensi berhasil dihapus.', 'success');
+    } catch {
+        showToast('Gagal menghapus file di cloud. Coba lagi.');
+    } finally {
+        deletingRef.value = false;
+    }
 }
 
 function viewRef(id) {
@@ -222,6 +370,13 @@ function viewRef(id) {
 function preview(ref) {
     return formatBibliography(parseCSLItem(ref), 'APA', 1);
 }
+
+// Pratinjau sitasi APA live untuk draft di modal (ikut berubah saat form diedit).
+const draftPreview = computed(() => {
+    if (!draft.value) return '';
+    const csl = pdfToCSL(draft.value, draft.value.filename || '');
+    return formatBibliography(parseCSLItem(csl), 'APA', 1);
+});
 
 function typeLabel(value) {
     return TYPE_OPTIONS.find((t) => t.value === value)?.label || value;
@@ -252,7 +407,9 @@ function typeLabel(value) {
                     <div>
                         <h2 class="text-base font-semibold text-neutral-900 dark:text-white">Generate metadata dengan AI?</h2>
                         <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Sekali generate memotong <strong class="font-semibold text-neutral-900 dark:text-white">{{ Number(creditPricing.ai_generate) || 5 }} koin</strong>. Lanjutkan?
+                            {{ pendingFiles.length }} file PDF · total
+                            <strong class="font-semibold text-neutral-900 dark:text-white">{{ pendingFiles.length * (Number(creditPricing.ai_generate) || 5) }} koin</strong>.
+                            Lanjutkan?
                         </p>
                     </div>
                 </div>
@@ -288,7 +445,7 @@ function typeLabel(value) {
             <AppButton class="mt-3" @click="openPicker">
                 Pilih File PDF
             </AppButton>
-            <input ref="fileInput" type="file" accept="application/pdf" class="hidden" @change="onInputChange" />
+            <input ref="fileInput" type="file" accept="application/pdf" multiple class="hidden" @change="onInputChange" />
         </div>
 
         <!-- Status proses -->
@@ -297,73 +454,96 @@ function typeLabel(value) {
             <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ processingMsg }}</span>
         </div>
 
-        <!-- Hasil ekstraksi -->
-        <div v-if="draft" class="mt-6 rounded-xl border border-neutral-200 dark:border-neutral-800">
-            <div class="flex items-center justify-between border-b border-neutral-200 px-5 py-3 dark:border-neutral-800">
-                <div class="flex items-center gap-2 text-sm font-medium">
-                    <FileText class="h-4 w-4" />
-                    {{ draft.filename }}
+        <!-- Modal hasil ekstraksi: langsung terlihat isinya sebelum disimpan -->
+        <div v-if="draft" class="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/50" @click="resetDraft"></div>
+            <div class="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl dark:border-neutral-800 dark:bg-neutral-950">
+                <div class="flex items-center justify-between gap-3 border-b border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+                    <div class="flex min-w-0 items-center gap-2">
+                        <FileText class="h-5 w-5 shrink-0 text-neutral-500" />
+                        <div class="min-w-0">
+                            <h2 class="truncate text-base font-semibold">Hasil Ekstraksi: Verifikasi &amp; Simpan</h2>
+                            <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ draft.filename }} · {{ draft.pageCount }} halaman</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        title="Tutup tanpa menyimpan"
+                        class="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                        @click="resetDraft"
+                    >
+                        <X class="h-4 w-4" />
+                    </button>
                 </div>
-                <span class="text-xs text-neutral-400">{{ draft.pageCount }} halaman</span>
-            </div>
 
-            <div class="grid gap-4 p-5 sm:grid-cols-2">
-                <label class="flex flex-col gap-1 text-sm sm:col-span-2">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Judul</span>
-                    <input v-model="draft.title" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm sm:col-span-2">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Jurnal / Sumber</span>
-                    <input v-model="draft.journal" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm sm:col-span-2">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Penulis (pisahkan dengan ;)</span>
-                    <input v-model="draft.author" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Tahun</span>
-                    <input v-model="draft.year" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Volume</span>
-                    <input v-model="draft.volume" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Nomor / Issue</span>
-                    <input v-model="draft.issue" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Halaman (mis. 98-108)</span>
-                    <input v-model="draft.page" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">DOI</span>
-                    <input v-model="draft.doi" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
-                </label>
-                <label class="flex flex-col gap-1 text-sm">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Tipe Referensi</span>
-                    <select v-model="draft.type" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900">
-                        <option v-for="t in TYPE_OPTIONS" :key="t.value" :value="t.value">{{ t.label }}</option>
-                    </select>
-                </label>
-                <div class="sm:col-span-2">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Abstrak (hasil AI)</span>
-                    <textarea v-model="draft.abstract" rows="4" class="mt-1 w-full resize-y rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900"></textarea>
-                </div>
-                <div class="sm:col-span-2">
-                    <span class="text-xs text-neutral-500 dark:text-neutral-400">Cuplikan teks mentah</span>
-                    <p class="mt-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
-                        {{ draft.snippet || '— teks tidak ditemukan (kemungkinan PDF hasil scan).' }}
-                    </p>
-                </div>
-            </div>
+                <div class="min-h-0 flex-1" style="overflow-y: scroll;">
+                    <!-- Pratinjau sitasi hasil ekstraksi (italic ter-render seperti aslinya) -->
+                    <div class="border-b border-neutral-200 bg-neutral-50 px-5 py-3.5 dark:border-neutral-800 dark:bg-neutral-900/60">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">Pratinjau sitasi (APA)</p>
+                        <!-- eslint-disable-next-line vue/no-v-html -->
+                        <p class="mt-1.5 text-sm leading-relaxed text-neutral-700 dark:text-neutral-200" v-html="draftPreview"></p>
+                    </div>
 
-            <div class="flex items-center gap-2 border-t border-neutral-200 px-5 py-3 dark:border-neutral-800">
-                <AppButton @click="saveDraft">
-                    <Library class="h-4 w-4" />
-                    Simpan ke Perpustakaan
-                </AppButton>
-                <AppButton variant="outline" @click="resetDraft">Batal</AppButton>
+                    <div class="grid gap-4 p-5 sm:grid-cols-2">
+                        <label class="flex flex-col gap-1 text-sm sm:col-span-2">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Judul</span>
+                            <input v-model="draft.title" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm sm:col-span-2">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Jurnal / Sumber</span>
+                            <input v-model="draft.journal" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm sm:col-span-2">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Penulis (pisahkan dengan ;)</span>
+                            <input v-model="draft.author" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Tahun</span>
+                            <input v-model="draft.year" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Volume</span>
+                            <input v-model="draft.volume" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Nomor / Issue</span>
+                            <input v-model="draft.issue" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Halaman (mis. 98-108)</span>
+                            <input v-model="draft.page" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">DOI</span>
+                            <input v-model="draft.doi" type="text" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900" />
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Tipe Referensi</span>
+                            <select v-model="draft.type" class="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900">
+                                <option v-for="t in TYPE_OPTIONS" :key="t.value" :value="t.value">{{ t.label }}</option>
+                            </select>
+                        </label>
+                        <div class="sm:col-span-2">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Abstrak (hasil AI)</span>
+                            <textarea v-model="draft.abstract" rows="4" class="mt-1 w-full resize-y rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900"></textarea>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <span class="text-xs text-neutral-500 dark:text-neutral-400">Cuplikan teks mentah</span>
+                            <p class="mt-1 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+                                {{ draft.snippet || '— teks tidak ditemukan (kemungkinan PDF hasil scan).' }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 border-t border-neutral-200 px-5 py-3.5 dark:border-neutral-800">
+                    <AppButton variant="outline" :disabled="savingDraft" @click="resetDraft">Batal</AppButton>
+                    <AppButton :disabled="savingDraft" @click="saveDraft">
+                        <Loader2 v-if="savingDraft" class="h-4 w-4 animate-spin" />
+                        <Library v-else class="h-4 w-4" />
+                        {{ savingDraft ? 'Menyimpan…' : 'Simpan ke Perpustakaan' }}
+                    </AppButton>
+                </div>
             </div>
         </div>
 
@@ -380,7 +560,7 @@ function typeLabel(value) {
 
             <div v-else class="flex flex-col gap-3">
                 <div
-                    v-for="ref in library"
+                    v-for="ref in paged"
                     :key="ref.id"
                     class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800"
                 >
@@ -398,10 +578,29 @@ function typeLabel(value) {
                             </p>
                             <p class="mt-2 flex items-start gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
                                 <Quote class="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                                <span>{{ preview(ref) }}</span>
+                                <!-- eslint-disable-next-line vue/no-v-html -->
+                                <span v-html="preview(ref)"></span>
                             </p>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
+                            <button
+                                type="button"
+                                :title="copiedId === ref.id ? 'Sitasi (Penulis, Tahun) tersalin' : 'Salin sitasi (Penulis, Tahun)'"
+                                class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 transition-colors"
+                                :class="copiedId === ref.id ? 'border-emerald-300 text-emerald-600 dark:border-emerald-800 dark:text-emerald-400' : 'text-neutral-500 hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-white'"
+                                @click="copyCitation(ref)"
+                            >
+                                <Check v-if="copiedId === ref.id" class="h-4 w-4" />
+                                <Copy v-else class="h-4 w-4" />
+                            </button>
+                            <button
+                                type="button"
+                                title="Salin sitasi daftar pustaka (APA)"
+                                class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:text-neutral-900 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-white"
+                                @click="copyBibliography(ref)"
+                            >
+                                <Quote class="h-4 w-4" />
+                            </button>
                             <button
                                 type="button"
                                 title="Lihat di builder"
@@ -414,14 +613,63 @@ function typeLabel(value) {
                                 type="button"
                                 title="Hapus"
                                 class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 text-neutral-400 transition-colors hover:text-red-500 dark:border-neutral-800 dark:text-neutral-500"
-                                @click="deleteRef(ref.id)"
+                                @click="askDelete(ref.id)"
                             >
                                 <Trash2 class="h-4 w-4" />
                             </button>
                         </div>
                     </div>
                 </div>
+
+                <!-- Pagination perpustakaan: hanya tampil jika > 8 referensi -->
+                <div v-if="totalPages > 1" class="mt-2 flex items-center justify-between gap-3 rounded-xl border border-neutral-200 px-4 py-2.5 dark:border-neutral-800">
+                    <span class="text-xs text-neutral-500 dark:text-neutral-400">
+                        Halaman {{ page }} dari {{ totalPages }} · {{ library.length }} referensi
+                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            :disabled="page <= 1"
+                            class="flex h-8 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 px-3 text-sm text-neutral-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300"
+                            @click="goPage(page - 1)"
+                        >‹</button>
+                        <button
+                            v-for="p in pageButtons"
+                            :key="p"
+                            type="button"
+                            class="flex h-8 cursor-pointer items-center justify-center rounded-lg border px-3 text-sm transition-colors"
+                            :class="p === page ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800'"
+                            @click="goPage(p)"
+                        >{{ p }}</button>
+                        <button
+                            type="button"
+                            :disabled="page >= totalPages"
+                            class="flex h-8 cursor-pointer items-center justify-center rounded-lg border border-neutral-200 px-3 text-sm text-neutral-600 transition-colors disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-800 dark:text-neutral-300"
+                            @click="goPage(page + 1)"
+                        >›</button>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <!-- Modal konfirmasi hapus referensi -->
+        <DeleteConfirmModal
+            :open="!!confirmDeleteRef"
+            title="Hapus referensi?"
+            message=""
+            :busy="deletingRef"
+            @confirm="deleteRef(confirmDeleteRef.id)"
+            @cancel="cancelDelete"
+        >
+            <template #icon><Trash2 class="h-5 w-5" /></template>
+            <template #confirm-icon><Trash2 v-if="!deletingRef" class="h-4 w-4" /></template>
+            <template #default>
+                <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                    <span class="font-medium text-neutral-800 dark:text-neutral-200">"{{ confirmDeleteRef.title }}"</span>
+                    akan dihapus dari perpustakaan dan tidak bisa dikembalikan.
+                    <template v-if="confirmDeleteRef._fileId">File PDF terkait juga akan dihapus dari penyimpanan.</template>
+                </p>
+            </template>
+        </DeleteConfirmModal>
     </div>
 </template>

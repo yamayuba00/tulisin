@@ -20,8 +20,8 @@ class GenerateAiJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /** Batas waktu pemrosesan agar tidak menggantung selamanya. */
-    public int $timeout = 120;
+    /** Batas waktu pemrosesan: menampung retry provider (3 x 60s + jeda) dengan margin. */
+    public int $timeout = 220;
 
     /** Cukup sekali; kegagalan dilaporkan lewat status cache. */
     public int $tries = 1;

@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\PdfExportController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ProjectAiResultController;
 use App\Http\Controllers\Api\PromoController;
+use App\Http\Controllers\Api\ReferenceSearchController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SharedDocumentController;
 use App\Http\Controllers\Api\ShowcaseController;
@@ -201,12 +202,13 @@ Route::middleware('auth:sanctum')->prefix('templates')->group(function () {
 });
 
 // ---- Affiliate / Referral ----
-Route::middleware('auth:sanctum')->prefix('affiliate')->group(function () {
+// Hanya role "brand-ambassador" (atau super-admin) yang boleh mengakses.
+Route::middleware(['auth:sanctum', 'permission:affiliates.view'])->prefix('affiliate')->group(function () {
     Route::get('/', [AffiliateController::class, 'show']);
     Route::post('/code', [AffiliateController::class, 'updateCode']);
-    Route::post('/withdraw', [AffiliateController::class, 'withdraw']);
     Route::get('/payouts', [AffiliateController::class, 'payouts']);
 });
+Route::middleware(['auth:sanctum', 'permission:affiliates.payout'])->post('/affiliate/withdraw', [AffiliateController::class, 'withdraw']);
 
 // ---- Tulisin Workspace (parsing PDF + simpan file) ----
 Route::middleware('auth:sanctum')->prefix('workspace')->group(function () {
@@ -217,6 +219,8 @@ Route::middleware('auth:sanctum')->prefix('workspace')->group(function () {
     Route::get('/references', [WorkspaceController::class, 'references']);
     Route::post('/references', [WorkspaceController::class, 'storeReferences']);
     Route::delete('/references/{id}', [WorkspaceController::class, 'deleteReference']);
+    Route::get('/references/search', [ReferenceSearchController::class, 'search']);
+    Route::post('/references/save', [ReferenceSearchController::class, 'store']);
 });
 
 // ---- AI (proxy DeepSeek untuk agent canvas/copilot/turnitin/plagiarism) ----
@@ -253,6 +257,7 @@ Route::middleware('auth:sanctum')->prefix('projects')->group(function () {
     Route::get('/{uuid}/ai-chats', [AiChatController::class, 'index']);
     Route::post('/{uuid}/ai-chats', [AiChatController::class, 'store']);
     Route::get('/{uuid}/ai-chats/{session}', [AiChatController::class, 'show']);
+    Route::patch('/{uuid}/ai-chats/{session}', [AiChatController::class, 'update']);
     Route::post('/{uuid}/ai-chats/{session}/messages', [AiChatController::class, 'storeMessage']);
     Route::delete('/{uuid}/ai-chats/{session}', [AiChatController::class, 'destroy']);
 });

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { User, Mail, Phone, Lock, ShieldCheck, Handshake, Link2, BadgeCheck, ArrowRight, KeyRound } from 'lucide-vue-next';
 import PageHeader from '../../components/PageHeader.vue';
 import AppButton from '../../components/AppButton.vue';
+import Skeleton from '../../components/Skeleton.vue';
 import { useAuth } from '../../utils/auth';
 import { getJson } from '../../utils/http';
 import { formatCurrency } from '../../utils/format';
@@ -24,7 +25,17 @@ const affiliate = ref(null);
 const isGoogle = computed(() => currentUser.value?.provider === 'google');
 const emailVerified = computed(() => !!currentUser.value?.email_verified);
 
+// Afiliasi hanya untuk Brand Ambassador (atau super-admin).
+const canAffiliate = computed(() => {
+    const user = currentUser.value;
+    if (!user) return false;
+    if (user.is_super_admin) return true;
+    if (Array.isArray(user.roles) && user.roles.includes('brand-ambassador')) return true;
+    return Array.isArray(user.permissions) && user.permissions.includes('affiliates.view');
+});
+
 async function loadAffiliate() {
+    if (!canAffiliate.value) return;
     try {
         affiliate.value = await getJson('/api/affiliate');
     } catch {
@@ -193,7 +204,14 @@ async function savePassword() {
                         <ArrowRight class="h-3.5 w-3.5" />
                     </RouterLink>
                 </div>
-                <p v-else class="mt-4 text-sm text-neutral-500 dark:text-neutral-400">Memuat data afiliasi…</p>
+                <p v-else-if="!canAffiliate" class="mt-4 text-sm text-neutral-500 dark:text-neutral-400">
+                    Fitur afiliasi hanya tersedia untuk Brand Ambassador.
+                </p>
+                <div v-else class="mt-4 space-y-3">
+                    <Skeleton class="h-16 w-full" />
+                    <Skeleton class="h-10 w-full" />
+                    <Skeleton class="h-10 w-full" />
+                </div>
             </div>
         </div>
 

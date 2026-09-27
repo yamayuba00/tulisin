@@ -1,8 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowLeft, BookMarked, User, Calendar, Hash, Link2, Quote, FileText, BookOpen, Layers } from 'lucide-vue-next';
-import { parseCSLItem, formatBibliography, CSL_STYLES } from '../../../utils/csl-formatter';
+import { ArrowLeft, BookMarked, User, Calendar, Hash, Link2, Quote, FileText, BookOpen, Layers, ExternalLink, Tags, Copy, Check } from 'lucide-vue-next';
+import { parseCSLItem, formatBibliography, formatCitation, CSL_STYLES } from '../../../utils/csl-formatter';
+import { toast } from '../../../utils/toast';
 import appName from '../../../utils/appName';
 
 const props = defineProps({
@@ -11,6 +12,7 @@ const props = defineProps({
 
 const router = useRouter();
 const style = ref('APA');
+const copied = ref('');
 
 const item = computed(() => (props.reference ? parseCSLItem(props.reference) : null));
 
@@ -42,6 +44,64 @@ const keywords = computed(() => (Array.isArray(props.reference?._keywords) ? pro
 
 function back() {
     router.push('/apps/u/workspace');
+}
+
+// Salin sitasi in-text (Penulis, Tahun) mengikuti gaya yang dipilih di viewer.
+async function copyInText() {
+    if (!item.value) return;
+    const citation = formatCitation(item.value, style.value, 1);
+    const plain = stripHtml(citation);
+    try {
+        await navigator.clipboard.writeText(plain);
+        copied.value = 'intext';
+        toast('Sitasi in-text disalin ke clipboard.', 'success');
+        setTimeout(() => {
+            if (copied.value === 'intext') copied.value = '';
+        }, 1500);
+    } catch {
+        toast('Gagal menyalin. Coba lagi.', 'error');
+    }
+}
+
+// Salin entri daftar pustaka mengikuti gaya yang dipilih (dengan format miring bila didukung tempelan HTML).
+async function copyBibliography() {
+    if (!item.value) return;
+    const html = formatBibliography(item.value, style.value, 1);
+    try {
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([stripHtml(html)], { type: 'text/plain' }),
+            }),
+        ]);
+        copied.value = 'bib';
+        toast('Sitasi daftar pustaka disalin (format miring ikut terbawa bila tempel di editor).', 'success');
+        setTimeout(() => {
+            if (copied.value === 'bib') copied.value = '';
+        }, 1500);
+    } catch {
+        // Fallback browser lama: salin versi polos.
+        try {
+            await navigator.clipboard.writeText(stripHtml(html));
+            copied.value = 'bib';
+            toast('Sitasi daftar pustaka disalin (teks polos).', 'success');
+            setTimeout(() => {
+                if (copied.value === 'bib') copied.value = '';
+            }, 1500);
+        } catch {
+            toast('Gagal menyalin. Coba lagi.', 'error');
+        }
+    }
+}
+
+function stripHtml(html) {
+    return String(html || '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
 }
 </script>
 
@@ -200,6 +260,31 @@ function back() {
                         </div>
                         <!-- eslint-disable-next-line vue/no-v-html -->
                         <p class="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200" v-html="bibliography"></p>
+
+                        <!-- Salin sitasi: in-text & daftar pustaka, mengikuti gaya terpilih -->
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors"
+                                :class="copied === 'intext' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-neutral-900 text-neutral-900 hover:bg-neutral-100 dark:border-white dark:text-white dark:hover:bg-neutral-800'"
+                                @click="copyInText"
+                            >
+                                <Check v-if="copied === 'intext'" class="h-4 w-4" />
+                                <Copy v-else class="h-4 w-4" />
+                                {{ copied === 'intext' ? 'Tersalin' : 'Salin Sitasi' }}
+                            </button>
+                            <button
+                                type="button"
+                                class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors"
+                                :class="copied === 'bib' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800'"
+                                @click="copyBibliography"
+                            >
+                                <Check v-if="copied === 'bib'" class="h-4 w-4" />
+                                <Quote v-else class="h-4 w-4" />
+                                {{ copied === 'bib' ? 'Tersalin' : 'Salin Daftar Pustaka' }}
+                            </button>
+                            <span class="text-xs text-neutral-400 dark:text-neutral-500">Gaya: {{ style }}</span>
+                        </div>
                     </div>
                 </div>
             </div>

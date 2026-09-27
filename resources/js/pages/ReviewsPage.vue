@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { PenLine, ArrowLeft, ChevronLeft, ChevronRight, Star } from 'lucide-vue-next';
 import { getJson } from '../utils/http';
 import { formatDate } from '../utils/format';
+import Skeleton from '../components/Skeleton.vue';
 import appName from '../utils/appName';
 
 const PER_PAGE = 12;
@@ -66,8 +67,19 @@ onMounted(load);
                 </p>
             </div>
 
-            <div v-if="loading" class="mt-12 text-center text-sm text-neutral-400 dark:text-neutral-500">
-                Memuat ulasan…
+            <div v-if="loading" class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                <div v-for="i in 6" :key="i" class="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
+                    <div class="flex items-center gap-2">
+                        <Skeleton class="h-4 w-20" />
+                        <Skeleton class="h-4 w-16" />
+                    </div>
+                    <Skeleton class="mt-3 h-4 w-full" />
+                    <Skeleton class="mt-2 h-4 w-5/6" />
+                    <div class="mt-4 flex items-center gap-3">
+                        <Skeleton class="h-9 w-9" circle />
+                        <Skeleton class="h-3 w-28" />
+                    </div>
+                </div>
             </div>
 
             <div v-else-if="reviews.length === 0" class="mt-12 rounded-xl border border-dashed border-neutral-300 px-6 py-16 text-center dark:border-neutral-700">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import {
     Menu,
@@ -17,15 +17,25 @@ import {
     Share2,
     Rocket,
     MoreHorizontal,
+    Tag,
 } from 'lucide-vue-next';
 import ThemeToggle from '../../../components/ThemeToggle.vue';
 
-defineProps({
+const props = defineProps({
     projectName: { type: String, default: '' },
     projectId: { type: String, default: '' },
+    projectCategory: { type: String, default: '' },
     lastEditedLabel: { type: String, default: '' },
     totalCredits: { type: Number, default: 0 },
 });
+
+// Judul dipotong mentah di 150 karakter (sesuai permintaan), sisanya "…".
+const MAX_TITLE = 150;
+const titleLabel = computed(() => {
+    const name = props.projectName || 'Proyek Tanpa Judul';
+    return name.length > MAX_TITLE ? `${name.slice(0, MAX_TITLE)}…` : name;
+});
+const categoryLabel = computed(() => props.projectCategory || 'Lainnya');
 
 const showGuides = defineModel('showGuides', { type: Boolean, default: false });
 const moreOpen = ref(false);
@@ -72,10 +82,13 @@ const emit = defineEmits([
                 title="Edit nama project"
                 @click="emit('open-setup')"
             >
-                <p class="truncate text-sm font-semibold group-hover:underline">{{ projectName || 'Proyek Tanpa Judul' }}</p>
+                <p class="truncate text-sm font-semibold group-hover:underline">{{ titleLabel }}</p>
                 <Pencil class="h-3.5 w-3.5 shrink-0 text-neutral-400 dark:text-neutral-500" />
             </button>
-            <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">ID: {{ projectId }}</p>
+            <p class="flex items-center gap-1 truncate text-xs text-neutral-500 dark:text-neutral-400">
+                <Tag class="h-3 w-3 shrink-0" />
+                {{ categoryLabel }}
+            </p>
         </div>
 
         <div class="ml-auto flex items-center gap-1.5">
